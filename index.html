@@ -577,7 +577,7 @@ tr.just .n-ok { display: inline-block; animation: popIn .45s cubic-bezier(.3, 1.
   </section>
 
   <div id="out"></div>
-  <footer style="margin-top:40px;color:var(--ink-3);font-size:12px">Сверка рейсов · версия <span id="app-ver"><!--ВЕРСИЯ-->13.10.2026 · 8e82ea<!--/ВЕРСИЯ--></span></footer>
+  <footer style="margin-top:40px;color:var(--ink-3);font-size:12px">Сверка рейсов · версия <span id="app-ver"><!--ВЕРСИЯ-->13.10.2026 · c0945a<!--/ВЕРСИЯ--></span></footer>
 </main>
 
 <div class="modal" id="report" role="dialog" aria-modal="true" aria-labelledby="report-title">
@@ -1559,14 +1559,35 @@ const Sverka = (() => {
       period: days.length ? { from: days[0].label, to: days[days.length - 1].label } : null,
       tot: { trips: tt.trips, tons: Math.round(tt.tons * 1000) / 1000, sum: round2(tt.sumFilled || tt.sum), paid: round2(tt.paid) } };
   }
-  function historyCheck(res, sessions, at, meta) {
-    const cur = historyEntry(res, at, meta), keys = new Set(cur.trips.map(t => t.k));
-    const list = Array.isArray(sessions) ? sessions : [];
+  // «Та же сверка»: в какой из прошлых не меньше SAME_SHARE рейсов совпадает с этой (лист сверили ещё раз) — или -1.
+  function sameSession(cur, list) {
+    const keys = new Set(cur.trips.map(t => t.k));
     let same = -1, best = 0;
     list.forEach((s, i) => {
       const hit = (s.trips || []).filter(t => keys.has(t.k)).length, share = hit / Math.max(1, Math.min(cur.n, s.n || 0));
       if (share >= SAME_SHARE && share > best) { best = share; same = i; }
     });
+    return same;
+  }
+  // Ключ рейса по сохранённым полям — как tripKey по записи сверки. Для истории вне страницы (бот: лист «Рейсы»):
+  // номер — как в ячейке (с прицепом через «/»), вес — в тоннах.
+  function tripKeyOf(ttn, plate, weight) {
+    const w = weight === '' || weight == null ? null : parseNum(String(weight));
+    return tripKey({ ttn: normTtn(normText(ttn)), plate: normPlate(splitPlate(normText(plate))[0]), weight: w });
+  }
+  // Свёртка истории, где каждая сверка записана отдельно (бот): та же сверка, сверенная ещё раз, заменяет прежнюю —
+  // иначе повторная сверка того же листа выглядела бы двойной оплатой. Сессии — по времени.
+  function historyFold(sessions) {
+    const out = [];
+    (Array.isArray(sessions) ? sessions : []).filter(s => s && Array.isArray(s.trips))
+      .slice().sort((x, y) => (x.at < y.at ? -1 : x.at > y.at ? 1 : 0))
+      .forEach(s => { const i = sameSession(s, out); if (i >= 0) out.splice(i, 1); out.push(s); });
+    return out;
+  }
+  function historyCheck(res, sessions, at, meta) {
+    const cur = historyEntry(res, at, meta);
+    const list = Array.isArray(sessions) ? sessions : [];
+    const same = sameSession(cur, list);
     // «Нашлись в порту»: рейс в прошлой сверке был без пары, а в этой пара есть (по тем же правилам сверки, а не
     // по одной ТТН и машине — так ложных находок нет). Обычно это тот же лист, сверенный с новым реестром.
     const repeats = new Map(), found = new Map();
@@ -1676,7 +1697,7 @@ const Sverka = (() => {
     return out.slice(0, limit || 40);
   }
 
-  return { reconcile, prepare, parseTable, cellClass, mineLikeness, splitPlate, totals, clientMessage, fmtNum, parseNum, parseDate, normPlate, normTtn, workdaysBetween, dateDiff, numbersEdits, numbersPayload, plateInStyle, NUMBERS_MARK, historyEntry, historyCheck, historySave, historySearch, historyMerge, historyTails, tailsMessage, clientSessions, daysBreakdown, portQuestion, diffsMessage, ROLE_NAMES, ROLE_LIST };
+  return { reconcile, prepare, parseTable, cellClass, mineLikeness, splitPlate, totals, clientMessage, fmtNum, parseNum, parseDate, normPlate, normTtn, workdaysBetween, dateDiff, numbersEdits, numbersPayload, plateInStyle, NUMBERS_MARK, historyEntry, historyCheck, historySave, historySearch, historyMerge, historyFold, tripKeyOf, historyTails, tailsMessage, clientSessions, daysBreakdown, portQuestion, diffsMessage, ROLE_NAMES, ROLE_LIST };
 })();
 if (typeof module !== 'undefined') module.exports = Sverka;
 /*ДВИЖОК-КОНЕЦ*/
