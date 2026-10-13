@@ -4,6 +4,12 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="light dark">
+<!-- Для сайта: «Добавить в Док» и работа без интернета (файлы — в папке сайт/; у файла из бота их нет, это не мешает) -->
+<meta name="theme-color" content="#07090c">
+<meta name="apple-mobile-web-app-title" content="Сверка">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
 <title>Сверка рейсов</title>
 <style>
 /* Цвета (новый вид, 13.10.2026): светлая тема по умолчанию, тёмная — по системе или кнопкой ◐. */
@@ -571,7 +577,7 @@ tr.just .n-ok { display: inline-block; animation: popIn .45s cubic-bezier(.3, 1.
   </section>
 
   <div id="out"></div>
-  <footer style="margin-top:40px;color:var(--ink-3);font-size:12px">Сверка рейсов · версия <span id="app-ver"><!--ВЕРСИЯ-->13.10.2026 · 869d42<!--/ВЕРСИЯ--></span></footer>
+  <footer style="margin-top:40px;color:var(--ink-3);font-size:12px">Сверка рейсов · версия <span id="app-ver"><!--ВЕРСИЯ-->13.10.2026 · 09c412<!--/ВЕРСИЯ--></span></footer>
 </main>
 
 <div class="modal" id="report" role="dialog" aria-modal="true" aria-labelledby="report-title">
@@ -1946,7 +1952,9 @@ if (typeof module !== 'undefined') module.exports = Zap;
       css: path => load(path, href => Object.assign(document.createElement('link'), { rel: 'stylesheet', href })),
     };
   })();
-  window.SverkaExtra = Extra;   // для проверки из консоли: SverkaExtra.on, await SverkaExtra.js('extra/…')
+  window.SverkaExtra = Extra;
+  // по ссылке — работа без интернета после первого открытия (сайт/sw.js: страница сначала из сети, без сети — сохранённая)
+  if (Extra.on && 'serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => { /* без него — как раньше */ });   // для проверки из консоли: SverkaExtra.on, await SverkaExtra.js('extra/…')
   // Цвета для копирования в Excel/Numbers — стандартные светлые, от темы не зависят.
   const COPY = { ok: '#c6efce', diff: '#ffeb9c', miss: '#ffc7ce', fill: '#cfe2f3' };
   const STATUS = {
@@ -2461,9 +2469,24 @@ if (typeof module !== 'undefined') module.exports = Zap;
   document.addEventListener('keydown', e => {
     if (!S.sel || /INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName) || $('#report').classList.contains('open')) return;
     if (e.key === 'Escape') { clearSel(); return; }
+    const mv = arrowMove(S.sel, e, S.model.rows.length - 1, S.model.head.length - 1);
+    if (mv) {
+      e.preventDefault(); S.sel = { a: mv.a, b: mv.b }; paintSel();
+      const td = document.querySelector(`#res-grid td[data-r="${mv.b.r}"][data-c="${mv.b.c}"]`); if (td) td.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+      copySelection('key'); return;
+    }
     if ((e.metaKey || e.ctrlKey) && (e.key === 'c' || e.key === 'с' || e.code === 'KeyC')) { if (textSelected()) return; e.preventDefault(); copySelection(); }
     if ((e.metaKey || e.ctrlKey) && (e.key === 'a' || e.code === 'KeyA')) { e.preventDefault(); S.sel = { a: { r: 0, c: 0 }, b: { r: S.model.rows.length - 1, c: S.model.head.length - 1 } }; paintSel(); copySelection(true); }
   });
+  // стрелки как в Numbers: ←↑→↓ — соседняя ячейка, Shift — расширить выделение, ⌘ (Ctrl) — до края таблицы
+  const ARROWS = { ArrowUp: [-1, 0], ArrowDown: [1, 0], ArrowLeft: [0, -1], ArrowRight: [0, 1] };
+  function arrowMove(sel, e, maxR, maxC) {
+    const d = ARROWS[e.key]; if (!d || e.altKey) return null;
+    const from = sel.b, edge = e.metaKey || e.ctrlKey;
+    const step = (v, k, max) => Math.max(0, Math.min(max, edge ? (k < 0 ? 0 : k > 0 ? max : v) : v + k));
+    const p = { r: step(from.r, d[0], maxR), c: step(from.c, d[1], maxC) };
+    return e.shiftKey ? { a: sel.a, b: p } : { a: p, b: p };
+  }
   const rect = () => { const { a, b } = S.sel; return { r1: Math.min(a.r, b.r), r2: Math.max(a.r, b.r), c1: Math.min(a.c, b.c), c2: Math.max(a.c, b.c) }; };
   function clearSel() { S.sel = null; paintSel(); }
   function paintSel() {
@@ -2503,9 +2526,10 @@ if (typeof module !== 'undefined') module.exports = Zap;
       S.done3 = true; updateSteps();
       const btn = $('#btn-copy'); if (btn) btn.textContent = 'В буфере: ' + what;
       const cells = document.querySelectorAll('#res-grid td.sel'), lastCell = cells[cells.length - 1];
-      if (lastCell) Motion.ghost(lastCell, 'Скопировано');
+      if (lastCell && auto !== 'key') Motion.ghost(lastCell, 'Скопировано');
       if (!autoTold) { autoTold = true; toast('Выделенное сразу скопировано — вставляйте ⌘V куда нужно'); }
-      Snd.play('tick', 0.6); return;
+      if (auto !== 'key') Snd.play('tick', 0.6);
+      return;
     }
     if (copyRich(html, text)) { toast('Скопировано выделенное: ' + what + ' — вставьте ⌘V'); S.done3 = true; updateSteps(); Motion.ripple(document.querySelectorAll('#res-grid td.sel')); Motion.ghost($('#btn-copy'), 'Скопировано'); Snd.play('tick'); return; }
     if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(() => toast('Скопировано без цвета: ' + what), () => toast('Не удалось скопировать'));
@@ -3694,7 +3718,7 @@ if (typeof module !== 'undefined') module.exports = Zap;
     if (PS.cols) [...PS.grid.tHead.rows[0].cells].forEach((th, i) => { if (i - 1 >= c1 && i - 1 <= c2) th.classList.add('sel-col'); });
   }
   function psClear() { if (PS.grid) { PS.grid = null; psPaint(); } }
-  function psCopy() {
+  function psCopy(quiet) {
     if (!PS.grid || !PS.grid.isConnected) return;
     const { r1, r2, c1, c2 } = psRect(), rows = PS.grid.tBodies[0].rows, data = [];
     for (let r = r1; r <= r2; r++) { const line = []; for (let c = c1; c <= c2; c++) { const td = rows[r] && rows[r].cells[c + 1]; line.push(td ? td.textContent : ''); } data.push(line); }
@@ -3702,9 +3726,9 @@ if (typeof module !== 'undefined') module.exports = Zap;
     const html = '<html><head><meta charset="utf-8"></head><body><table>' + data.map(l => '<tr>' + l.map(v => `<td>${esc(v)}</td>`).join('') + '</tr>').join('') + '</table></body></html>';
     if (!copyRich(html, text)) return;
     const cells = PS.grid.querySelectorAll('td.sel'), lastCell = cells[cells.length - 1];
-    if (lastCell) Motion.ghost(lastCell, 'Скопировано');
+    if (lastCell && !quiet) Motion.ghost(lastCell, 'Скопировано');
     if (!autoTold) { autoTold = true; toast('Выделенное сразу скопировано — вставляйте ⌘V куда нужно'); }
-    Snd.play('tick', 0.6);
+    if (!quiet) Snd.play('tick', 0.6);
   }
   document.addEventListener('mousedown', e => {
     if (e.button !== 0) return;
@@ -3735,6 +3759,12 @@ if (typeof module !== 'undefined') module.exports = Zap;
     const inPane = document.activeElement && document.activeElement.classList.contains('paste-target');
     if (e.key === 'Escape') { psClear(); return; }
     if (!inPane) return;
+    const mv = arrowMove(PS, e, psLastRow(PS.grid), psLastCol(PS.grid));
+    if (mv) {
+      e.preventDefault(); Object.assign(PS, { a: mv.a, b: mv.b, cols: false }); psPaint();
+      const row = PS.grid.tBodies[0].rows[mv.b.r], td = row && row.cells[mv.b.c + 1]; if (td) td.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+      psCopy(true); return;
+    }
     if ((e.metaKey || e.ctrlKey) && (e.key === 'c' || e.key === 'с' || e.code === 'KeyC')) { e.preventDefault(); psCopy(); }
     if ((e.metaKey || e.ctrlKey) && (e.key === 'a' || e.code === 'KeyA')) { e.preventDefault(); Object.assign(PS, { a: { r: 0, c: 0 }, b: { r: psLastRow(PS.grid), c: psLastCol(PS.grid) }, cols: false }); psPaint(); psCopy(); }
   });
