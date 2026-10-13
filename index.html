@@ -579,7 +579,7 @@ tr.just .n-ok { display: inline-block; animation: popIn .45s cubic-bezier(.3, 1.
   </section>
 
   <div id="out"></div>
-  <footer style="margin-top:40px;color:var(--ink-3);font-size:12px">Сверка рейсов · версия <span id="app-ver"><!--ВЕРСИЯ-->13.10.2026 · 06a18e<!--/ВЕРСИЯ--></span></footer>
+  <footer style="margin-top:40px;color:var(--ink-3);font-size:12px">Сверка рейсов · версия <span id="app-ver"><!--ВЕРСИЯ-->13.10.2026 · 1c52b6<!--/ВЕРСИЯ--></span></footer>
 </main>
 
 <div class="modal" id="report" role="dialog" aria-modal="true" aria-labelledby="report-title">
@@ -1586,6 +1586,21 @@ const Sverka = (() => {
     const w = weight === '' || weight == null ? null : parseNum(String(weight));
     return tripKey({ ttn: normTtn(normText(ttn)), plate: normPlate(splitPlate(normText(plate))[0]), weight: w });
   }
+  // «Этот реестр уже был» (13.10.2026): отпечаток реестра — набор его рейсов (ТТН | номер | вес, как у истории), а не
+  // байты файла: тот же реестр, выгруженный заново, с другими пробелами и порядком строк — тот же. ks — короткие
+  // отпечатки рейсов (их хранят, а не сами номера), h — отпечаток всего набора.
+  const shortHash = s => { let x = 5381; for (let i = 0; i < s.length; i++) x = (x * 33 + s.charCodeAt(i)) >>> 0; return x.toString(36); };
+  function registryPrint(text, roles) {
+    const keys = [...new Set(prepare(text, roles).live.map(tripKey))].sort();
+    const ks = keys.map(shortHash);
+    return { n: keys.length, h: shortHash(ks.join(',')) + '-' + keys.length, ks };
+  }
+  // Сравнение с прошлым реестром: тот же ли, сколько рейсов новых и сколько пропало.
+  function registryCompare(cur, prev) {
+    if (!cur || !prev) return null;
+    const a = new Set(prev.ks || []), b = new Set(cur.ks || []);
+    return { same: cur.h === prev.h, added: cur.ks.filter(k => !a.has(k)).length, gone: (prev.ks || []).filter(k => !b.has(k)).length };
+  }
   // Свёртка истории, где каждая сверка записана отдельно (бот): та же сверка, сверенная ещё раз, заменяет прежнюю —
   // иначе повторная сверка того же листа выглядела бы двойной оплатой. Сессии — по времени.
   function historyFold(sessions) {
@@ -1708,7 +1723,7 @@ const Sverka = (() => {
     return out.slice(0, limit || 40);
   }
 
-  return { reconcile, prepare, parseTable, cellClass, mineLikeness, splitPlate, totals, clientMessage, fmtNum, parseNum, parseDate, normPlate, normTtn, workdaysBetween, dateDiff, numbersEdits, numbersPayload, plateInStyle, NUMBERS_MARK, historyEntry, historyCheck, historySave, historySearch, historyMerge, historyFold, tripKeyOf, historyTails, tailsMessage, clientSessions, daysBreakdown, portQuestion, diffsMessage, ROLE_NAMES, ROLE_LIST };
+  return { reconcile, prepare, parseTable, cellClass, mineLikeness, splitPlate, totals, clientMessage, fmtNum, parseNum, parseDate, normPlate, normTtn, workdaysBetween, dateDiff, numbersEdits, numbersPayload, plateInStyle, NUMBERS_MARK, historyEntry, historyCheck, historySave, historySearch, historyMerge, historyFold, tripKeyOf, registryPrint, registryCompare, historyTails, tailsMessage, clientSessions, daysBreakdown, portQuestion, diffsMessage, ROLE_NAMES, ROLE_LIST };
 })();
 if (typeof module !== 'undefined') module.exports = Sverka;
 /*ДВИЖОК-КОНЕЦ*/
@@ -2739,6 +2754,7 @@ SverkaFx.changed('.btn', el => {
     const fresh = !!(text && text.trim() && text !== S.text[which]);
     S.text[which] = text || '';
     S.overrides[which] = null; S.confirmedNoSwap = false; S.marked[which].clear(); S.zedits = {}; S.done3 = false; S.todo = {};
+    if (which === 'port') S.portAt = Date.now();   // для «этот реестр уже сверяли»: что сохранено раньше этой вставки
     renderPane('port'); renderPane('mine');
     if (S.res || fillMode()) run();
     if (fresh) { const fd = $('#found-' + which); fd.classList.remove('just'); void fd.offsetWidth; fd.classList.add('just'); setTimeout(() => fd.classList.remove('just'), 1500); Field.fill(which); staggerRows($('#pane-' + which + ' .sheet-body')); Snd.play('rustle', 1.1); }
@@ -2909,6 +2925,9 @@ SverkaFx.changed('.btn', el => {
     }
     S.res = res; S.nsent = new Set(); S.nlast = null;
     try { const past = store.get(HKEY) || []; S.hist = Sverka.historyCheck(res, past, undefined, { client: clientName() }); store.set(HKEY, Sverka.historySave(past, S.hist)); fillClients(); } catch (e) { S.hist = null; }
+    // один раз на пару таблиц: вставка сама пересверяет, потом «Сверить» — второй прогон уже «та же сверка»
+    const regKey = S.text.port + '\n\u0001\n' + S.text.mine;
+    if (S.regKey !== regKey) { S.regKey = regKey; try { S.reg = portRegistryCheck(); } catch (e) { S.reg = null; } }
     // Номера строк перерисовываются после сверки, чтобы пометки «пропущена» были видны и в окнах вставки.
     renderResults();
     // сначала сцена на окнах вставки (нити между парами), потом — к итогу
@@ -4168,8 +4187,8 @@ SverkaFx.changed('.btn', el => {
   const hDate = iso => { const x = new Date(iso); return isNaN(x) ? '' : x.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' }) + ' в ' + x.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }); };
   const hTons = w => (w != null ? ', ' + Sverka.fmtNum(w) + ' т' : '');
   function historyHtml() {
-    const h = S.hist; if (!h) return '';
-    let out = '';
+    const h = S.hist; if (!h) return regHtml();
+    let out = regHtml();
     if (h.repeats.length) {
       const n = h.repeats.length;
       out += `<div class="notice warn hist"><h3>${n} ${plural(n, 'рейс уже был', 'рейса уже были', 'рейсов уже были')} в прошлой сверке — проверьте, не оплачены ли дважды</h3><ul>${h.repeats.slice(0, 12).map(r =>
@@ -4205,6 +4224,28 @@ SverkaFx.changed('.btn', el => {
     const cp = e.target.closest('[data-tails-copy], [data-tails-tg]');
     if (cp && S.tailsMsg) copyMsg(S.tailsMsg, cp, 'Сообщение порту');
   });
+  // «Этот реестр уже был» (13.10.2026) — как в боте: последние 20 отпечатков реестров порта на этом компьютере (набор
+  // рейсов, без номеров открытым текстом). «Тот же» — только если ваша таблица другая (повтор той же сверки — не повод),
+  // «новых машин N» — всегда. Без констант снаружи: вызывается и при восстановлении сессии.
+  function portRegistryCheck() {
+    const KEY = 'sverka.ports.v1', cur = Sverka.registryPrint(S.text.port, rolesFor('port'));
+    const list = store.get(KEY) || [], since = S.portAt || 0;
+    // «уже сверяли» — только реестр, сохранённый до того, как этот вставили в окно порта (свой же — не в счёт)
+    const same = list.filter(e => Date.parse(e.at) < since).reverse().find(e => e.h === cur.h);
+    const prev = list.slice().reverse().find(e => e.h !== cur.h && e.ks);   // предыдущий другой реестр — для «новых машин»
+    let note = null;
+    if (same) { if (!(S.hist && S.hist.same >= 0)) note = { kind: 'same', at: same.at }; }
+    else if (prev) { const c = Sverka.registryCompare(cur, prev); if (c.added || c.gone) note = { kind: 'diff', at: prev.at, added: c.added, gone: c.gone }; }
+    if (!list.some(e => e.h === cur.h)) list.push({ h: cur.h, n: cur.n, at: new Date().toISOString(), ks: cur.ks });
+    list.slice(0, -2).forEach(e => { delete e.ks; });   // наборы рейсов — только у двух последних
+    store.set(KEY, list.slice(-20));
+    return note;
+  }
+  function regHtml() {
+    const r = S.reg; if (!r) return '';
+    if (r.kind === 'same') return `<div class="notice warn hist reg"><h3>Этот реестр порта уже сверяли ${hDate(r.at)}</h3>Он тот же самый — новых машин в нём нет. Ждали новый — проверьте, тот ли реестр скопирован.</div>`;
+    return `<div class="notice hist reg">С прошлого реестра порта (${hDate(r.at)}): новых машин <b>${r.added}</b>${r.gone ? `, нет прежних <b>${r.gone}</b>` : ''}.</div>`;
+  }
   // поиск машины или ТТН во всех сохранённых сверках
   const hsq = $('#hs-q'), hsl = $('#hs-list');
   function renderSearch() {
