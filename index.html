@@ -579,7 +579,7 @@ tr.just .n-ok { display: inline-block; animation: popIn .45s cubic-bezier(.3, 1.
   </section>
 
   <div id="out"></div>
-  <footer style="margin-top:40px;color:var(--ink-3);font-size:12px">Сверка рейсов · версия <span id="app-ver"><!--ВЕРСИЯ-->14.10.2026 · a95e58<!--/ВЕРСИЯ--></span></footer>
+  <footer style="margin-top:40px;color:var(--ink-3);font-size:12px">Сверка рейсов · версия <span id="app-ver"><!--ВЕРСИЯ-->14.10.2026 · 80f2a3<!--/ВЕРСИЯ--></span></footer>
 </main>
 
 <div class="modal" id="report" role="dialog" aria-modal="true" aria-labelledby="report-title">
@@ -2042,6 +2042,12 @@ if (typeof module !== 'undefined') module.exports = Zap;
   --shadow-2: 0 2px 4px rgba(0, 0, 0, .4), 0 24px 48px rgba(0, 0, 0, .5);
   --shadow-3: 0 4px 12px rgba(0, 0, 0, .5), 0 48px 110px rgba(0, 0, 0, .7);
 }
+/* читаемость (WCAG, мелкий текст — контраст от 4,5; замер 14.10.2026 по токенам): самый светлый серый --ink-3 был 2,6–3,4
+   (подписи «без цены · не найдено», счётчики вкладок, версия внизу), зелёный «совпало» в светлой теме — 3,4–3,9, синий на
+   подставленных ценах — 4,49. Оттенки те же, смысл цветов тот же — только яркость: теперь 4,5–5,4. Цвета для Excel — не эти. */
+:root { --ink-3: #626b79; --ok-ink: #0c7a4c; --fill-bg: #e4edfc; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --ink-3: #7e8898; } }
+:root[data-theme="dark"] { --ink-3: #7e8898; }
 @keyframes fxFadeIn { from { opacity: 0; } }
 @keyframes fxFadeOut { to { opacity: 0; } }
 
