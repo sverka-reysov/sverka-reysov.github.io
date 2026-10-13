@@ -579,7 +579,7 @@ tr.just .n-ok { display: inline-block; animation: popIn .45s cubic-bezier(.3, 1.
   </section>
 
   <div id="out"></div>
-  <footer style="margin-top:40px;color:var(--ink-3);font-size:12px">Сверка рейсов · версия <span id="app-ver"><!--ВЕРСИЯ-->13.10.2026 · ddc5db<!--/ВЕРСИЯ--></span></footer>
+  <footer style="margin-top:40px;color:var(--ink-3);font-size:12px">Сверка рейсов · версия <span id="app-ver"><!--ВЕРСИЯ-->14.10.2026 · fb545d<!--/ВЕРСИЯ--></span></footer>
 </main>
 
 <div class="modal" id="report" role="dialog" aria-modal="true" aria-labelledby="report-title">
@@ -2106,13 +2106,22 @@ if (typeof module !== 'undefined') module.exports = Zap;
 /* «хвосты» (.notice.tails): список машин — ровные строки с подсветкой под курсором, «Снять» проявляется у строки;
    в выпадающем поиске — компактнее */
 .notice.tails ul { list-style: none; margin: 8px 0 12px; padding: 0; display: grid; gap: 2px; }
-.notice.tails li { display: flex; align-items: center; gap: 4px 10px; flex-wrap: wrap; margin: 0; padding: 6px 8px; border-radius: 10px; transition: background-color var(--t-fast) var(--ease-out); }
+.notice.tails li { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 4px 10px; margin: 0; padding: 6px 8px; border-radius: 10px; transition: background-color var(--t-fast) var(--ease-out); }
 .notice.tails li:hover { background: color-mix(in srgb, var(--warn-ink) 10%, transparent); }
 .notice.tails li [data-tail-close] { margin-left: auto; opacity: .5; transition: opacity var(--t) var(--ease-out); }
 .notice.tails li:hover [data-tail-close], .notice.tails li [data-tail-close]:focus-visible { opacity: 1; }
 #hs-list .tails { margin: 2px 2px 6px; padding: 12px 12px 10px; border-radius: 12px; }
 #hs-list .tails h3 { font-size: 13.5px; line-height: 1.3; }
 #hs-list .tails li { padding: 5px 6px; font-size: 12.5px; }
+/* в выпадающем списке и на телефоне узко: сверху номер и «Снять», под ними описание во всю ширину */
+#hs-list .tails li { grid-template-columns: minmax(0, 1fr) auto; }
+#hs-list .tails li .plate { grid-column: 1; grid-row: 1; justify-self: start; }
+#hs-list .tails li [data-tail-close] { grid-column: 2; grid-row: 1; }
+@media (max-width: 700px) {
+  .notice.tails li { grid-template-columns: minmax(0, 1fr) auto; }
+  .notice.tails li .plate { grid-column: 1; grid-row: 1; justify-self: start; }
+  .notice.tails li [data-tail-close] { grid-column: 2; grid-row: 1; }
+}
 #hs-list .tails .row { gap: 6px; }
 
 /* шапка при прокрутке (html.fx-scrolled ставит код ниже): тоньше и с тенью; в окне уже 1100 px (программа рядом
@@ -2151,6 +2160,10 @@ kbd { display: inline-grid; place-items: center; min-width: 22px; height: 22px; 
 /* переходы прокруткой (к итогу после «Сверить», к таблице, к делам, стрелками по ячейкам) не прячут верх под
    прилипшей шапкой: отступ прокрутки на её высоту. Шапка прилипает только шире 700 px. */
 @media (min-width: 701px) { html { scroll-padding-top: 84px; } }
+
+/* телефон: шапка не прилипает, но остаётся слоем поверх страницы — иначе её выпадающий поиск (хвосты, находки)
+   уходил под первый экран */
+@media (max-width: 700px) { .top { position: relative; z-index: 31; } }
 
 /* узкий экран (телефон): вкладки во всю ширину и в одну строку — раньше «В Numbers 4» ломалось на две строки,
    а полоска вылезала за край на 4 px и страница ездила вбок; не хватит места — полоска прокручивается сама */
@@ -2410,6 +2423,25 @@ const SverkaFx = (() => {
   const check = () => { const y = scrollY; if (!on && y > 160) { on = true; set(true); } else if (on && y < 20) { on = false; set(false); } };
   addEventListener('scroll', check, { passive: true });
   check();
+})();
+
+// ---------- выпадающий список поиска (.hs-list) — целиком на экране ----------
+// Поле поиска стоит то справа (шапка в строку), то слева (в две строки), а список был прижат к правому краю поля и
+// уезжал за левый край экрана. Теперь при каждом открытии: под правым краем поля, если помещается, иначе сдвинут внутрь.
+(() => {
+  const place = el => {
+    if (el.hidden || !el.offsetParent) return;
+    const host = el.offsetParent.getBoundingClientRect(), w = el.offsetWidth, pad = 12;
+    const left = Math.max(pad, Math.min(innerWidth - pad - w, host.right - w));
+    el.style.left = (left - host.left) + 'px'; el.style.right = 'auto';
+    el.style.transformOrigin = (host.right - left) + 'px 0';
+  };
+  SverkaFx.each('.hs-list', el => {
+    if (el._fxPlace) return; el._fxPlace = true;
+    new MutationObserver(() => place(el)).observe(el, { attributes: true, attributeFilter: ['hidden'] });
+    addEventListener('resize', () => place(el));
+    place(el);
+  });
 })();
 
 // ---------- «Что осталось»: только что сделанное дело «щёлкает» (список перерисовывается целиком — помним, что уже было сделано) ----------
