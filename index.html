@@ -456,7 +456,11 @@ tr.just .n-ok { display: inline-block; animation: popIn .45s cubic-bezier(.3, 1.
 .stage .hello .x { position: static; justify-self: end; }
 .stage .pane { background: color-mix(in srgb, var(--sheet) 38%, transparent); -webkit-backdrop-filter: blur(2px) saturate(1.3); backdrop-filter: blur(2px) saturate(1.3); border-color: var(--rule-strong); }
 .stage .grid th, .stage .grid td { background-color: transparent; }
-.stage .grid thead th, .stage .grid .gut { background: color-mix(in srgb, var(--head) 78%, transparent); }
+/* шапка и номера строк закреплены — непрозрачные, иначе прокрученные строки просвечивают (зерно видно сквозь ячейки) */
+.stage .grid thead th, .stage .grid .gut { background: var(--head); }
+.sheet-body .grid td:not(.gut) { cursor: cell; }
+.sheet-body .grid td.gut, .sheet-body .grid thead th:not(.gut) { cursor: pointer; }
+.sheet-body .grid thead th select { cursor: pointer; }
 .hello[hidden] { display: none; }
 .stage .empty { background: transparent; }
 .stage .pane-meta { border-top-color: color-mix(in srgb, var(--rule) 70%, transparent); }
@@ -567,7 +571,7 @@ tr.just .n-ok { display: inline-block; animation: popIn .45s cubic-bezier(.3, 1.
   </section>
 
   <div id="out"></div>
-  <footer style="margin-top:40px;color:var(--ink-3);font-size:12px">Сверка рейсов · версия <span id="app-ver"><!--ВЕРСИЯ-->13.10.2026 · c46633<!--/ВЕРСИЯ--></span></footer>
+  <footer style="margin-top:40px;color:var(--ink-3);font-size:12px">Сверка рейсов · версия <span id="app-ver"><!--ВЕРСИЯ-->13.10.2026 · 0e4e06<!--/ВЕРСИЯ--></span></footer>
 </main>
 
 <div class="modal" id="report" role="dialog" aria-modal="true" aria-labelledby="report-title">
@@ -3634,6 +3638,124 @@ if (typeof module !== 'undefined') module.exports = Zap;
   const alignAll = () => document.querySelectorAll('table.grid:not([data-al])').forEach(alignNums);
   new MutationObserver(alignAll).observe(document.body, { childList: true, subtree: true });
   alignAll();
+
+  // ================= выделение в окнах вставки — как в итоговой таблице (13.10.2026) =================
+  // Щелчок — ячейка, протянуть — диапазон, Shift+щелчок — расширить, номер строки слева — вся строка, буква над
+  // колонкой — вся колонка. Выделенное сразу в буфере, значения ровно как вставлены. Выпадающие списки колонок
+  // работают как раньше; ⌘V в окно по-прежнему заменяет таблицу.
+  const PS = { grid: null, a: null, b: null, cols: false, drag: false };
+  const psGrid = el => { const g = el.closest('.sheet-body table.grid'); return g && !fillMode() ? g : null; };
+  const psLastCol = g => g.tHead.rows[0].cells.length - 2;
+  const psLastRow = g => g.tBodies[0].rows.length - 1;
+  function psTarget(el) {
+    const g = psGrid(el); if (!g || el.closest('select')) return null;
+    const td = el.closest('td'), th = el.closest('th');
+    if (td) {
+      const r = td.parentElement.sectionRowIndex;
+      return td.classList.contains('gut') ? { g, row: r } : { g, cell: { r, c: td.cellIndex - 1 } };
+    }
+    if (th && !th.classList.contains('gut')) return { g, col: th.cellIndex - 1 };
+    return null;
+  }
+  const psRect = () => ({ r1: Math.min(PS.a.r, PS.b.r), r2: Math.max(PS.a.r, PS.b.r), c1: Math.min(PS.a.c, PS.b.c), c2: Math.max(PS.a.c, PS.b.c) });
+  function psPaint() {
+    document.querySelectorAll('.sheet-body td.sel').forEach(td => td.classList.remove('sel', 'sel-top', 'sel-bottom', 'sel-left', 'sel-right'));
+    document.querySelectorAll('.sheet-body th.sel-col').forEach(th => th.classList.remove('sel-col'));
+    if (!PS.grid || !PS.grid.isConnected) { PS.grid = null; return; }
+    const { r1, r2, c1, c2 } = psRect(), rows = PS.grid.tBodies[0].rows;
+    for (let r = r1; r <= r2; r++) for (let c = c1; c <= c2; c++) {
+      const td = rows[r] && rows[r].cells[c + 1]; if (!td) continue;
+      td.classList.add('sel');
+      if (r === r1) td.classList.add('sel-top'); if (r === r2) td.classList.add('sel-bottom');
+      if (c === c1) td.classList.add('sel-left'); if (c === c2) td.classList.add('sel-right');
+    }
+    if (PS.cols) [...PS.grid.tHead.rows[0].cells].forEach((th, i) => { if (i - 1 >= c1 && i - 1 <= c2) th.classList.add('sel-col'); });
+  }
+  function psClear() { if (PS.grid) { PS.grid = null; psPaint(); } }
+  function psCopy() {
+    if (!PS.grid || !PS.grid.isConnected) return;
+    const { r1, r2, c1, c2 } = psRect(), rows = PS.grid.tBodies[0].rows, data = [];
+    for (let r = r1; r <= r2; r++) { const line = []; for (let c = c1; c <= c2; c++) { const td = rows[r] && rows[r].cells[c + 1]; line.push(td ? td.textContent : ''); } data.push(line); }
+    const text = data.map(l => l.join('\t')).join('\n');
+    const html = '<html><head><meta charset="utf-8"></head><body><table>' + data.map(l => '<tr>' + l.map(v => `<td>${esc(v)}</td>`).join('') + '</tr>').join('') + '</table></body></html>';
+    if (!copyRich(html, text)) return;
+    const cells = PS.grid.querySelectorAll('td.sel'), lastCell = cells[cells.length - 1];
+    if (lastCell) Motion.ghost(lastCell, 'Скопировано');
+    if (!autoTold) { autoTold = true; toast('Выделенное сразу скопировано — вставляйте ⌘V куда нужно'); }
+    Snd.play('tick', 0.6);
+  }
+  document.addEventListener('mousedown', e => {
+    if (e.button !== 0) return;
+    const t = psTarget(e.target);
+    if (!t) { if (!e.target.closest('.sheet-body select')) psClear(); return; }
+    e.preventDefault();   // без синего выделения текста браузером
+    const ta = e.target.closest('.sheet-wrap').querySelector('.paste-target'); if (ta) ta.focus({ preventScroll: true });
+    const same = PS.grid === t.g, last = { r: psLastRow(t.g), c: psLastCol(t.g) };
+    let a, b, cols = false;
+    if (t.cell) { a = e.shiftKey && same ? PS.a : t.cell; b = t.cell; }
+    else if (t.row != null) { a = { r: e.shiftKey && same ? PS.a.r : t.row, c: 0 }; b = { r: t.row, c: last.c }; }
+    else { a = { r: 0, c: e.shiftKey && same ? PS.a.c : t.col }; b = { r: last.r, c: t.col }; cols = true; }
+    Object.assign(PS, { grid: t.g, a, b, cols, drag: t.cell ? 'cell' : t.row != null ? 'row' : 'col' });
+    psPaint();
+  });
+  document.addEventListener('mouseover', e => {
+    if (!PS.drag || !PS.grid) return;
+    const t = psTarget(e.target); if (!t || t.g !== PS.grid) return;
+    if (PS.drag === 'cell' && t.cell) PS.b = t.cell;
+    else if (PS.drag === 'row' && (t.row != null || t.cell)) PS.b = { r: t.row != null ? t.row : t.cell.r, c: psLastCol(PS.grid) };
+    else if (PS.drag === 'col' && t.col != null) PS.b = { r: psLastRow(PS.grid), c: t.col };
+    else return;
+    psPaint();
+  });
+  document.addEventListener('mouseup', () => { if (PS.drag) { PS.drag = false; psCopy(); } });
+  document.addEventListener('keydown', e => {
+    if (!PS.grid || !PS.grid.isConnected) return;
+    const inPane = document.activeElement && document.activeElement.classList.contains('paste-target');
+    if (e.key === 'Escape') { psClear(); return; }
+    if (!inPane) return;
+    if ((e.metaKey || e.ctrlKey) && (e.key === 'c' || e.key === 'с' || e.code === 'KeyC')) { e.preventDefault(); psCopy(); }
+    if ((e.metaKey || e.ctrlKey) && (e.key === 'a' || e.code === 'KeyA')) { e.preventDefault(); Object.assign(PS, { a: { r: 0, c: 0 }, b: { r: psLastRow(PS.grid), c: psLastCol(PS.grid) }, cols: false }); psPaint(); psCopy(); }
+  });
+
+  // ================= работа не пропадает при обновлении страницы (13.10.2026) =================
+  // Вставленные таблицы, выбранные колонки, первые строки, клиент, вкладка, пометки, правки заполнялки и что уже
+  // передано в Numbers хранятся в этом браузере (как история сверок) и возвращаются после обновления или перезапуска.
+  // «Очистить всё» стирает и сохранённое. В резервную копию попадает тоже (ключ sverka.*).
+  const SKEY = 'sverka.session.v1';
+  function sessionSave() {
+    if (!S.text.port.trim() && !S.text.mine.trim()) { try { localStorage.removeItem(SKEY); } catch (e) { /* нет памяти */ } return; }
+    store.set(SKEY, {
+      v: 1, at: new Date().toISOString(), text: S.text, overrides: S.overrides,
+      start: { port: $('#start-port').value, mine: $('#start-mine').value }, client: $('#client').value,
+      ran: !!S.res, tab: S.tab, fillOn: S.fillOn, noSwap: S.confirmedNoSwap, zedits: S.zedits || {},
+      marked: { port: [...S.marked.port], mine: [...S.marked.mine] }, nsent: S.nsent ? [...S.nsent] : [],
+    });
+  }
+  let saveTimer = null;
+  const saveSoon = () => { clearTimeout(saveTimer); saveTimer = setTimeout(sessionSave, 400); };
+  ['input', 'change', 'click', 'paste', 'keyup'].forEach(ev => document.addEventListener(ev, saveSoon, true));
+  addEventListener('pagehide', sessionSave);
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') sessionSave(); });
+  function sessionRestore() {
+    const s = store.get(SKEY);
+    if (!s || s.v !== 1 || !s.text || !(String(s.text.port || '').trim() || String(s.text.mine || '').trim())) return;
+    S.text = { port: s.text.port || '', mine: s.text.mine || '' };
+    S.overrides = s.overrides || { port: null, mine: null };
+    if (s.start) { $('#start-port').value = s.start.port || 1; $('#start-mine').value = s.start.mine || 1; }
+    if (s.client) $('#client').value = s.client;
+    S.fillOn = s.fillOn !== false; S.confirmedNoSwap = !!s.noSwap; S.zedits = s.zedits || {};
+    renderPane('port'); renderPane('mine');
+    ['port', 'mine'].forEach(w => { if (S.text[w].trim()) Field.fill(w); });
+    if (s.ran || fillMode()) {
+      S.tab = s.tab || 'issues';
+      run();
+      if (s.marked) ['port', 'mine'].forEach(w => (s.marked[w] || []).forEach(x => S.marked[w].add(x)));
+      if (S.res && s.nsent) S.nsent = new Set(s.nsent);
+      if (S.res) renderResults();
+    }
+    toast('Вернул то, что было до закрытия страницы. Начать заново — «Очистить всё».', 5000);
+  }
+  try { sessionRestore(); } catch (e) { /* испорченное сохранение не должно ломать страницу */ try { localStorage.removeItem(SKEY); } catch (e2) { /* нет памяти */ } }
 
   renderPane('port'); renderPane('mine');
 })();
