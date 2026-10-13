@@ -579,7 +579,7 @@ tr.just .n-ok { display: inline-block; animation: popIn .45s cubic-bezier(.3, 1.
   </section>
 
   <div id="out"></div>
-  <footer style="margin-top:40px;color:var(--ink-3);font-size:12px">Сверка рейсов · версия <span id="app-ver"><!--ВЕРСИЯ-->14.10.2026 · 087c41<!--/ВЕРСИЯ--></span></footer>
+  <footer style="margin-top:40px;color:var(--ink-3);font-size:12px">Сверка рейсов · версия <span id="app-ver"><!--ВЕРСИЯ-->14.10.2026 · 31f8d5<!--/ВЕРСИЯ--></span></footer>
 </main>
 
 <div class="modal" id="report" role="dialog" aria-modal="true" aria-labelledby="report-title">
@@ -1390,14 +1390,16 @@ const Sverka = (() => {
 
     // --- итоговый список проблем: сначала в порядке вашей таблицы, потом то, чего нет у вас
     const NAMES = { plate: 'номер машины', trailer: 'прицеп', ttn: 'ТТН', date: 'дата', weight: 'вес', price: 'цена', sum: 'сумма', crop: 'культура' };
-    const line = (m, p, what, pv, mv) => issues.push({
+    // f — поле расхождения (price, sum, weight, plate, trailer, date, ttn, crop) или null, если строка не про одно поле
+    // (повтор, перегруз, нет пары, арифметика): по нему «Разбор по одной» находит правку для Numbers (14.10.2026)
+    const line = (m, p, what, pv, mv, f) => issues.push({
       mineRow: m ? rowNo(mine, m) : '', portRow: p ? rowNo(port, p) : '',
       ttn: (m || p).raw.ttn, plate: (m || p).raw.plate, what, port: pv || '', mine: mv || '',
-      kind: m ? m.status : 'missing-mine' });
+      kind: m ? m.status : 'missing-mine', f: f || null });
     for (const m of mine.live) {
       const p = m.pair;
       if (p) {
-        for (const d of m.diffs) line(m, p, d.missingMine ? (d.f === 'price' ? 'нет цены' : 'нет суммы') + ' — проставить из порта' : NAMES[d.f] + (d.note ? ' — ' + d.note : ''), d.port || 'пусто', d.mine || 'пусто');
+        for (const d of m.diffs) line(m, p, d.missingMine ? (d.f === 'price' ? 'нет цены' : 'нет суммы') + ' — проставить из порта' : NAMES[d.f] + (d.note ? ' — ' + d.note : ''), d.port || 'пусто', d.mine || 'пусто', d.f);
         if (m.arith) line(m, p, 'вес × цена ≠ сумма (у вас)', '', m.arith.text);
         if (p.arith) line(m, p, 'вес × цена ≠ сумма (в порту)', p.arith.text, '');
         if (m.hasDup || m.dupOf) line(m, p, 'есть повтор этой строки у вас', '', '');
@@ -1414,7 +1416,7 @@ const Sverka = (() => {
       const what = p.status === 'dup' ? 'повтор в порту (строка ' + rowNo(port, p.dupOf) + ')'
         : p.status === 'split' ? 'разбитый перегруз: ' + p.notes.join('; ') : 'нет у вас';
       issues.push({ mineRow: '', portRow: rowNo(port, p), ttn: p.raw.ttn, plate: p.raw.plate, what,
-        port: [p.raw.weight, p.raw.sum].filter(Boolean).join(' / '), mine: '', kind: p.status === 'missing' ? 'missing-mine' : p.status });
+        port: [p.raw.weight, p.raw.sum].filter(Boolean).join(' / '), mine: '', kind: p.status === 'missing' ? 'missing-mine' : p.status, f: null });
     }
 
     // --- счётчики по ступеням
@@ -2179,6 +2181,76 @@ html.fx-scrolled .top { padding-top: 7px; padding-bottom: 7px; box-shadow: var(-
 .bars-wrap::-webkit-scrollbar-track { background: transparent; }
 .bars-wrap::-webkit-scrollbar-thumb { background: color-mix(in srgb, var(--ink-3) 40%, transparent); border-radius: 3px; }
 
+/* отличие внутри значения (mark.fx-dd, код ниже): различающиеся цифры и буквы — жирно и с подчёркиванием цвета
+   расхождения; при новой сверке один раз мягко вспыхивают. Текст ячейки тот же — копируется ровно значение. */
+mark.fx-dd { background: color-mix(in srgb, var(--warn-ink) 18%, transparent); color: inherit; font-weight: 700; border-radius: 3px; padding: 0 1px; margin: 0 -1px; text-decoration: underline 2px color-mix(in srgb, var(--warn-ink) 75%, transparent); text-underline-offset: 2px; }
+.note mark.fx-dd { background: color-mix(in srgb, var(--warn-ink) 12%, transparent); }
+@keyframes fxDd { 0%, 30% { background: color-mix(in srgb, var(--warn-ink) 55%, transparent); } }
+#out.fresh mark.fx-dd, #out.viewchg mark.fx-dd { animation: fxDd 1.2s var(--ease-out) .3s backwards; }
+
+/* «Разбор по одной» (#triage, код ниже): проблемы итога по одной — вид, строки, номер, «что не так» крупно,
+   «в порту → у вас» с подсвеченным отличием; ↵ — вписать значение порта, → — дальше, ← — назад, Esc — закрыть. */
+#triage { z-index: 39; align-items: center; }
+#triage .modal-card { width: min(780px, 100%); padding: 22px 26px 22px; overflow: hidden; }
+.tg-top { display: flex; align-items: center; gap: 14px; margin-bottom: 18px; }
+.tg-top .eyebrow { white-space: nowrap; }
+.tg-bar { flex: 1; height: 4px; border-radius: 4px; background: var(--head); overflow: hidden; }
+.tg-bar i { display: block; height: 100%; width: 0; border-radius: 4px; background: linear-gradient(90deg, var(--sea), var(--ok-ink)); transition: width var(--t-slow) var(--ease-out); }
+.tg-stage { position: relative; min-height: 300px; }
+.tg-card { display: flex; flex-direction: column; gap: 16px; }
+.tg-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; color: var(--ink-2); font-size: 13px; }
+.tg-kind { display: inline-flex; align-items: center; gap: 7px; height: 26px; padding: 0 11px; border-radius: 999px; font-weight: 600; font-size: 12.5px; color: var(--ink); background: color-mix(in srgb, var(--k) 16%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--k) 35%, transparent); }
+.tg-kind::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--k); }
+.tg-what { margin: 0; font: 600 clamp(24px, 3.4vw, 34px)/1.15 var(--display); letter-spacing: -0.01em; text-wrap: balance; }
+.tg-cmp { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: stretch; gap: 12px; }
+.tg-side { border-radius: 16px; padding: 14px 16px 16px; background: var(--head); min-width: 0; }
+.tg-side small { display: block; font: 500 11px/1.3 var(--mono); letter-spacing: .12em; text-transform: uppercase; color: var(--ink-2); margin-bottom: 8px; }
+.tg-side b { display: block; font: 600 clamp(22px, 3vw, 30px)/1.15 var(--display); font-variant-numeric: lining-nums tabular-nums; overflow-wrap: anywhere; }
+.tg-side b.none { color: var(--ink-3); font-weight: 500; }
+.tg-side.port { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--sea) 35%, transparent); }
+.tg-side.mine.done { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ok-ink) 55%, transparent); background: color-mix(in srgb, var(--ok-ink) 10%, var(--head)); }
+.tg-arrow { align-self: center; color: var(--ink-3); font-size: 22px; }
+.tg-note { margin: 0; color: var(--ink-2); font-size: 13.5px; }
+.tg-acts { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 22px; }
+.tg-acts .sp { flex: 1; }
+.tg-sent { color: var(--ok-ink); font-weight: 600; font-size: 13.5px; }
+.tg-keys { margin-top: 14px; color: var(--ink-3); font-size: 12px; display: flex; flex-wrap: wrap; gap: 4px 14px; }
+.tg-end { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; min-height: 300px; text-align: center; }
+.tg-end svg { width: 84px; height: 84px; }
+.tg-end circle { fill: color-mix(in srgb, var(--ok-ink) 14%, transparent); stroke: var(--ok-ink); stroke-width: 2; }
+.tg-end path { fill: none; stroke: var(--ok-ink); stroke-width: 5; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 60; stroke-dashoffset: 0; }
+.tg-end.anim path { animation: fxTick .7s var(--ease-out) .15s backwards; }
+@keyframes fxTick { from { stroke-dashoffset: 60; } }
+.tg-end h3 { margin: 0; font: 600 30px/1.1 var(--display); }
+.tg-end p { margin: 0; color: var(--ink-2); }
+@media (max-width: 600px) { .tg-cmp { grid-template-columns: minmax(0, 1fr); } .tg-arrow { transform: rotate(90deg); justify-self: center; } #triage .modal-card { padding: 18px 16px; } }
+
+/* «Пары» (#pairs-view, код ниже): порт и ваша таблица рядом с одинаковыми колонками, между парами — нити цветом
+   статуса; наведение подсвечивает пару и её нить, остальные гаснут; отличия в паре подсвечены в ячейках. */
+#pairs-view { padding: 0; }
+.pv-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 18px; padding: 12px 16px; border-bottom: 1px solid var(--rule); color: var(--ink-2); font-size: 13px; }
+.pv-head b { color: var(--ink); font-variant-numeric: tabular-nums; }
+.pv-head .pv-hint { margin-left: auto; color: var(--ink-3); }
+.pv-scroll { max-height: min(72vh, 900px); overflow: auto; position: relative; }
+.pv-grid { display: grid; grid-template-columns: minmax(0, 1fr) 120px minmax(0, 1fr); min-width: 980px; position: relative; }
+.pv-t { width: 100%; border-collapse: collapse; font-size: 13px; }
+.pv-t th { position: sticky; top: 0; z-index: 2; background: var(--head); color: var(--ink-2); font-weight: 500; text-align: left; padding: 0 10px; height: 34px; border-bottom: 1px solid var(--rule); white-space: nowrap; }
+.pv-t td { height: 34px; padding: 0 10px; border-bottom: 1px solid var(--rule); white-space: nowrap; font-variant-numeric: tabular-nums; transition: background-color var(--t-fast) var(--ease-out), opacity var(--t) var(--ease-out); }
+.pv-t td.n { text-align: right; }
+.pv-t td.no { width: 1%; color: var(--ink-3); text-align: right; font-family: var(--mono); font-size: 12px; box-shadow: inset 3px 0 var(--st, transparent); }
+.pv-t.mine td.no { box-shadow: inset -3px 0 var(--st, transparent); }
+.pv-t tr.s-ok { --st: var(--ok-ink); } .pv-t tr.s-diff, .pv-t tr.s-dup, .pv-t tr.s-split { --st: var(--ch-diff); } .pv-t tr.s-missing { --st: var(--bad-ink); }
+.pv-t tr.s-missing td:not(.no) { background: color-mix(in srgb, var(--bad-ink) 7%, transparent); }
+.pv-t .plate { transform: scale(.92); transform-origin: left center; }
+.pv-links { position: absolute; left: 0; top: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
+.pv-links path { fill: none; stroke-width: 1.6; stroke-linecap: round; opacity: .55; transition: opacity var(--t) var(--ease-out), stroke-width var(--t) var(--ease-out); }
+.pv-links circle { opacity: .8; transition: opacity var(--t) var(--ease-out); }
+.pv.hot .pv-links path, .pv.hot .pv-links circle { opacity: .08; }
+.pv.hot .pv-links .on { opacity: 1; stroke-width: 2.6; filter: drop-shadow(0 0 4px currentColor); }
+.pv.hot .pv-t tr:not(.on) td { opacity: .45; }
+.pv-t tr.on td { background: color-mix(in srgb, var(--sea) 10%, transparent); }
+@media (prefers-reduced-motion: reduce) { .pv-links path { transition: none; } }
+
 /* клавиши (kbd) — как настоящие колпачки; в пустом окне вставки — свои, крупнее */
 kbd { display: inline-grid; place-items: center; min-width: 22px; height: 22px; padding: 0 6px; margin: 0 1px; border-radius: 6px; border: 1px solid var(--rule-strong); border-bottom-width: 2px; background: var(--sheet); color: var(--ink); font: 600 12px/1 var(--mono); vertical-align: 1px; box-shadow: 0 1px 0 var(--rule); }
 
@@ -2209,6 +2281,7 @@ kbd { display: inline-grid; place-items: center; min-width: 22px; height: 22px; 
    если браузер умеет следить за видимостью; без него всё играет сразу, как раньше) */
 html.fx-io #out.fresh :is(.r-hero, .tally, .card2, .notice, .result-sheet):not(.fx-seen),
 html.fx-io #out.fresh :is(.r-hero, .tally, .card2, .notice, .result-sheet):not(.fx-seen) * { animation-play-state: paused !important; }
+.fx-fly { position: fixed !important; margin: 0 !important; z-index: 43; pointer-events: none; transform-origin: 50% 50%; will-change: transform, opacity; }
 .fx-scene { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 44; pointer-events: none; display: none; }
 
 /* одометр: на время прокрутки число разбито на колонки цифр, потом снова обычный текст (копируется как число).
@@ -2475,6 +2548,265 @@ const SverkaFx = (() => {
   });
 })();
 
+// ---------- отличие внутри значения: «6 6̲00 → 6 7̲00», «BE̲7503EP → BK̲7503EP» ----------
+// Пары «порт / у вас»: вкладка «Итог» — колонки «Порт» и «У вас»; «В Numbers» — «Было» и «Станет»; вкладки таблиц —
+// значение ячейки и «в порту: …» / «у вас: …» в её подписи. Числа — по разрядам от запятой; номера машин — без
+// разницы кириллица/латиница (как в движке); остальное — посимвольно, если значения похожи хотя бы наполовину
+// (даты в разной записи не трогаем). Меняется только разметка внутри ячейки, textContent тот же.
+(() => {
+  const LAT = { А: 'A', В: 'B', Е: 'E', К: 'K', М: 'M', Н: 'H', О: 'O', Р: 'P', С: 'C', Т: 'T', У: 'Y', Х: 'X', І: 'I' };
+  const canon = ch => { const u = ch.toUpperCase(); return LAT[u] || u; };
+  const isNum = s => /\d/.test(s) && /^[\s\d.,\u00a0\u202f−-]+$/.test(s);
+  // число → позиции цифр целой части (справа налево) и дробной (слева направо)
+  function numParts(s) {
+    const seps = [...s].map((c, i) => (c === ',' || c === '.') ? i : -1).filter(i => i >= 0);
+    let dec = seps.length ? seps[seps.length - 1] : -1;
+    if (seps.length > 1 && s[seps[0]] === s[dec]) dec = -1;   // «1.234.567» — это разряды, не дробь
+    const ip = [], fp = [];
+    [...s].forEach((c, i) => { if (!/\d/.test(c)) return; (dec >= 0 && i > dec ? fp : ip).push(i); });
+    return { ip, fp };
+  }
+  function numMarks(a, b) {
+    const A = numParts(a), B = numParts(b), ma = new Set(), mb = new Set();
+    const n = Math.max(A.ip.length, B.ip.length);
+    for (let k = 1; k <= n; k++) {
+      const ia = A.ip[A.ip.length - k], ib = B.ip[B.ip.length - k], ca = ia == null ? '0' : a[ia], cb = ib == null ? '0' : b[ib];
+      if (ca !== cb) { if (ia != null) ma.add(ia); if (ib != null) mb.add(ib); }
+    }
+    const m = Math.max(A.fp.length, B.fp.length);
+    for (let k = 0; k < m; k++) {
+      const ia = A.fp[k], ib = B.fp[k], ca = ia == null ? '0' : a[ia], cb = ib == null ? '0' : b[ib];
+      if (ca !== cb) { if (ia != null) ma.add(ia); if (ib != null) mb.add(ib); }
+    }
+    return [ma, mb];
+  }
+  // посимвольно: общая подпоследовательность, всё вне её — отличие (пробелы не в счёт)
+  function charMarks(a, b) {
+    const A = [...a].map(canon), B = [...b].map(canon), n = A.length, m = B.length;
+    if (!n || !m || n > 40 || m > 40) return null;
+    const L = Array.from({ length: n + 1 }, () => new Array(m + 1).fill(0));
+    for (let i = n - 1; i >= 0; i--) for (let j = m - 1; j >= 0; j--) L[i][j] = A[i] === B[j] ? L[i + 1][j + 1] + 1 : Math.max(L[i + 1][j], L[i][j + 1]);
+    if (L[0][0] / Math.max(n, m) < .5) return null;
+    const ma = new Set(), mb = new Set(); let i = 0, j = 0;
+    while (i < n && j < m) { if (A[i] === B[j]) { i++; j++; } else if (L[i + 1][j] >= L[i][j + 1]) ma.add(i++); else mb.add(j++); }
+    while (i < n) ma.add(i++); while (j < m) mb.add(j++);
+    [ma, mb].forEach((s, k) => { const t = k ? b : a; [...s].forEach(x => { if (/\s/.test(t[x])) s.delete(x); }); });
+    return [ma, mb];
+  }
+  const marks = (a, b) => { if (!a.trim() || !b.trim() || a === b) return null; const mk = isNum(a) && isNum(b) ? numMarks(a, b) : charMarks(a, b); return mk && (mk[0].size || mk[1].size) ? mk : null; };
+  // текстовый узел → тот же текст, отличающиеся символы в <mark>
+  function paint(node, set, from = 0, len = null) {
+    if (!node || node.nodeType !== 3 || !set.size) return;
+    const s = node.nodeValue, end = len == null ? s.length : from + len, frag = document.createDocumentFragment();
+    let buf = '';
+    for (let i = 0; i < s.length; i++) {
+      const on = i >= from && i < end && set.has(i - from);
+      if (on) { if (buf) frag.append(buf); buf = ''; const mk = document.createElement('mark'); mk.className = 'fx-dd'; mk.textContent = s[i]; frag.append(mk); }
+      else buf += s[i];
+    }
+    if (buf) frag.append(buf);
+    node.replaceWith(frag);
+  }
+  const plainText = td => (td && td.childNodes.length === 1 && td.firstChild.nodeType === 3) ? td.firstChild : null;
+  function decorate(grid) {
+    const heads = [...grid.querySelectorAll('thead th')].map(th => th.textContent.trim());
+    const pair = (x, y) => { const a = heads.indexOf(x), b = heads.indexOf(y); return a >= 0 && b >= 0 ? [a, b] : null; };
+    const cols = pair('Порт', 'У вас') || pair('Было', 'Станет');
+    for (const tr of grid.tBodies[0] ? grid.tBodies[0].rows : []) {
+      if (cols) {
+        const ta = plainText(tr.cells[cols[0]]), tb = plainText(tr.cells[cols[1]]);
+        if (!ta || !tb) continue;
+        const mk = marks(ta.nodeValue, tb.nodeValue); if (!mk) continue;
+        paint(ta, mk[0]); paint(tb, mk[1]);
+        continue;
+      }
+      for (const td of tr.querySelectorAll('td.has-note')) {
+        const note = td.querySelector('.note'), val = td.firstChild;
+        if (!note || !val || val.nodeType !== 3 || !note.firstChild || note.firstChild.nodeType !== 3) continue;
+        const t = note.firstChild.nodeValue, m = t.match(/^(в порту|у вас): /); if (!m) continue;
+        const rest = t.slice(m[0].length), other = rest.split(/ — | \(/)[0];
+        const mk = marks(val.nodeValue, other); if (!mk) continue;
+        paint(note.firstChild, mk[1], m[0].length, other.length); paint(val, mk[0]);
+      }
+    }
+  }
+  SverkaFx.each('#res-grid', decorate);
+  SverkaFx.diff = marks;   // для режима разбора: [отличия в a, отличия в b] или null
+})();
+
+// ---------- «Разбор по одной»: окно поверх SverkaTriage (данные и «вписать» — основная сессия, вид — здесь) ----------
+(() => {
+  const KIND = { diff: ['расхождение', '--ch-diff'], dup: ['повтор', '--dup-ink'], split: ['перегруз?', '--ch-diff'], missing: ['у вас, нет в порту', '--bad-ink'], 'missing-mine': ['в порту, нет у вас', '--bad-ink'], ok: ['совпало', '--ok-ink'] };
+  const FIELD = { price: 'цена', sum: 'сумма', weight: 'вес', plate: 'номер машины', trailer: 'прицеп', date: 'дата', ttn: 'ТТН', crop: 'культура' };
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const plate = v => { const m = String(v || '').replace(/\s+/g, '').match(/^([A-ZА-ЯІЇЄ]{2})(\d{4})([A-ZА-ЯІЇЄ]{2})$/i); return m ? `<span class="plate"><i>${esc(m[1])}</i><i>${esc(m[2])}</i><i>${esc(m[3])}</i></span>` : esc(v); };
+  const marked = (s, set) => [...String(s)].map((c, i) => set && set.has(i) ? `<mark class="fx-dd">${esc(c)}</mark>` : esc(c)).join('');
+  let box = null, list = [], at = 0, done = new Set(), wrote = new Set(), sig = '', from = null;
+  const api = () => window.SverkaTriage;
+  function build() {
+    box = document.createElement('div'); box.className = 'modal'; box.id = 'triage';
+    box.setAttribute('role', 'dialog'); box.setAttribute('aria-modal', 'true'); box.setAttribute('aria-labelledby', 'tg-title');
+    box.innerHTML = `<div class="modal-card"><div class="tg-top"><span class="eyebrow" id="tg-title">Разбор</span><span class="tg-bar"><i></i></span>
+      <button class="icon-btn" data-tg="close" aria-label="Закрыть разбор"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+      <div class="tg-stage" aria-live="polite"></div></div>`;
+    document.body.appendChild(box);
+    box.addEventListener('click', e => { const b = e.target.closest('[data-tg]'); if (b) act(b.dataset.tg); else if (e.target === box) close(); });
+  }
+  function refresh() {
+    const a = api(); list = a && a.list ? a.list() : [];
+    const s = list.map(x => x.key + x.plate + x.what).join('|');
+    if (s !== sig) { sig = s; done = new Set(); wrote = new Set(); at = 0; }
+  }
+  function card(x) {
+    const [kname, kvar] = KIND[x.kind] || [x.kind, '--ink-3'];
+    const mk = x.port && x.mine && SverkaFx.diff ? SverkaFx.diff(String(x.port), String(x.mine)) : null;
+    const side = (cls, label, v, set) => `<div class="tg-side ${cls}"><small>${label}</small>${v ? `<b>${marked(v, set)}</b>` : '<b class="none">нет</b>'}</div>`;
+    const canWrite = x.edit && !x.sent && !wrote.has(x.key);
+    const why = x.sent || wrote.has(x.key) ? '<span class="tg-sent">↗ передано в Numbers</span>'
+      : canWrite ? ''
+      : x.field === 'date' || x.field === 'ttn' ? '<p class="tg-note">Дату и ТТН программа не вписывает — у вас они записаны по-своему. Проверьте и исправьте сами, если нужно.</p>'
+      : '<p class="tg-note">Здесь вписывать нечего — посмотрите строку и решите сами.</p>';
+    return `<div class="tg-card">
+      <div class="tg-meta"><span class="tg-kind" style="--k: var(${kvar})">${esc(kname)}</span>${x.row ? `<span>строка у вас <b>${esc(x.row)}</b></span>` : ''}${x.portRow ? `<span>в порту <b>${esc(x.portRow)}</b></span>` : ''}${x.plate ? plate(x.plate) : ''}${x.ttn ? `<span>ТТН <b>${esc(x.ttn)}</b></span>` : ''}</div>
+      <h3 class="tg-what">${esc(x.what || '')}${x.field && FIELD[x.field] && !String(x.what || '').startsWith(FIELD[x.field]) ? ` <span style="color:var(--ink-2)">· ${FIELD[x.field]}</span>` : ''}</h3>
+      ${x.port || x.mine ? `<div class="tg-cmp">${side('port', 'В порту', x.port, mk && mk[0])}<span class="tg-arrow" aria-hidden="true">→</span>${side('mine' + (wrote.has(x.key) ? ' done' : ''), 'У вас', wrote.has(x.key) ? x.port : x.mine, wrote.has(x.key) ? null : mk && mk[1])}</div>` : ''}
+      ${why}
+      <div class="tg-acts">${canWrite ? '<button class="btn btn-blue" data-tg="write">Вписать значение порта в Numbers <kbd>↵</kbd></button>' : ''}
+        <span class="sp"></span><button class="btn btn-quiet" data-tg="prev"${at ? '' : ' disabled'}>← Назад</button><button class="btn${canWrite ? '' : ' btn-primary'}" data-tg="next">${at === list.length - 1 ? 'Закончить' : 'Дальше'} →</button></div>
+      <div class="tg-keys"><span><kbd>↵</kbd> ${canWrite ? 'вписать' : 'дальше'}</span><span><kbd>→</kbd> дальше</span><span><kbd>←</kbd> назад</span><span><kbd>Esc</kbd> закрыть</span></div>
+    </div>`;
+  }
+  function endCard() {
+    const w = wrote.size, left = list.length - w;
+    return `<div class="tg-end anim"><svg viewBox="0 0 84 84" aria-hidden="true"><circle cx="42" cy="42" r="40"/><path d="M26 43l11 11 21-23"/></svg>
+      <h3>Всё разобрано</h3><p>${list.length} ${list.length % 10 === 1 && list.length % 100 !== 11 ? 'строка' : 'строк'} · вписано в Numbers ${w} · оставлено как есть ${left}</p>
+      <div class="tg-acts" style="justify-content:center"><button class="btn btn-primary" data-tg="close">Закрыть</button></div></div>`;
+  }
+  function paint(dir) {
+    const stage = box.querySelector('.tg-stage'), n = list.length, end = at >= n;
+    box.querySelector('#tg-title').textContent = end ? 'Разбор окончен' : `Разбор · ${at + 1} из ${n}`;
+    box.querySelector('.tg-bar i').style.width = (n ? Math.round(done.size / n * 100) : 0) + '%';
+    [...stage.children].slice(0, -1).forEach(c => c.remove());   // быстрые нажатия: карточки, что ещё уезжают, — сразу прочь
+    const old = stage.firstElementChild, html = end ? endCard() : card(list[at]);
+    const tmp = document.createElement('div'); tmp.innerHTML = html; const nu = tmp.firstElementChild;
+    if (!old || !dir || SverkaFx.reduce) { stage.replaceChildren(nu); }
+    else {
+      old.style.position = 'absolute'; old.style.inset = '0';
+      stage.appendChild(nu);
+      old.animate([{ transform: 'none', opacity: 1 }, { transform: `translateX(${-dir * 60}px)`, opacity: 0 }], { duration: 220, easing: 'cubic-bezier(.4, 0, .7, .2)', fill: 'forwards' }).onfinish = () => old.remove();
+      nu.animate([{ transform: `translateX(${dir * 70}px)`, opacity: 0 }, { transform: 'none', opacity: 1 }], { duration: 520, easing: SverkaFx.ease('--spring'), delay: 60, fill: 'backwards' });
+    }
+    const focus = box.querySelector('[data-tg="write"]') || box.querySelector('[data-tg="next"]') || box.querySelector('[data-tg="close"]');
+    if (focus) focus.focus({ preventScroll: true });
+  }
+  function go(d) { if (at + d < 0 || at + d > list.length) return; if (d > 0 && at < list.length) done.add(list[at].key); at += d; paint(d); }
+  function act(k) {
+    if (k === 'close') return close();
+    if (k === 'next') return go(1);
+    if (k === 'prev') return go(-1);
+    if (k === 'write') {
+      const x = list[at]; if (!x || !x.edit || x.sent || wrote.has(x.key)) return go(1);
+      const ok = api() && api().write(x.edit || x.key);
+      if (!ok) return;
+      wrote.add(x.key); done.add(x.key);
+      const keep = at; refresh(); at = keep;   // после «вписать» итог перерисован — данные заново, место то же
+      paint(0);
+      const mine = box.querySelector('.tg-side.mine b');
+      if (mine && !SverkaFx.reduce) mine.animate([{ transform: 'translateY(8px) scale(.96)', opacity: 0 }, { transform: 'none', opacity: 1 }], { duration: 560, easing: SverkaFx.ease('--spring-pop') });
+      setTimeout(() => { if (box.classList.contains('open') && at === keep) go(1); }, SverkaFx.reduce ? 300 : 900);
+    }
+  }
+  function open() {
+    if (!api()) return;
+    if (!box) build();
+    refresh(); if (!list.length) return;
+    from = document.activeElement;
+    box.classList.add('open'); document.body.style.overflow = 'hidden';
+    paint(0);
+  }
+  function close() { if (!box) return; box.classList.remove('open'); document.body.style.overflow = ''; if (from && from.focus) from.focus({ preventScroll: true }); }
+  document.addEventListener('click', e => { if (e.target.closest && e.target.closest('[data-fx~="triage"]')) open(); });
+  // клавиши — пока окно открыто, перехватываем раньше страницы (стрелки не должны двигать выделение в таблице под окном)
+  document.addEventListener('keydown', e => {
+    if (!box || !box.classList.contains('open')) return;
+    const k = e.key, inField = /INPUT|TEXTAREA|SELECT/.test((document.activeElement || {}).tagName || '');
+    if (inField) return;
+    if (k === 'Escape') { e.preventDefault(); e.stopPropagation(); close(); }
+    else if (k === 'ArrowRight') { e.preventDefault(); e.stopPropagation(); go(1); }
+    else if (k === 'ArrowLeft') { e.preventDefault(); e.stopPropagation(); go(-1); }
+    else if (k === 'Enter' && !(document.activeElement && document.activeElement.closest('[data-tg="prev"], [data-tg="close"]'))) {
+      e.preventDefault(); e.stopPropagation();
+      if (at >= list.length) close(); else if (box.querySelector('[data-tg="write"]')) act('write'); else go(1);
+    }
+    else if (k === 'ArrowUp' || k === 'ArrowDown') { e.stopPropagation(); }
+  }, true);
+})();
+
+// ---------- «Пары»: сшитые таблицы (вкладка «Пары», #pairs-view перерисовывается вместе с итогом) ----------
+(() => {
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const plate = v => { const m = String(v || '').replace(/\s+/g, '').match(/^([A-ZА-ЯІЇЄ]{2})(\d{4})([A-ZА-ЯІЇЄ]{2})$/i); return m ? `<span class="plate"><i>${esc(m[1])}</i><i>${esc(m[2])}</i><i>${esc(m[3])}</i></span>` : null; };
+  const marked = (s, set) => [...String(s)].map((c, i) => set && set.has(i) ? `<mark class="fx-dd">${esc(c)}</mark>` : esc(c)).join('');
+  const COL = { ok: '--ok-ink', diff: '--ch-diff', dup: '--ch-dup', split: '--ch-dup' };
+  const NUM = /^[\s\d.,\u00a0−-]+$/;
+  function mount(view) {
+    if (!window.SverkaPairs) return;
+    const P = window.SverkaPairs(); if (!P || !P.port) return;
+    // колонки: колонки порта по порядку и такие же по названию у вас (так пары сравниваются глазами)
+    const norm = s => String(s || '').trim().toLowerCase();
+    const cols = P.head.port.map((name, pi) => ({ name, pi, mi: P.head.mine.findIndex(m => norm(m) && norm(m) === norm(name)) })).filter(c => norm(c.name));
+    const portBy = new Map(P.port.map(x => [x.line, x])), pairOf = new Map();
+    P.mine.forEach(m => { if (m.pairLine != null && portBy.has(m.pairLine)) pairOf.set(m.pairLine, m); });
+    const cell = (v, other, isPlate) => {
+      if (isPlate) { const p = plate(v); if (p) return `<td>${p}</td>`; }
+      const mk = other != null && v && other && v !== other && SverkaFx.diff ? SverkaFx.diff(String(v), String(other)) : null;
+      return `<td${NUM.test(String(v)) ? ' class="n"' : ''}>${mk ? marked(v, mk[0]) : esc(v)}</td>`;
+    };
+    const isPlate = name => /машин|номер авто|авто/i.test(name);
+    const portRows = P.port.map(x => { const m = pairOf.get(x.line), st = m ? x.status : 'missing';
+      return `<tr class="s-${st}" data-k="${x.line}"><td class="no">${esc(x.rowNo)}</td>${cols.map(c => cell(x.cells[c.pi], m && c.mi >= 0 ? m.cells[c.mi] : null, isPlate(c.name))).join('')}</tr>`; }).join('');
+    const mineRows = P.mine.map(x => { const p = x.pairLine != null ? portBy.get(x.pairLine) : null, st = p || x.status === 'dup' || x.status === 'split' ? x.status : 'missing';   // повтор и часть перегруза — жёлтые, не «нет пары»
+      return `<tr class="s-${st}"${p ? ` data-k="${x.pairLine}"` : ''}>${cols.map(c => c.mi >= 0 ? cell(x.cells[c.mi], p ? p.cells[c.pi] : null, isPlate(c.name)) : '<td></td>').join('')}<td class="no">${esc(x.rowNo)}</td></tr>`; }).join('');
+    const head = (side) => (side === 'port' ? '<th>№</th>' : '') + cols.map(c => `<th>${esc(c.name)}</th>`).join('') + (side === 'mine' ? '<th>№</th>' : '');
+    const nMineAlone = P.mine.filter(x => x.pairLine == null || !portBy.has(x.pairLine)).length, nPortAlone = P.port.length - pairOf.size;
+    view.innerHTML = `<div class="pv"><div class="pv-head"><span>Пар <b>${pairOf.size}</b></span><span>у вас без пары <b>${nMineAlone}</b></span><span>в порту без пары <b>${nPortAlone}</b></span><span class="pv-hint">слева порт, справа ваша таблица · наведите на строку — подсветится её пара</span></div>
+      <div class="pv-scroll"><div class="pv-grid"><table class="pv-t port"><thead><tr>${head('port')}</tr></thead><tbody>${portRows}</tbody></table>
+      <div class="pv-mid"></div><table class="pv-t mine"><thead><tr>${head('mine')}</tr></thead><tbody>${mineRows}</tbody></table>
+      <svg class="pv-links" aria-hidden="true"></svg></div></div></div>`;
+    const pv = view.firstElementChild, grid = pv.querySelector('.pv-grid'), svg = pv.querySelector('.pv-links');
+    let drawn = false;
+    function draw() {
+      const g = grid.getBoundingClientRect(); if (!g.width) return;
+      const pt = grid.querySelector('.pv-t.port').getBoundingClientRect(), mt = grid.querySelector('.pv-t.mine').getBoundingClientRect();
+      const x0 = pt.right - g.left - 2, x1 = mt.left - g.left + 2, cx = (x1 - x0) * .55;
+      const rowsP = new Map([...grid.querySelectorAll('.pv-t.port tr[data-k]')].map(tr => [tr.dataset.k, tr]));
+      let out = '', i = 0;
+      for (const tr of grid.querySelectorAll('.pv-t.mine tr[data-k]')) {
+        const a = rowsP.get(tr.dataset.k); if (!a) continue;
+        const ra = a.getBoundingClientRect(), rb = tr.getBoundingClientRect(), ya = ra.top - g.top + ra.height / 2, yb = rb.top - g.top + rb.height / 2;
+        const m = pairOf.get(+tr.dataset.k), color = `var(${COL[m ? m.status : 'ok'] || '--ok-ink'})`;
+        out += `<path data-k="${tr.dataset.k}" d="M${x0} ${ya} C${x0 + cx} ${ya} ${x1 - cx} ${yb} ${x1} ${yb}" style="stroke:${color};color:${color};--i:${i++}"/><circle data-k="${tr.dataset.k}" cx="${x0}" cy="${ya}" r="2.6" style="fill:${color}"/><circle data-k="${tr.dataset.k}" cx="${x1}" cy="${yb}" r="2.6" style="fill:${color}"/>`;
+      }
+      svg.setAttribute('viewBox', `0 0 ${g.width} ${g.height}`); svg.innerHTML = out;
+      if (!drawn && !SverkaFx.reduce) svg.querySelectorAll('path').forEach((p, k) => { const L = p.getTotalLength(); p.animate([{ strokeDasharray: `${L}`, strokeDashoffset: L }, { strokeDasharray: `${L}`, strokeDashoffset: 0 }], { duration: 700, delay: Math.min(k, 30) * 22, easing: 'cubic-bezier(.25, 1, .5, 1)', fill: 'backwards' }); });
+      drawn = true;
+    }
+    requestAnimationFrame(draw);
+    if ('ResizeObserver' in window) new ResizeObserver(() => requestAnimationFrame(draw)).observe(grid);
+    // наведение: пара и её нить — ярко, остальное приглушено
+    let hot = null;
+    const light = k => {
+      if (k === hot) return; hot = k;
+      pv.querySelectorAll('.on').forEach(e => e.classList.remove('on'));
+      pv.classList.toggle('hot', k != null);
+      if (k != null) pv.querySelectorAll(`[data-k="${k}"]`).forEach(e => e.classList.add('on'));
+    };
+    pv.addEventListener('mouseover', e => { const tr = e.target.closest && e.target.closest('.pv-t tbody tr'); light(tr && tr.dataset.k != null ? tr.dataset.k : null); });
+    pv.addEventListener('mouseleave', () => light(null));
+  }
+  SverkaFx.each('#pairs-view', mount);
+})();
+
 // ---------- «Что осталось»: только что сделанное дело «щёлкает» (список перерисовывается целиком — помним, что уже было сделано) ----------
 (() => {
   if (SverkaFx.reduce) return;
@@ -2640,6 +2972,32 @@ SverkaFx.grainGL = canvas => {
 // строки, их значения и порядок не трогаются. rows: [{ tr, k }], links: [{ a, b, k }], k — 'ok' / 'warn' / 'bad'.
 SverkaFx.scene = (() => {
   const VAR = { ok: '--ok-ink', warn: '--ch-diff', bad: '--bad-ink' };
+  // окна вставки — копиями — летят туда, где кольцо итога окажется после прокрутки, сжимаются в круг и тают;
+  // настоящие окна на это время скрыты (иначе их видно дважды) и возвращаются, когда копии долетели
+  function fly(data) {
+    const orb = data.target && data.target(), out = data.out;
+    if (!orb || !out || !data.panes) return;
+    const pad = parseFloat(getComputedStyle(document.documentElement).scrollPaddingTop) || 0;
+    const room = document.documentElement.scrollHeight - innerHeight - scrollY;
+    const dy = Math.max(0, Math.min(out.getBoundingClientRect().top - pad, room));   // на сколько уедет страница
+    const o = orb.getBoundingClientRect(), tx = o.left + o.width / 2, ty = o.top - dy + o.height / 2, size = Math.min(o.width, o.height) * .78;
+    data.panes.forEach((p, k) => {
+      if (!p) return; const rc = p.getBoundingClientRect();
+      if (!rc.width || rc.bottom < 0 || rc.top > innerHeight) return;
+      const c = p.cloneNode(true); c.removeAttribute('id'); c.querySelectorAll('[id]').forEach(e => e.removeAttribute('id'));
+      c.setAttribute('aria-hidden', 'true'); c.classList.add('fx-fly');
+      Object.assign(c.style, { left: rc.left + 'px', top: rc.top + 'px', width: rc.width + 'px', height: rc.height + 'px' });
+      document.body.appendChild(c); p.style.visibility = 'hidden';
+      const sx = tx - (rc.left + rc.width / 2), sy = ty - (rc.top + rc.height / 2);
+      const a = c.animate([
+        { transform: 'none', opacity: 1, borderRadius: '20px' },
+        { opacity: 1, offset: .5 },
+        { transform: `translate(${sx}px, ${sy}px) scale(${size / rc.width}, ${size / rc.height}) rotate(${k ? 8 : -8}deg)`, opacity: 0, borderRadius: '50%' }
+      ], { duration: 950, delay: k * 60, easing: SverkaFx.ease('--spring-soft'), fill: 'forwards' });
+      let gone = false; const back = () => { if (gone) return; gone = true; c.remove(); p.style.visibility = ''; };
+      a.onfinish = back; setTimeout(back, 1800);
+    });
+  }
   const SCAN = .55, DRAW = .32, END = .95, TAIL = 1.0;   // секунды: луч, нить, рассыпание, хвост зерна — на глаз
   let cv = null, ctx = null, raf = 0;
   const ease = p => 1 - Math.pow(1 - p, 3);
@@ -2680,7 +3038,7 @@ SverkaFx.scene = (() => {
     const bez = (L, u) => { const v = 1 - u; return { x: v * v * v * L.p0.x + 3 * v * v * u * L.c1.x + 3 * v * u * u * L.c2.x + u * u * u * L.p3.x, y: v * v * v * L.p0.y + 3 * v * v * u * L.c1.y + 3 * v * u * u * L.c2.y + u * u * u * L.p3.y }; };
     const grains = [], t0 = performance.now() / 1000;
     let ticks = 0, lastTick = 0, scrolled = false;
-    const finish = () => { if (!scrolled) { scrolled = true; done(); } };
+    const finish = () => { if (!scrolled) { scrolled = true; fly(data); done(); } };
     setTimeout(finish, (END + .4) * 1000);   // вкладка в фоне — кадров нет, а к итогу всё равно перейти
     links.forEach(L => { L.ticked = false; });
     cancelAnimationFrame(raf);
@@ -3133,7 +3491,7 @@ SverkaFx.changed('.btn', el => {
         <dt>Сверялось</dt><dd>${s.shared.map(f => FIELD[f]).join(', ')}; даты — допуск 5 рабочих дней</dd>
       </dl></details>
       <div class="result-bar">
-        <div class="tabs" role="tablist">${tabBtn('issues', 'Итог', issuesN)}${tabBtn('numbers', 'В Numbers', numbersList().length)}${tabBtn('mine', 'Моя таблица', M.read)}${tabBtn('port', 'Порт', P.read)}</div>
+        <div class="tabs" role="tablist">${tabBtn('issues', 'Итог', issuesN)}${tabBtn('numbers', 'В Numbers', numbersList().length)}${tabBtn('mine', 'Моя таблица', M.read)}${tabBtn('port', 'Порт', P.read)}${tabBtn('pairs', 'Пары', s.pairs)}</div>
         <div class="result-tools">
           <button class="btn" id="btn-copy">${S.tab === 'issues' ? 'Скопировать итог' : 'Скопировать с цветом'}</button>
           <button class="btn" id="btn-report">Сообщить об ошибке</button>
@@ -3201,6 +3559,8 @@ SverkaFx.changed('.btn', el => {
     const chip = S.filter ? `<span class="filter-chip">показано: ${esc(S.filter.label)}<button data-unfilter aria-label="Показать все">✕</button></span>` : '<span></span>';
     const tip = '<span>Протяните мышью по ячейкам или щёлкните заголовок колонки — скопируется только выделенное (⌘C). Номер строки слева — отметка для отчёта об ошибке.</span>';
     if (S.tab === 'numbers') return numbersTab();
+    // «Пары» — картина, а не таблица для копирования: рисует дизайн-слой по window.SverkaPairs() (14.10.2026)
+    if (S.tab === 'pairs') { S.model = null; return '<div id="pairs-view"></div>'; }
     if (S.tab === 'issues') {
       if (!res.issues.length) { S.model = null; return `<div class="empty" style="height:140px;margin:14px"><div><b>Расхождений нет</b>Все рейсы совпали с портом.</div></div>`; }
       const head = ['Строка у вас', 'Строка в порту', 'ТТН', 'Машина', 'Что не так', 'Порт', 'У вас'];
@@ -3384,6 +3744,7 @@ SverkaFx.changed('.btn', el => {
   function copyTab() {
     const res = S.res;
     let html, text;
+    if (S.tab === 'pairs') { toast('«Пары» — для просмотра. Копировать — из вкладок «Моя таблица» или «Итог».'); return; }
     if (S.tab === 'numbers') {
       const m = S.model; if (!m) return;
       const all = [m.head].concat(m.rows.map(r => r.map(x => x.t)));
@@ -3974,7 +4335,7 @@ SverkaFx.changed('.btn', el => {
       rows.push({ tr: Mn[i], k });
       const j = r.pair ? pi.get(r.pair) : -1; if (j >= 0 && P[j]) links.push({ a: P[j], b: Mn[i], k });
     });
-    return { rows, links, tick: () => Snd.play('tick') };
+    return { rows, links, tick: () => Snd.play('tick'), panes: [$('#pane-port'), $('#pane-mine')], target: () => document.querySelector('#out .r-orb'), out: $('#out') };
   }
   // строки появляются одна за другой (только первые 20 — длинный лист не ждёт; шаг 30 мс — в дизайн-слое)
   function staggerRows(root) {
@@ -4047,7 +4408,8 @@ SverkaFx.changed('.btn', el => {
     const nl = numbersList().length;
     const ctas = (nl ? `<button class="btn btn-primary btn-blue" id="h-numbers">Вписать в Numbers · ${nl}</button>` : '') + `<button class="btn${nl ? '' : ' btn-primary'}" id="h-copy">Скопировать мою таблицу с цветом</button>` +
       (M.fillable ? `<button class="btn" id="h-noprice">Показать строки без цены</button>` : '') +
-      (res.issues.length ? `<button class="btn" id="h-issues">Итог по строкам · ${res.issues.length}</button>` : '');
+      (res.issues.length ? `<button class="btn" id="h-issues">Итог по строкам · ${res.issues.length}</button>` : '') +
+      (res.issues.length ? `<button class="btn" id="h-triage" data-fx="triage">Разобрать по одной · ${res.issues.length}</button>` : '');   // окно — дизайн-слой (SverkaTriage)
     return `<section class="r-hero" aria-label="Итог сверки"><canvas class="orb-cv" aria-hidden="true"></canvas>
       <div class="r-lede"><span class="eyebrow">Итог сверки · порт ${P.read} · у вас ${M.read}</span><h2>${h}</h2><p>${p}</p><div class="r-ctas">${ctas}</div></div>
       <div class="r-orb" role="img" aria-label="Рейсы: совпало ${M.ok}, расхождения ${M.diff}, повтор или перегруз ${M.dup + M.split}, нет в порту ${M.missing}, цен из порта ${M.fillable}">
@@ -4791,6 +5153,41 @@ SverkaFx.changed('.btn', el => {
     toast('Вернул то, что было до закрытия страницы. Начать заново — «Очистить всё».', 5000, 'restore');
   }
   try { sessionRestore(); } catch (e) { /* испорченное сохранение не должно ломать страницу */ try { localStorage.removeItem(SKEY); } catch (e2) { /* нет памяти */ } }
+
+  // ================= входы для дизайн-слоя: «Разбор по одной» и «Пары» (14.10.2026) =================
+  // Данные — только чтение из S.res; действие одно — вписать правку так же, как кнопка «Вписать» на вкладке «В Numbers».
+  window.SverkaTriage = {
+    // строки итога в его порядке; edit — ключ правки Numbers (если эту строку можно вписать), sent — уже передано
+    list() {
+      const res = S.res; if (!res) return [];
+      const edits = numbersList(), sent = S.nsent || new Set();
+      return res.issues.map((i, n) => {
+        const e = i.f && i.mineRow !== '' ? edits.find(x => x.row === i.mineRow && x.field === i.f) : null;
+        return { key: 'i' + n, row: i.mineRow === '' ? null : i.mineRow, portRow: i.portRow === '' ? null : i.portRow, plate: i.plate || '', ttn: i.ttn || '',
+          what: i.what, field: i.f || null, port: String(i.port == null ? '' : i.port), mine: String(i.mine == null ? '' : i.mine),
+          kind: i.kind === 'missing-mine' ? 'missing-mine' : i.kind, edit: e ? nKey(e) : null, sent: !!(e && sent.has(nKey(e))) };
+      });
+    },
+    // key — ключ правки (edit из list()) или ключ строки ('i3'); true — передано на вписывание в Numbers (дальше — проверки
+    // и тосты sendNumbers). Не на Маке — false: вписывать некому, список правок копируется с подсказкой (просьба дизайна 14.10)
+    write(key) {
+      if (!S.res || !key) return false;
+      const edits = numbersList();
+      let e = edits.find(x => nKey(x) === key);
+      if (!e && /^i\d+$/.test(key)) { const it = this.list()[+key.slice(1)]; e = it && it.edit ? edits.find(x => nKey(x) === it.edit) : null; }
+      if (!e) return false;
+      sendNumbers([e]);
+      return IS_MAC;
+    },
+  };
+  // пары: порт и ваша таблица рядом — рейсы без заголовков и пропущенных строк; pairLine — line строки порта или null
+  window.SverkaPairs = () => {
+    const res = S.res; if (!res) return null;
+    const head = t => { const hr = t.recs.find(r => r.status === 'header'); return hr ? hr.cells.slice() : (t.roles || []).map(r => (r && r !== 'none' ? Sverka.ROLE_NAMES[r] || '' : '')); };
+    const row = (t, r) => ({ line: r.line, rowNo: res.rowNo(t, r), cells: r.cells.slice(), status: r.status });
+    return { head: { port: head(res.port), mine: head(res.mine) }, port: res.port.live.map(r => row(res.port, r)),
+      mine: res.mine.live.map(r => Object.assign(row(res.mine, r), { pairLine: r.pair ? r.pair.line : null })) };
+  };
 
   renderPane('port'); renderPane('mine');
 })();
