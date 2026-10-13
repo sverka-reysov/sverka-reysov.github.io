@@ -571,7 +571,7 @@ tr.just .n-ok { display: inline-block; animation: popIn .45s cubic-bezier(.3, 1.
   </section>
 
   <div id="out"></div>
-  <footer style="margin-top:40px;color:var(--ink-3);font-size:12px">Сверка рейсов · версия <span id="app-ver"><!--ВЕРСИЯ-->13.10.2026 · 0e4e06<!--/ВЕРСИЯ--></span></footer>
+  <footer style="margin-top:40px;color:var(--ink-3);font-size:12px">Сверка рейсов · версия <span id="app-ver"><!--ВЕРСИЯ-->13.10.2026 · 869d42<!--/ВЕРСИЯ--></span></footer>
 </main>
 
 <div class="modal" id="report" role="dialog" aria-modal="true" aria-labelledby="report-title">
@@ -1925,6 +1925,28 @@ if (typeof module !== 'undefined') module.exports = Zap;
   'use strict';
   const $ = s => document.querySelector(s);
   const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  // «Полная версия» (решение владельца 13.10.2026): по ссылке https://sverka-reysov.github.io/ рядом со страницей лежат
+  // дополнительные файлы — папка «сайт/» проекта (библиотеки, шрифты, звуки). Файл из бота открывается без них, поэтому
+  // всё, что грузится через Extra, — украшение с запасным вариантом: не загрузилось — страница работает как раньше.
+  // Только свои копии на том же сайте, никаких чужих серверов; таблицы никуда не уходят ни в одной версии.
+  const Extra = (() => {
+    const on = /^https?:$/.test(location.protocol);   // открыта по ссылке (или локальным сервером при разработке), не файлом
+    const seen = {};
+    const load = (path, make) => seen[path] || (seen[path] = !on ? Promise.resolve(false) : new Promise(done => {
+      const el = make(new URL(path, location.href).href);
+      el.onload = () => done(true); el.onerror = () => { el.remove(); done(false); };
+      setTimeout(() => done(false), 15000);
+      document.head.appendChild(el);
+    }));
+    return {
+      on,
+      url: path => (on ? new URL(path, location.href).href : null),
+      js: path => load(path, src => Object.assign(document.createElement('script'), { src })),                 // → Promise<true|false>
+      module: path => (on ? import(new URL(path, location.href).href).catch(() => null) : Promise.resolve(null)), // → модуль или null
+      css: path => load(path, href => Object.assign(document.createElement('link'), { rel: 'stylesheet', href })),
+    };
+  })();
+  window.SverkaExtra = Extra;   // для проверки из консоли: SverkaExtra.on, await SverkaExtra.js('extra/…')
   // Цвета для копирования в Excel/Numbers — стандартные светлые, от темы не зависят.
   const COPY = { ok: '#c6efce', diff: '#ffeb9c', miss: '#ffc7ce', fill: '#cfe2f3' };
   const STATUS = {
