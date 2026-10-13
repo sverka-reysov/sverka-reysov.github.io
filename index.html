@@ -577,7 +577,7 @@ tr.just .n-ok { display: inline-block; animation: popIn .45s cubic-bezier(.3, 1.
   </section>
 
   <div id="out"></div>
-  <footer style="margin-top:40px;color:var(--ink-3);font-size:12px">Сверка рейсов · версия <span id="app-ver"><!--ВЕРСИЯ-->13.10.2026 · 09c412<!--/ВЕРСИЯ--></span></footer>
+  <footer style="margin-top:40px;color:var(--ink-3);font-size:12px">Сверка рейсов · версия <span id="app-ver"><!--ВЕРСИЯ-->13.10.2026 · 8e82ea<!--/ВЕРСИЯ--></span></footer>
 </main>
 
 <div class="modal" id="report" role="dialog" aria-modal="true" aria-labelledby="report-title">
@@ -1595,6 +1595,34 @@ const Sverka = (() => {
     [].concat(Array.isArray(a) ? a : [], Array.isArray(b) ? b : []).forEach(s => { if (s && s.at && Array.isArray(s.trips) && !byAt.has(s.at)) byAt.set(s.at, s); });
     return [...byAt.values()].sort((x, y) => (x.at < y.at ? -1 : x.at > y.at ? 1 : 0)).slice(-(max || 200));
   }
+  // «Хвосты» (13.10.2026): рейсы вашей таблицы, которые в последней сверке, где они были, остались без пары в порту.
+  // Нашёлся в паре (совпало или с расхождением) в любой следующей сверке — хвост закрыт. «С какого дня» — первая сверка
+  // подряд без пары. Повторы и части перегруза хвост не меняют (у них своя причина). closed — ключи, которые владелец
+  // снял сам («оплачено без порта», «ошибка в таблице»). Сначала самые давние.
+  function historyTails(sessions, closed) {
+    const list = (Array.isArray(sessions) ? sessions : []).filter(s => s && s.at && Array.isArray(s.trips))
+      .slice().sort((x, y) => (x.at < y.at ? -1 : x.at > y.at ? 1 : 0));
+    const off = new Set(Array.isArray(closed) ? closed : []), open = new Map();
+    for (const s of list) for (const t of s.trips) {
+      if (!t || !t.k) continue;
+      if (t.st === 'missing') {
+        const p = open.get(t.k);
+        if (p) Object.assign(p, { last: s.at, times: p.times + 1, trip: t, client: s.client || p.client });
+        else open.set(t.k, { since: s.at, last: s.at, times: 1, trip: t, client: s.client || '' });
+      } else if (t.st === 'ok' || t.st === 'diff') open.delete(t.k);
+    }
+    return [...open.entries()].filter(([k]) => !off.has(k)).map(([k, v]) => ({ k, ttn: v.trip.ttn || '', plate: v.trip.plate || '', w: v.trip.w,
+      date: v.trip.date || '', row: v.trip.row, since: v.since, last: v.last, times: v.times, client: v.client }))
+      .sort((a, b) => (a.since < b.since ? -1 : a.since > b.since ? 1 : a.row - b.row));
+  }
+  // Сообщение порту по хвостам — как portQuestion, но из следа истории (сверки может уже не быть на экране).
+  function tailsMessage(tails) {
+    const list = Array.isArray(tails) ? tails : [];
+    if (!list.length) return '';
+    const n = list.length, w = n % 10 === 1 && n % 100 !== 11 ? 'машину' : [2, 3, 4].includes(n % 10) && ![12, 13, 14].includes(n % 100) ? 'машины' : 'машин';
+    const line = t => [t.plate || 'номер не указан', t.ttn ? 'ТТН ' + t.ttn : 'без ТТН', t.date || '', t.w != null ? fmtNum(t.w) + ' т' : ''].filter(Boolean).join(', ');
+    return ['Добрый день! В ваших реестрах так и не нашли ' + n + ' ' + w + ':'].concat(list.map((t, i) => (i + 1) + '. ' + line(t)), ['Проверьте, пожалуйста, были ли они у вас.']).join('\n');
+  }
   // Сверки одного клиента, сначала новые.
   function clientSessions(sessions, client) {
     const c = normText(client).toLowerCase();
@@ -1648,7 +1676,7 @@ const Sverka = (() => {
     return out.slice(0, limit || 40);
   }
 
-  return { reconcile, prepare, parseTable, cellClass, mineLikeness, splitPlate, totals, clientMessage, fmtNum, parseNum, parseDate, normPlate, normTtn, workdaysBetween, dateDiff, numbersEdits, numbersPayload, plateInStyle, NUMBERS_MARK, historyEntry, historyCheck, historySave, historySearch, historyMerge, clientSessions, daysBreakdown, portQuestion, diffsMessage, ROLE_NAMES, ROLE_LIST };
+  return { reconcile, prepare, parseTable, cellClass, mineLikeness, splitPlate, totals, clientMessage, fmtNum, parseNum, parseDate, normPlate, normTtn, workdaysBetween, dateDiff, numbersEdits, numbersPayload, plateInStyle, NUMBERS_MARK, historyEntry, historyCheck, historySave, historySearch, historyMerge, historyTails, tailsMessage, clientSessions, daysBreakdown, portQuestion, diffsMessage, ROLE_NAMES, ROLE_LIST };
 })();
 if (typeof module !== 'undefined') module.exports = Sverka;
 /*ДВИЖОК-КОНЕЦ*/
@@ -3402,22 +3430,49 @@ if (typeof module !== 'undefined') module.exports = Zap;
       out += `<div class="notice ok hist"><h3>${n} ${plural(n, 'машина нашлась', 'машины нашлись', 'машин нашлись')} в порту — в прошлой сверке у ${n === 1 ? 'неё' : 'них'} не было пары</h3><ul>${h.found.slice(0, 12).map(r =>
         `<li>строка ${r.row}: ${plateHtml(r.plate)} ТТН ${esc(r.ttn)}${hTons(r.w)} — без пары в сверке от ${hDate(r.at)}</li>`).join('')}</ul></div>`;
     }
-    return out;
+    return out + tailsHtml(h.entry);
   }
+  // «Хвосты» (13.10.2026): машины из прошлых сверок, которые так и не нашлись в порту — пока не найдутся или их не
+  // снимут. В итоге сверки — без машин этой сверки (они и так красные); в пустом поиске — все.
+  const TKEY = 'sverka.tails.closed';
+  function tailsNow(exclude) {
+    const keys = new Set(exclude && exclude.trips ? exclude.trips.map(t => t.k) : []);
+    return Sverka.historyTails(store.get(HKEY) || [], store.get(TKEY) || []).filter(t => !keys.has(t.k));
+  }
+  function tailsHtml(exclude) {
+    const list = tailsNow(exclude); if (!list.length) return '';
+    S.tailsMsg = Sverka.tailsMessage(list);
+    const n = list.length;
+    const li = t => `<li>${plateHtml(t.plate)} ТТН ${esc(t.ttn || '—')}${hTons(t.w)}${t.date ? ' · ' + esc(t.date) : ''} — без пары с ${hDate(t.since)}${t.times > 1 ? `, сверок без пары: ${t.times}` : ''}${t.client ? ' · ' + esc(t.client) : ''} <button class="btn btn-sm btn-quiet" data-tail-close="${esc(t.k)}" title="Убрать из хвостов — например, оплачено без порта или ошибка в таблице">Снять</button></li>`;
+    return `<div class="notice warn hist tails"><h3>${n} ${plural(n, 'машина', 'машины', 'машин')} из прошлых сверок так и не ${plural(n, 'нашлась', 'нашлись', 'нашлись')} в порту</h3><ul>${list.slice(0, 12).map(li).join('')}</ul>${n > 12 ? `<p>и ещё ${n - 12} — все есть в сообщении порту</p>` : ''}
+      <div class="row"><button class="btn btn-sm" data-tails-copy>Скопировать сообщение порту</button><a class="btn btn-sm btn-tg" data-tails-tg href="tg://msg?text=${encodeURIComponent(S.tailsMsg)}">Открыть в Телеграме</a></div></div>`;
+  }
+  function tailsRefresh() { if (S.res) renderResults(); if (!hsl.hidden) renderSearch(); }
+  document.addEventListener('click', e => {
+    const c = e.target.closest('[data-tail-close]');
+    if (c) { const cl = store.get(TKEY) || []; if (!cl.includes(c.dataset.tailClose)) cl.push(c.dataset.tailClose); store.set(TKEY, cl.slice(-2000)); toast('Убрано из хвостов. Вернуть — внизу поиска «Вернуть снятые»'); tailsRefresh(); return; }
+    if (e.target.closest('[data-tails-reopen]')) { store.set(TKEY, []); toast('Снятые хвосты возвращены'); tailsRefresh(); return; }
+    const cp = e.target.closest('[data-tails-copy], [data-tails-tg]');
+    if (cp && S.tailsMsg) copyMsg(S.tailsMsg, cp, 'Сообщение порту');
+  });
   // поиск машины или ТТН во всех сохранённых сверках
   const hsq = $('#hs-q'), hsl = $('#hs-list');
   function renderSearch() {
     const all = store.get(HKEY) || [], q = hsq.value.trim();
-    if (!q) { hsl.hidden = true; return; }
+    if (!q) {
+      const tl = tailsHtml(null);
+      if (!tl) { hsl.hidden = true; return; }
+      hsl.innerHTML = tl + `<div class="hs-foot"><span>Наберите номер машины или ТТН — поиск по всем сверкам</span></div>`; hsl.hidden = false; return;
+    }
     const found = Sverka.historySearch(all, q, 40);
     const items = found.map(t => `<div class="hs-i">${plateHtml(t.plate)}<span class="hs-t"><span><b>ТТН ${esc(t.ttn || '—')}</b>${hTons(t.w)}${t.date ? ' · ' + esc(t.date) : ''}</span><small>${t.client ? esc(t.client) + ' · ' : ''}сверка от ${hDate(t.at)}, строка ${t.row} · ${esc((STATUS[t.st] || [''])[0])}</small></span></div>`).join('');
     hsl.innerHTML = (all.length ? (items || `<p class="hs-none">${q.length < 2 ? 'Наберите хотя бы два знака' : 'В сохранённых сверках такой машины и ТТН нет'}</p>`) : '<p class="hs-none">История пуста — она появится после первой сверки на этом компьютере.</p>') +
-      `<div class="hs-foot"><span>Сохранено сверок: ${all.length}</span><span class="hs-acts"><button class="btn btn-sm btn-quiet" data-bk="save">Сохранить в файл</button><button class="btn btn-sm btn-quiet" data-bk="load">Восстановить</button>${all.length ? '<button class="btn btn-sm btn-quiet" id="hs-clear">Очистить историю</button>' : ''}</span></div>`;
+      `<div class="hs-foot"><span>Сохранено сверок: ${all.length}</span><span class="hs-acts">${(store.get(TKEY) || []).length ? `<button class="btn btn-sm btn-quiet" data-tails-reopen>Вернуть снятые хвосты (${(store.get(TKEY) || []).length})</button>` : ''}<button class="btn btn-sm btn-quiet" data-bk="save">Сохранить в файл</button><button class="btn btn-sm btn-quiet" data-bk="load">Восстановить</button>${all.length ? '<button class="btn btn-sm btn-quiet" id="hs-clear">Очистить историю</button>' : ''}</span></div>`;
     hsl.hidden = false;
     const cl = $('#hs-clear'); if (cl) cl.onclick = () => { if (confirm('Удалить историю сверок с этого компьютера?')) { store.set(HKEY, []); S.hist = null; renderSearch(); if (S.res) renderResults(); toast('История сверок очищена'); } };
   }
   hsq.addEventListener('input', renderSearch);
-  hsq.addEventListener('focus', () => { if (hsq.value.trim()) renderSearch(); });
+  hsq.addEventListener('focus', renderSearch);   // пустое поле — показать хвосты, если есть
   document.addEventListener('mousedown', e => { if (!e.target.closest('.hsearch')) hsl.hidden = true; });
   hsq.addEventListener('keydown', e => { if (e.key === 'Escape') { hsq.value = ''; hsl.hidden = true; hsq.blur(); } });
 
