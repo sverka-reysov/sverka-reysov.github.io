@@ -579,7 +579,7 @@ tr.just .n-ok { display: inline-block; animation: popIn .45s cubic-bezier(.3, 1.
   </section>
 
   <div id="out"></div>
-  <footer style="margin-top:40px;color:var(--ink-3);font-size:12px">Сверка рейсов · версия <span id="app-ver"><!--ВЕРСИЯ-->14.10.2026 · 80f2a3<!--/ВЕРСИЯ--></span></footer>
+  <footer style="margin-top:40px;color:var(--ink-3);font-size:12px">Сверка рейсов · версия <span id="app-ver"><!--ВЕРСИЯ-->14.10.2026 · 087c41<!--/ВЕРСИЯ--></span></footer>
 </main>
 
 <div class="modal" id="report" role="dialog" aria-modal="true" aria-labelledby="report-title">
@@ -2170,6 +2170,14 @@ html.fx-scrolled .top { padding-top: 7px; padding-bottom: 7px; box-shadow: var(-
   .notice.hist:not(.tails) li:has(> .plate) { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 8px; }
   .notice.hist:not(.tails) li:has(> .plate) > .plate { margin: 0; }
 }
+
+/* «Рейсы по дням»: когда дней много (20 и больше), подписи дат на 1–2 px шире колонок — крайние обрезались, а правая
+   включала прокрутку на 3 px. Поля по 8 px с обеих сторон (обратным отступом — график не съезжает) вмещают подписи без
+   прокрутки; если дней правда не влезает (месяцы), прокрутка остаётся — тонкая и в тон, а не серая полоса. */
+.bars-wrap { padding-inline: 8px; margin-inline: -8px; scrollbar-width: thin; scrollbar-color: color-mix(in srgb, var(--ink-3) 40%, transparent) transparent; }
+.bars-wrap::-webkit-scrollbar { height: 6px; }
+.bars-wrap::-webkit-scrollbar-track { background: transparent; }
+.bars-wrap::-webkit-scrollbar-thumb { background: color-mix(in srgb, var(--ink-3) 40%, transparent); border-radius: 3px; }
 
 /* клавиши (kbd) — как настоящие колпачки; в пустом окне вставки — свои, крупнее */
 kbd { display: inline-grid; place-items: center; min-width: 22px; height: 22px; padding: 0 6px; margin: 0 1px; border-radius: 6px; border: 1px solid var(--rule-strong); border-bottom-width: 2px; background: var(--sheet); color: var(--ink); font: 600 12px/1 var(--mono); vertical-align: 1px; box-shadow: 0 1px 0 var(--rule); }
