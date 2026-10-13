@@ -99,6 +99,7 @@ table.grid { border-collapse: separate; border-spacing: 0; font-size: 13px; font
 .grid thead th { position: sticky; top: 0; z-index: 2; background: var(--head); font-weight: 500; color: var(--ink-2); font-size: 12px; height: 34px; }
 .grid .gut { position: sticky; left: 0; z-index: 1; background: var(--head); color: var(--ink-3); text-align: right; min-width: 46px; padding: 0 8px; font-size: 12px; }
 .grid thead .gut { z-index: 3; }
+.grid td.al-n, .grid th.al-n { text-align: right; }
 .grid .letter { display: block; color: var(--ink-3); font-size: 11px; line-height: 1; margin-bottom: 3px; }
 .grid select { appearance: none; -webkit-appearance: none; border: 0; background: transparent; color: var(--ink); font: 600 12px -apple-system, sans-serif; padding: 0 14px 0 0; cursor: pointer; background-image: linear-gradient(45deg, transparent 50%, var(--ink-3) 50%), linear-gradient(135deg, var(--ink-3) 50%, transparent 50%); background-position: right 4px center, right 0 center; background-size: 4px 4px; background-repeat: no-repeat; }
 .grid select.off { color: var(--ink-3); font-weight: 400; }
@@ -328,8 +329,8 @@ main { max-width: 1320px; }
 .tabs button { border-radius: 9px; height: 32px; }
 
 /* номер машины как настоящий: значок UA рисуется ::before и в копирование не попадает */
-.plate { display: inline-block; vertical-align: middle; white-space: nowrap; height: 22px; line-height: 22px; padding: 0 8px 0 3px; border-radius: 4px; background: #fff; color: #000; font: 600 15px/22px var(--plate-font); letter-spacing: .07em; box-shadow: 0 0 0 1px rgba(0, 0, 0, .3), inset 0 0 0 1.5px #fff, inset 0 0 0 2.3px #1a1c1f; }
-.plate::before { content: "UA"; display: inline-block; vertical-align: top; box-sizing: border-box; width: 13px; height: 17.4px; margin: 2.3px 6px 0 0; padding-top: 10px; border-radius: 1.5px 0 0 1.5px; font: 700 6.5px/1 Arial, sans-serif; letter-spacing: 0; text-align: center; color: #f6d33c; background: linear-gradient(#3a78e8, #3a78e8) 50% 2.5px / 8px 3px no-repeat, linear-gradient(#f6d33c, #f6d33c) 50% 5.5px / 8px 3px no-repeat, #1747b0; -webkit-user-select: none; user-select: none; }
+.plate { position: relative; box-sizing: border-box; min-width: 10.4em; text-align: center; text-transform: uppercase; display: inline-block; vertical-align: middle; white-space: nowrap; height: 22px; line-height: 22px; padding: 0 7px 0 24px; border-radius: 4px; background: #fff; color: #000; font: 600 15px/22px var(--plate-font); letter-spacing: .07em; box-shadow: 0 0 0 1px rgba(0, 0, 0, .3), inset 0 0 0 1.5px #fff, inset 0 0 0 2.3px #1a1c1f; }
+.plate::before { content: "UA"; position: absolute; left: 3px; top: 2.3px; box-sizing: border-box; width: 13px; height: 17.4px; padding-top: 10px; border-radius: 1.5px 0 0 1.5px; font: 700 6.5px/1 Arial, sans-serif; letter-spacing: 0; text-align: center; color: #f6d33c; background: linear-gradient(#3a78e8, #3a78e8) 50% 2.5px / 8px 3px no-repeat, linear-gradient(#f6d33c, #f6d33c) 50% 5.5px / 8px 3px no-repeat, #1747b0; -webkit-user-select: none; user-select: none; }
 .plate i { font-style: normal; }
 .plate i + i { margin-left: .35em; }
 
@@ -566,7 +567,7 @@ tr.just .n-ok { display: inline-block; animation: popIn .45s cubic-bezier(.3, 1.
   </section>
 
   <div id="out"></div>
-  <footer style="margin-top:40px;color:var(--ink-3);font-size:12px">Сверка рейсов · версия <span id="app-ver"><!--ВЕРСИЯ-->13.10.2026 · 643da7<!--/ВЕРСИЯ--></span></footer>
+  <footer style="margin-top:40px;color:var(--ink-3);font-size:12px">Сверка рейсов · версия <span id="app-ver"><!--ВЕРСИЯ-->13.10.2026 · c46633<!--/ВЕРСИЯ--></span></footer>
 </main>
 
 <div class="modal" id="report" role="dialog" aria-modal="true" aria-labelledby="report-title">
@@ -2415,12 +2416,15 @@ if (typeof module !== 'undefined') module.exports = Zap;
   const textSelected = () => { const t = window.getSelection(); return !!t && !t.isCollapsed && t.toString().trim() !== ''; };
   document.addEventListener('mouseup', () => {
     const grid = $('#res-grid');
+    let made = dragging === 'cell' || dragging === 'head';
     if (dragging === 'maybe' && start) {
       // остались в одной ячейке: выделили текст — копируем текст; просто щёлкнули — выделяем ячейку
-      if (!textSelected()) { S.sel = { a: start, b: start }; paintSel(); }
+      if (!textSelected()) { S.sel = { a: start, b: start }; paintSel(); made = true; }
     }
     if (grid) grid.classList.remove('dragging');
     dragging = null;
+    // выделение ячеек сразу кладётся в буфер (щелчок мышью — действие пользователя, браузер разрешает копировать)
+    if (made && S.sel) copySelection(true);
   });
   document.addEventListener('mousedown', e => {
     if (!S.sel || e.target.closest('#res-grid td[data-c], #res-grid th[data-hc], #btn-copy')) return;
@@ -2432,7 +2436,7 @@ if (typeof module !== 'undefined') module.exports = Zap;
     if (!S.sel || /INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName) || $('#report').classList.contains('open')) return;
     if (e.key === 'Escape') { clearSel(); return; }
     if ((e.metaKey || e.ctrlKey) && (e.key === 'c' || e.key === 'с' || e.code === 'KeyC')) { if (textSelected()) return; e.preventDefault(); copySelection(); }
-    if ((e.metaKey || e.ctrlKey) && (e.key === 'a' || e.code === 'KeyA')) { e.preventDefault(); S.sel = { a: { r: 0, c: 0 }, b: { r: S.model.rows.length - 1, c: S.model.head.length - 1 } }; paintSel(); }
+    if ((e.metaKey || e.ctrlKey) && (e.key === 'a' || e.code === 'KeyA')) { e.preventDefault(); S.sel = { a: { r: 0, c: 0 }, b: { r: S.model.rows.length - 1, c: S.model.head.length - 1 } }; paintSel(); copySelection(true); }
   });
   const rect = () => { const { a, b } = S.sel; return { r1: Math.min(a.r, b.r), r2: Math.max(a.r, b.r), c1: Math.min(a.c, b.c), c2: Math.max(a.c, b.c) }; };
   function clearSel() { S.sel = null; paintSel(); }
@@ -2457,7 +2461,8 @@ if (typeof module !== 'undefined') module.exports = Zap;
     const n = (r2 - r1 + 1) * (c2 - c1 + 1);
     if (btn) btn.textContent = `Скопировать выделенное (${n})`;
   }
-  function copySelection() {
+  let autoTold = false;
+  function copySelection(auto) {
     if (!S.sel || !S.model) return;
     const { r1, r2, c1, c2 } = rect();
     const rows = S.model.rows.slice(r1, r2 + 1).map(row => row.slice(c1, c2 + 1));
@@ -2466,6 +2471,16 @@ if (typeof module !== 'undefined') module.exports = Zap;
       x.bg ? `<td bgcolor="${x.bg}" style="background:${x.bg}">${esc(x.t)}</td>` : `<td>${esc(x.t)}</td>`).join('') + '</tr>').join('') + '</table></body></html>';
     const plural = (n, one, few, many) => { const m = n % 100, d = n % 10; return n + ' ' + (m > 10 && m < 20 ? many : d === 1 ? one : d >= 2 && d <= 4 ? few : many); };
     const what = plural(rows.length, 'строка', 'строки', 'строк') + ' × ' + plural(c2 - c1 + 1, 'колонка', 'колонки', 'колонок');
+    if (auto) {
+      // тихо: без всплывающей строки (кроме первого раза), подсказка у выделенного, на кнопке — что в буфере
+      if (!copyRich(html, text)) return;
+      S.done3 = true; updateSteps();
+      const btn = $('#btn-copy'); if (btn) btn.textContent = 'В буфере: ' + what;
+      const cells = document.querySelectorAll('#res-grid td.sel'), lastCell = cells[cells.length - 1];
+      if (lastCell) Motion.ghost(lastCell, 'Скопировано');
+      if (!autoTold) { autoTold = true; toast('Выделенное сразу скопировано — вставляйте ⌘V куда нужно'); }
+      Snd.play('tick', 0.6); return;
+    }
     if (copyRich(html, text)) { toast('Скопировано выделенное: ' + what + ' — вставьте ⌘V'); S.done3 = true; updateSteps(); Motion.ripple(document.querySelectorAll('#res-grid td.sel')); Motion.ghost($('#btn-copy'), 'Скопировано'); Snd.play('tick'); return; }
     if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(() => toast('Скопировано без цвета: ' + what), () => toast('Не удалось скопировать'));
   }
@@ -3291,7 +3306,9 @@ if (typeof module !== 'undefined') module.exports = Zap;
       const vals = [e.row, e.plate, e.ttn, e.note || FIELD[e.field], e.old || 'пусто', e.show, e.from];
       const cls = e.kind === 'fill' ? 'fill' : 'diff', done = sent.has(nKey(e));
       S.model.rows.push(vals.map(t => ({ t: String(t == null ? '' : t), bg: COPY[cls] })));
-      return `<tr class="${done ? 'n-sent' : ''}" data-nkey="${nKey(e)}"><td class="gut">${r + 1}</td>` + vals.map((v, c) => `<td data-r="${r}" data-c="${c}"${c === 5 ? ` class="c-${cls}"` : ''}>${c === 1 ? plateHtml(v) : esc(v)}</td>`).join('') +
+      const nf = v => { const x = Sverka.parseNum(v); return x == null ? v : Sverka.fmtNum(x); };
+      const shown = e.type === 'число' ? vals.map((v, c) => (c === 4 && e.old) || c === 5 ? nf(v) : v) : vals;
+      return `<tr class="${done ? 'n-sent' : ''}" data-nkey="${nKey(e)}"><td class="gut">${r + 1}</td>` + shown.map((v, c) => `<td data-r="${r}" data-c="${c}"${c === 5 ? ` class="c-${cls}"` : ''}>${c === 1 ? plateHtml(v) : esc(v)}</td>`).join('') +
         `<td class="n-act">${done ? '<span class="n-ok" title="Передано быстрой команде «Сверка в Numbers»; что вписано — в её окне на Маке">↗ передано на Мак</span>' : `<button class="btn btn-sm" data-nsend="${r}">Вписать</button>`}</td></tr>`;
     }).join('');
     return `<div class="result-note"><span>Синим — цены и суммы из порта там, где у вас пусто; жёлтым — значение порта вместо вашего (вписывайте, если согласны с портом). Строка в Numbers — от «Первая строка в Numbers» под окном; если там не та машина, команда найдёт строку по ТТН и номеру.</span>
@@ -3593,6 +3610,30 @@ if (typeof module !== 'undefined') module.exports = Zap;
     if (e.target.closest('[data-bk="save"]')) backupSave();
     if (e.target.closest('[data-bk="load"]')) bkIn.click();
   });
+
+  // ================= числа по правому краю, как в Numbers (13.10.2026) =================
+  // Колонка, где почти все непустые ячейки — числа, выравнивается вправо вместе с заголовком: разряды встают
+  // друг под другом. Текст, даты и номера машин остаются слева. Значения не меняются — только выравнивание.
+  const NUM_CELL = /^[−-]?\d[\d\s  ]*([.,]\d+)?$/;
+  const numCellText = td => { const f = td.firstChild; return (f && f.nodeType === 3 ? f.nodeValue : td.textContent).trim(); };
+  function alignNums(table) {
+    table.dataset.al = '1';
+    const body = [...table.tBodies].flatMap(b => [...b.rows]), head = table.tHead ? [...table.tHead.rows] : [];
+    const width = Math.max(0, ...body.map(r => r.cells.length));
+    const stat = Array.from({ length: width }, () => ({ n: 0, all: 0 }));
+    body.forEach(r => {
+      if (r.cells.length !== width || r.classList.contains('is-head')) return;
+      [...r.cells].forEach((td, c) => { if (td.classList.contains('gut') || td.querySelector('button, select, .plate')) return; const t = numCellText(td); if (!t) return; stat[c].all++; if (NUM_CELL.test(t)) stat[c].n++; });
+    });
+    stat.forEach((s, c) => {
+      if (!s.all || s.n / s.all < 0.8) return;
+      body.concat(head).forEach(r => { if (r.cells.length === width && r.cells[c]) r.cells[c].classList.add('al-n'); });
+    });
+  }
+  // наблюдатель срабатывает один раз на пачку изменений, сразу после перерисовки (кадра не ждём — в фоне его нет)
+  const alignAll = () => document.querySelectorAll('table.grid:not([data-al])').forEach(alignNums);
+  new MutationObserver(alignAll).observe(document.body, { childList: true, subtree: true });
+  alignAll();
 
   renderPane('port'); renderPane('mine');
 })();
