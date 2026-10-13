@@ -579,7 +579,7 @@ tr.just .n-ok { display: inline-block; animation: popIn .45s cubic-bezier(.3, 1.
   </section>
 
   <div id="out"></div>
-  <footer style="margin-top:40px;color:var(--ink-3);font-size:12px">Сверка рейсов · версия <span id="app-ver"><!--ВЕРСИЯ-->13.10.2026 · 6c6ba6<!--/ВЕРСИЯ--></span></footer>
+  <footer style="margin-top:40px;color:var(--ink-3);font-size:12px">Сверка рейсов · версия <span id="app-ver"><!--ВЕРСИЯ-->13.10.2026 · 14342e<!--/ВЕРСИЯ--></span></footer>
 </main>
 
 <div class="modal" id="report" role="dialog" aria-modal="true" aria-labelledby="report-title">
@@ -667,9 +667,9 @@ tr.just .n-ok { display: inline-block; animation: popIn .45s cubic-bezier(.3, 1.
       <div>
         <h3>Клавиши</h3>
         <ul>
-          <li><b>⌘↵</b> — сверить;</li>
-          <li><b>/</b> — найти машину или ТТН во всех сверках (пустое поле — «хвосты»);</li>
-          <li><b>⌘V</b> в окне — вставить таблицу, <b>Esc</b> — снять выделение.</li>
+          <li><kbd>⌘</kbd><kbd>↵</kbd> — сверить;</li>
+          <li><kbd>/</kbd> — найти машину или ТТН во всех сверках (пустое поле — «хвосты»);</li>
+          <li><kbd>⌘</kbd><kbd>V</kbd> в окне — вставить таблицу, <kbd>Esc</kbd> — снять выделение.</li>
         </ul>
       </div>
       <div class="bk-box">
@@ -1986,6 +1986,634 @@ if (typeof module !== 'undefined') module.exports = Zap;
 /*ЗАП-КОНЕЦ*/
 </script>
 
+<!-- ================= ДИЗАЙН-СЛОЙ: движение и глубина (дизайн-сессия, 13.10.2026) =================
+     Оформляет и оживляет КЛАССЫ (.btn-primary, .card2, .modal, .toast, .tally …), а не отдельные элементы:
+     новые части интерфейса получают то же самое сами. Работает и файлом из бота — без библиотек и сети.
+     «Уменьшить движение» в системе — всё неподвижно. Пометки для основной сессии — data-fx, см. дизайн/ДЛЯ-ДИЗАЙНА.md. -->
+<style id="fx-style">
+/* Пружины — кривые linear(), посчитаны из физики (масса 1): --spring — жёсткость 300, затухание 24 (перелёт 5 %,
+   успокаивается за 0,54 с); --spring-pop — 400 / 22 (перелёт 12 %, 0,64 с); --spring-soft — 170 / 20
+   (перелёт 2 %, 0,66 с) — для больших окон. Safari до 17.2 linear() не знает —
+   там то же движение без перелёта (--ease-out). */
+:root {
+  --ease-out: cubic-bezier(.25, 1, .5, 1);
+  --spring: var(--ease-out); --spring-pop: var(--ease-out); --spring-soft: var(--ease-out);
+  --t-fast: .15s; --t: .22s; --t-slow: .4s; --t-spring: .55s; --t-pop: .64s;
+  --shadow-1: var(--shadow);
+  --shadow-2: 0 2px 4px rgba(13, 18, 24, .05), 0 20px 40px rgba(13, 18, 24, .09);
+  --shadow-3: 0 4px 10px rgba(13, 18, 24, .08), 0 40px 90px rgba(13, 18, 24, .22);
+}
+@supports (transition-timing-function: linear(0, 1)) {
+  :root {
+    --spring: linear(0, 0.043, 0.147, 0.281, 0.424, 0.562, 0.686, 0.791, 0.875, 0.94, 0.986, 1.017, 1.036, 1.046, 1.048, 1.046, 1.041, 1.034, 1.027, 1.021, 1.015, 1.01, 1.006, 1.003, 1.001, 0.999, 0.998, 0.998, 0.998, 0.998, 1);
+    --spring-soft: linear(0, 0.036, 0.124, 0.238, 0.362, 0.484, 0.597, 0.696, 0.78, 0.848, 0.902, 0.944, 0.974, 0.995, 1.009, 1.017, 1.022, 1.023, 1.022, 1.02, 1.018, 1.015, 1.012, 1.009, 1.007, 1.005, 1.004, 1.002, 1.001, 1.001, 1);
+    --spring-pop: linear(0, 0.08, 0.259, 0.48, 0.694, 0.867, 0.997, 1.079, 1.117, 1.125, 1.111, 1.088, 1.06, 1.034, 1.013, 0.998, 0.989, 0.985, 0.985, 0.987, 0.99, 0.993, 0.996, 0.999, 1.001, 1.002, 1.002, 1.002, 1.002, 1.001, 1);
+  }
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --shadow-2: 0 2px 4px rgba(0, 0, 0, .4), 0 24px 48px rgba(0, 0, 0, .5);
+    --shadow-3: 0 4px 12px rgba(0, 0, 0, .5), 0 48px 110px rgba(0, 0, 0, .7);
+  }
+}
+:root[data-theme="dark"] {
+  --shadow-2: 0 2px 4px rgba(0, 0, 0, .4), 0 24px 48px rgba(0, 0, 0, .5);
+  --shadow-3: 0 4px 12px rgba(0, 0, 0, .5), 0 48px 110px rgba(0, 0, 0, .7);
+}
+@keyframes fxFadeIn { from { opacity: 0; } }
+@keyframes fxFadeOut { to { opacity: 0; } }
+
+/* окна (.modal): задний план размыт, затемнение проявляется; карточка вырастает из кнопки — в коде ниже */
+.modal { -webkit-backdrop-filter: blur(8px) saturate(1.15); backdrop-filter: blur(8px) saturate(1.15); }
+.modal.open { animation: fxFadeIn var(--t) var(--ease-out) both; }
+.modal.fx-closing { display: flex; pointer-events: none; animation: fxFadeOut .26s var(--ease-out) both; }
+.modal-card { box-shadow: var(--shadow-3); }
+
+/* всплывающее сообщение (toast): выезжает пружиной, уходит быстро и без перелёта */
+.toast { border-radius: 12px; box-shadow: var(--shadow-2); transform: translate(-50%, 18px) scale(.94); transition: opacity .18s var(--ease-out), transform .22s var(--ease-out); }
+.toast.show { transform: translate(-50%, 0) scale(1); transition: opacity var(--t) var(--ease-out), transform var(--t-pop) var(--spring-pop); }
+
+/* полоска внизу тоста — сколько ему осталось (data-tick перезапускает её на каждое новое сообщение);
+   data-kind="restore" — значок возврата, прокручивается назад */
+.toast { overflow: hidden; }
+.toast::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 2px; background: currentColor; opacity: .3; transform-origin: 0 50%; transform: scaleX(0); }
+.toast.show[data-tick="a"]::after { animation: fxTimeA var(--toast-ms, 3.2s) linear both; }
+.toast.show[data-tick="b"]::after { animation: fxTimeB var(--toast-ms, 3.2s) linear both; }
+@keyframes fxTimeA { from { transform: scaleX(1); } to { transform: scaleX(0); } }
+@keyframes fxTimeB { from { transform: scaleX(1); } to { transform: scaleX(0); } }
+.toast[data-kind="restore"]::before { content: "↺"; display: inline-block; margin-right: 8px; font-weight: 700; }
+.toast.show[data-kind="restore"]::before { animation: fxBack .9s var(--spring) .12s both; }
+@keyframes fxBack { from { transform: rotate(240deg); } }
+
+/* кнопка сменила текст («В буфере: 3 строки × 2 колонки», «Скопировано») — короткий отклик пружиной и подсветка */
+@keyframes fxPulse { from { scale: .94; box-shadow: 0 0 0 4px color-mix(in srgb, var(--sea) 40%, transparent); } }
+.btn.fx-pulse { animation: fxPulse var(--t-pop) var(--spring-pop); }
+
+/* «Скопировано» у кнопки или ячейки */
+.copyghost { box-shadow: var(--shadow-2); }
+/* свет за курсором (мышь или трекпад): мягкое пятно внутри поверхности и подсветка рамки у курсора, как у Stripe.
+   Координаты --mx / --my и --fx-on ставит код ниже только той поверхности, над которой курсор. Таблицу итога
+   не подсвечиваем — там работают. Окно вставки — только рамка (его ::before занят). */
+:is(.card2, .tally, .totals) { position: relative; isolation: isolate; }
+:is(.card2, .r-hero, .tally, .totals)::before { content: ""; position: absolute; inset: 0; z-index: -1; border-radius: inherit; pointer-events: none;
+  background: radial-gradient(520px circle at var(--mx, 50%) var(--my, 50%), color-mix(in srgb, var(--sea) 9%, transparent), transparent 65%);
+  opacity: var(--fx-on, 0); transition: opacity .45s var(--ease-out); }
+:is(.card2, .r-hero, .tally, .totals, .pane)::after { content: ""; position: absolute; inset: 0; z-index: 2; border-radius: inherit; padding: 1px; pointer-events: none;
+  background: radial-gradient(260px circle at var(--mx, 50%) var(--my, 50%), color-mix(in srgb, var(--sea) 70%, transparent), transparent 70%);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
+  opacity: var(--fx-on, 0); transition: opacity .45s var(--ease-out); }
+
+/* «Что осталось по этой сверке» (.todo, дела — [data-todo], сделано — aria-pressed): чек-лист на стекле.
+   Кружок .tick пустой — дело ждёт; зелёный с галочкой — сделано (только что сделанное «щёлкает» пружиной, .fx-done);
+   всё сделано — блок светится зелёным. */
+.todo { gap: 8px; padding: 12px 14px; border-radius: 18px; border: 1px solid var(--rule); background: color-mix(in srgb, var(--sheet) 72%, transparent); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); transition: border-color var(--t-slow) var(--ease-out), box-shadow var(--t-slow) var(--ease-out); }
+.todo .eyebrow { flex: 1 0 100%; margin-bottom: 2px; }
+.todo [data-todo] { display: inline-flex; align-items: center; gap: 8px; border-radius: 999px; padding: 0 13px 0 8px; }
+.todo .tick { position: relative; flex: none; width: 17px; height: 17px; border-radius: 50%; border: 1.5px solid var(--ink-3); transition: background-color var(--t) var(--ease-out), border-color var(--t) var(--ease-out); }
+.todo .tick::after { content: ""; position: absolute; left: 5px; top: 2px; width: 4px; height: 8px; border: solid var(--sheet); border-width: 0 2px 2px 0; transform: rotate(45deg) scale(0); transition: transform var(--t-pop) var(--spring-pop); }
+.todo [aria-pressed="true"] { color: var(--ink-2); }
+.todo [aria-pressed="true"] span { text-decoration: line-through; text-decoration-color: color-mix(in srgb, var(--ink-2) 55%, transparent); }
+.todo [aria-pressed="true"] .tick { background: var(--ok-ink); border-color: var(--ok-ink); }
+.todo [aria-pressed="true"] .tick::after { transform: rotate(45deg) scale(1); }
+@keyframes fxDone { 0% { transform: scale(.4); box-shadow: 0 0 0 0 color-mix(in srgb, var(--ok-ink) 60%, transparent); } 60% { box-shadow: 0 0 0 9px transparent; } 100% { transform: none; box-shadow: 0 0 0 9px transparent; } }
+.todo .fx-done .tick { animation: fxDone var(--t-pop) var(--spring-pop); }
+.todo .fx-done .tick::after { transition-delay: .12s; }
+.todo:not(:has([data-todo]:not([aria-pressed="true"]))) { border-color: color-mix(in srgb, var(--ok-ink) 45%, transparent); box-shadow: 0 0 0 4px color-mix(in srgb, var(--ok-ink) 10%, transparent); }
+.todo:not(:has([data-todo]:not([aria-pressed="true"]))) .eyebrow { color: var(--ok-ink); }
+
+/* «хвосты» (.notice.tails): список машин — ровные строки с подсветкой под курсором, «Снять» проявляется у строки;
+   в выпадающем поиске — компактнее */
+.notice.tails ul { list-style: none; margin: 8px 0 12px; padding: 0; display: grid; gap: 2px; }
+.notice.tails li { display: flex; align-items: center; gap: 4px 10px; flex-wrap: wrap; margin: 0; padding: 6px 8px; border-radius: 10px; transition: background-color var(--t-fast) var(--ease-out); }
+.notice.tails li:hover { background: color-mix(in srgb, var(--warn-ink) 10%, transparent); }
+.notice.tails li [data-tail-close] { margin-left: auto; opacity: .5; transition: opacity var(--t) var(--ease-out); }
+.notice.tails li:hover [data-tail-close], .notice.tails li [data-tail-close]:focus-visible { opacity: 1; }
+#hs-list .tails { margin: 2px 2px 6px; padding: 12px 12px 10px; border-radius: 12px; }
+#hs-list .tails h3 { font-size: 13.5px; line-height: 1.3; }
+#hs-list .tails li { padding: 5px 6px; font-size: 12.5px; }
+#hs-list .tails .row { gap: 6px; }
+
+/* шапка при прокрутке (html.fx-scrolled ставит код ниже): тоньше и с тенью; в окне уже 1100 px (программа рядом
+   с Numbers) прячет шаги и подпись — одна строка вместо двух. До 700 px шапка не прилипает. */
+.top { transition: padding var(--t-slow) var(--ease-out), box-shadow var(--t-slow) var(--ease-out), background-color var(--t-slow) var(--ease-out); }
+html.fx-scrolled .top { padding-top: 7px; padding-bottom: 7px; box-shadow: var(--shadow-2); }
+@media (min-width: 701px) and (max-width: 1099px) {
+  html.fx-scrolled .top .steps, html.fx-scrolled .top .brand span { display: none; }
+}
+
+/* строка под курсором — лёгкая подсветка во всю длину (глазу проще идти от «Статуса» до «Суммы»). Без сдвигов;
+   выделенные ячейки (их фон — тоже картинка) и протяжку выделения не трогает. */
+@media (hover: hover) {
+  :is(.grid.cells, .sheet-body .grid):not(.dragging) tbody tr:hover > td:not(.sel) { background-image: linear-gradient(color-mix(in srgb, var(--ink) 6%, transparent), color-mix(in srgb, var(--ink) 6%, transparent)); }
+}
+
+/* клавиши (kbd) — как настоящие колпачки; в пустом окне вставки — свои, крупнее */
+kbd { display: inline-grid; place-items: center; min-width: 22px; height: 22px; padding: 0 6px; margin: 0 1px; border-radius: 6px; border: 1px solid var(--rule-strong); border-bottom-width: 2px; background: var(--sheet); color: var(--ink); font: 600 12px/1 var(--mono); vertical-align: 1px; box-shadow: 0 1px 0 var(--rule); }
+
+/* вкладки: подсветка выбранной переезжает пружиной (.fx-pill — на время переезда, код ниже) */
+.tabs { position: relative; }
+.tabs button { position: relative; z-index: 1; transition: color var(--t) var(--ease-out); }
+.tabs.fx-sliding button[aria-selected="true"] { background: transparent; box-shadow: none; }
+.fx-pill { position: absolute; z-index: 0; border-radius: 9px; background: var(--sheet); box-shadow: 0 1px 2px rgba(0, 0, 0, .12), 0 6px 16px rgba(0, 0, 0, .1); pointer-events: none; }
+
+/* итог оживает, когда его видно: пока блок за краем экрана, его появление стоит на паузе (класс fx-io ставит код,
+   если браузер умеет следить за видимостью; без него всё играет сразу, как раньше) */
+html.fx-io #out.fresh :is(.r-hero, .tally, .card2, .notice, .result-sheet):not(.fx-seen),
+html.fx-io #out.fresh :is(.r-hero, .tally, .card2, .notice, .result-sheet):not(.fx-seen) * { animation-play-state: paused !important; }
+.fx-scene { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 44; pointer-events: none; display: none; }
+
+/* одометр: на время прокрутки число разбито на колонки цифр, потом снова обычный текст (копируется как число).
+   Цифры одной ширины — иначе в конце число дёрнется.
+   Свои теги fx-odo / fx-s / fx-n: правила страницы вида «.s-big span» их не задевают. */
+fx-odo { display: inline-block; overflow: hidden; vertical-align: top; white-space: pre; }
+fx-s { display: block; font-variant-numeric: lining-nums tabular-nums; }
+fx-n { display: block; }
+.r-lede h2 .n, .r-orb .core b { font-variant-numeric: lining-nums tabular-nums; }
+
+/* кнопки: нажатие — быстрое сжатие, отпустили — пружина обратно. Главные (.btn-primary, .btn-blue) ещё и тянутся
+   к курсору (магнит, код ниже) и при наведении поднимаются с тенью. Смещение магнита — свойство translate,
+   поэтому transform остаётся свободным для других анимаций. */
+.btn, .icon-btn, .bot-btn { transition: background-color var(--t) var(--ease-out), border-color var(--t) var(--ease-out), color var(--t) var(--ease-out), opacity var(--t) var(--ease-out), box-shadow var(--t-slow) var(--ease-out), transform var(--t-slow) var(--ease-out), scale var(--t-pop) var(--spring-pop); }
+:is(.btn, .icon-btn, .bot-btn):active:not([disabled]) { scale: .96; transition-duration: var(--t), var(--t), var(--t), var(--t), var(--t-slow), var(--t-slow), .09s; transition-timing-function: var(--ease-out); }
+.btn-primary:hover, .btn-blue:hover { opacity: 1; transform: translateY(-1px); }
+.btn-primary:hover { box-shadow: 0 16px 36px color-mix(in srgb, var(--btn-bg) 30%, transparent); }
+.btn-blue:hover { box-shadow: 0 16px 36px color-mix(in srgb, var(--sea) 42%, transparent); }
+.btn[disabled]:hover { transform: none; }
+
+/* глубина. Карточки при наведении только глубже тенью — без сдвига: внутри них читают и выделяют. */
+@keyframes fxRise { from { opacity: 0; transform: translateY(12px); } }
+@keyframes fxDrop { from { opacity: 0; transform: translateY(-6px) scale(.97); } }
+.card2, .totals, .result-sheet, .r-hero { transition: box-shadow var(--t-slow) var(--ease-out); }
+.card2:hover, .totals:hover { box-shadow: var(--shadow-2); }
+/* плашки-счётчики: число приподнимается пружиной, точка цвета подрастает; при нажатии число чуть сжимается */
+.tally .n { transition: transform var(--t-spring) var(--spring); transform-origin: 0 100%; }
+.tally .l i { transition: transform var(--t-pop) var(--spring-pop); }
+.tally button:not([disabled]):hover .n { transform: translateY(-3px); }
+.tally button:not([disabled]):hover .l i { transform: scale(1.35); }
+.tally button:not([disabled]):active .n { transform: translateY(-1px) scale(.97); transition-duration: .09s; transition-timing-function: var(--ease-out); }
+/* метки найденных колонок и столбики дней — на пружине */
+.fchip { transition: background-color var(--t-fast) var(--ease-out), transform var(--t-spring) var(--spring); }
+.bar span { transition: transform var(--t-pop) var(--spring-pop); }
+/* появление итога — пружиной; предупреждения выезжают вместе с итогом (только при новой сверке, не при каждом щелчке) */
+#out.fresh .tally button, #out.fresh .card2 { animation-timing-function: var(--spring); }
+#out.fresh .notice { animation: fxRise var(--t-spring) var(--spring) .1s both; }
+/* строки таблицы: первые 20 — с шагом 30 мс (staggerRows), дальше сразу */
+.grid tbody tr.ri { animation-duration: var(--t-slow); animation-timing-function: var(--ease-out); animation-delay: calc(var(--i) * 30ms); }
+/* выпадающий список поиска — раскрывается от поля */
+.hs-list:not([hidden]) { animation: fxDrop var(--t) var(--ease-out) both; transform-origin: 100% 0; }
+</style>
+<script>
+// Движок пружин дизайн-слоя. Одни и те же кривые для CSS и для анимаций из кода.
+const SverkaFx = (() => {
+  'use strict';
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const fine = matchMedia('(hover: hover) and (pointer: fine)').matches;   // мышь или трекпад, не палец
+  const hasLinear = typeof CSS !== 'undefined' && CSS.supports && CSS.supports('transition-timing-function', 'linear(0, 1)');
+  const cssVar = k => getComputedStyle(document.documentElement).getPropertyValue(k).trim();
+  const ease = name => (hasLinear && cssVar(name)) || 'cubic-bezier(.25, 1, .5, 1)';
+  // Пружина «в коде»: шаг физики для магнита и других движений, которые следуют за мышью.
+  // k — жёсткость, c — затухание (масса 1). Возвращает true, пока не успокоилась.
+  function step(s, target, dt, k = 260, c = 22) {
+    const a = -k * (s.x - target) - c * s.v;
+    s.v += a * dt; s.x += s.v * dt;
+    if (Math.abs(s.x - target) < 0.02 && Math.abs(s.v) < 0.05) { s.x = target; s.v = 0; return false; }
+    return true;
+  }
+  // Один наблюдатель на документ: каждая деталь регистрирует, что делать с новыми элементами своего класса.
+  // each(sel, fn) — с каждым элементом класса, и сейчас, и появившимся потом; changed(sel, fn) — у элемента сменилось
+  // содержимое (текст кнопки), а сам он остался на месте.
+  const hooks = [], changeHooks = [];
+  function each(selector, fn) {
+    hooks.push([selector, fn]);
+    document.querySelectorAll(selector).forEach(el => fn(el));
+  }
+  const changed = (selector, fn) => changeHooks.push([selector, fn]);
+  new MutationObserver(list => {
+    const seen = new Set();
+    for (const m of list) {
+      const t = m.target;
+      if (t.nodeType === 1 && !seen.has(t) && t.isConnected) for (const [sel, fn] of changeHooks) if (t.matches(sel)) { seen.add(t); fn(t); }
+    }
+    if (!hooks.length) return;
+    for (const m of list) for (const n of m.addedNodes) {
+      if (n.nodeType !== 1) continue;
+      for (const [sel, fn] of hooks) {
+        if (n.matches(sel)) fn(n);
+        n.querySelectorAll(sel).forEach(el => fn(el));
+      }
+    }
+  }).observe(document.body, { childList: true, subtree: true });
+  // Одометр: каждая цифра прокручивается вертикально к своему значению, младшие — с лишними оборотами и дольше,
+  // в конце — мягкая отдача на 12 % высоты цифры. Потом элемент снова содержит ровно прежний текст.
+  function odometer(el) {
+    if (reduce || !el || el._odo) return false;
+    const fin = el.textContent; if (!/\d/.test(fin)) return false;
+    const cs = getComputedStyle(el), lh = parseFloat(cs.lineHeight) || parseFloat(cs.fontSize) * 1.2;
+    const chars = [...fin], nd = chars.filter(c => /\d/.test(c)).length;
+    el._odo = true; el.setAttribute('aria-label', fin); el.textContent = '';
+    let k = 0, longest = 0; const runs = [];
+    for (const ch of chars) {
+      const box = document.createElement('fx-odo'); box.setAttribute('aria-hidden', 'true');
+      box.style.height = box.style.lineHeight = lh + 'px';
+      el.appendChild(box);
+      if (!/\d/.test(ch)) { box.textContent = ch; continue; }
+      const fromRight = nd - 1 - k++, loops = fromRight === 0 ? 2 : fromRight === 1 ? 1 : 0, n = loops * 10 + +ch;
+      const strip = document.createElement('fx-s');
+      strip.innerHTML = Array.from({ length: n + 1 }, (_, i) => `<fx-n style="height:${lh}px">${i % 10}</fx-n>`).join('');
+      box.appendChild(strip);
+      const dur = 760 + Math.min(nd - 1 - fromRight, 6) * 70 + loops * 120; longest = Math.max(longest, dur);
+      runs.push(() => strip.animate([
+        { transform: 'translateY(0)', easing: 'cubic-bezier(.3, .7, .25, 1)' },
+        { transform: `translateY(${-(n + .12) * lh}px)`, offset: .82, easing: 'cubic-bezier(.4, 0, .4, 1)' },
+        { transform: `translateY(${-n * lh}px)` }
+      ], { duration: dur, fill: 'forwards' }));
+    }
+    // крутить, когда число на экране (до того стоят нули); не показалось за 30 с — просто вернуть текст
+    let started = false;
+    const back = () => { el.textContent = fin; el.removeAttribute('aria-label'); el._odo = false; };
+    const go = () => { if (started) return; started = true; runs.forEach(f => f()); setTimeout(back, longest + 40); };
+    const r0 = el.getBoundingClientRect();
+    if ((r0.bottom > 0 && r0.top < innerHeight * .95) || !('IntersectionObserver' in window)) go();
+    else {
+      const io = new IntersectionObserver(es => { if (es[0].isIntersecting) { io.disconnect(); go(); } }, { rootMargin: '0px 0px -5% 0px' });
+      io.observe(el); setTimeout(() => { if (!started) { io.disconnect(); started = true; back(); } }, 30000);
+    }
+    return true;
+  }
+  return { reduce, fine, ease, step, each, changed, odometer };
+})();
+
+// ---------- окна (.modal): вырастают из кнопки, которой их открыли, и сворачиваются в неё обратно ----------
+(() => {
+  if (SverkaFx.reduce) return;
+  let from = null, at = 0;   // последняя нажатая кнопка — откуда растёт окно
+  const remember = el => { if (el && el.closest && !el.closest('.modal')) { from = el; at = performance.now(); } };
+  document.addEventListener('pointerdown', e => remember(e.target.closest('button, a, [role="button"], summary')), true);
+  document.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') remember(document.activeElement); }, true);
+  const origin = () => {
+    if (!from || !from.isConnected || performance.now() - at > 1500) return null;
+    const r = from.getBoundingClientRect();
+    return r.width && r.bottom > 0 && r.top < innerHeight ? r : null;
+  };
+  // сдвиг и масштаб, которые превращают карточку в прямоугольник кнопки
+  const toRect = (card, r) => {
+    const c = card.getBoundingClientRect();
+    const dx = r.left + r.width / 2 - (c.left + c.width / 2), dy = r.top + r.height / 2 - (c.top + c.height / 2);
+    return `translate(${dx}px, ${dy}px) scale(${Math.max(.06, r.width / c.width)}, ${Math.max(.04, r.height / c.height)})`;
+  };
+  function opened(modal, card) {
+    const r = origin(); modal._fxFrom = r ? from : null;
+    const start = r ? toRect(card, r) : 'translateY(14px) scale(.96)';
+    card.getAnimations().forEach(a => a.cancel());
+    card.animate([{ transform: start, opacity: 0 }, { opacity: 1, offset: .3 }, { transform: 'none', opacity: 1 }],
+      { duration: 660, easing: SverkaFx.ease('--spring-soft') });
+  }
+  function closed(modal, card) {
+    modal.classList.add('fx-closing');   // держит окно на экране, пока оно сворачивается
+    const src = modal._fxFrom, r = src && src.isConnected ? src.getBoundingClientRect() : null;
+    const end = r && r.width && r.bottom > 0 && r.top < innerHeight ? toRect(card, r) : 'translateY(10px) scale(.97)';
+    card.getAnimations().forEach(a => a.cancel());
+    const an = card.animate([{ transform: 'none', opacity: 1 }, { opacity: 1, offset: .5 }, { transform: end, opacity: 0 }],
+      { duration: 260, easing: 'cubic-bezier(.4, 0, .7, .2)', fill: 'forwards' });
+    an.onfinish = () => { if (!modal.classList.contains('open')) { modal.classList.remove('fx-closing'); an.cancel(); } };
+  }
+  SverkaFx.each('.modal', modal => {
+    if (modal._fx) return; modal._fx = true;
+    let was = modal.classList.contains('open');
+    new MutationObserver(() => {
+      const now = modal.classList.contains('open'), card = modal.querySelector('.modal-card');
+      if (now === was || !card) { was = now; return; }
+      was = now;
+      if (now) { modal.classList.remove('fx-closing'); opened(modal, card); } else closed(modal, card);
+    }).observe(modal, { attributes: true, attributeFilter: ['class'] });
+  });
+})();
+
+// ---------- магнит: главные кнопки в радиусе 50 px тянутся к курсору (до 6 px), отпускаются пружиной ----------
+// Только мышь или трекпад; ячейки и строки таблиц не двигаются никогда. Новая кнопка с классом получает магнит сама.
+(() => {
+  if (SverkaFx.reduce || !SverkaFx.fine) return;
+  const R = 50, MAX_X = 6, MAX_Y = 4;   // радиус и ход — порог наш, на глаз
+  const set = new Set(); let px = -1e4, py = -1e4, raf = 0, last = 0;
+  SverkaFx.each('.btn-primary, .btn-blue, [data-fx~="magnet"]', el => { if (!el._mg) { el._mg = { x: { x: 0, v: 0 }, y: { x: 0, v: 0 } }; set.add(el); } });
+  const clamp = (v, m) => Math.max(-m, Math.min(m, v));
+  function frame(t) {
+    const dt = Math.min(.032, last ? (t - last) / 1000 : .016); last = t; let moving = false;
+    for (const el of set) {
+      if (!el.isConnected) { set.delete(el); continue; }
+      const m = el._mg; let tx = 0, ty = 0;
+      if (!el.disabled && el.offsetParent) {
+        const r = el.getBoundingClientRect(), left = r.left - m.x.x, top = r.top - m.y.x;
+        const dx = Math.max(left - px, 0, px - (left + r.width)), dy = Math.max(top - py, 0, py - (top + r.height));
+        const d = Math.hypot(dx, dy);
+        if (d < R) {
+          const f = 1 - d / R;
+          tx = clamp((px - (left + r.width / 2)) * .14, MAX_X) * f;
+          ty = clamp((py - (top + r.height / 2)) * .2, MAX_Y) * f;
+        }
+      }
+      const a = SverkaFx.step(m.x, tx, dt), b = SverkaFx.step(m.y, ty, dt);
+      if (a || b) moving = true;   // успокоилась — кадры не нужны до следующего движения мыши
+      el.style.translate = m.x.x || m.y.x ? `${m.x.x.toFixed(2)}px ${m.y.x.toFixed(2)}px` : '';
+    }
+    raf = moving ? requestAnimationFrame(frame) : 0; if (!raf) last = 0;
+  }
+  const kick = () => { if (!raf) raf = requestAnimationFrame(frame); };
+  addEventListener('pointermove', e => { if (e.pointerType === 'mouse' || e.pointerType === 'pen') { px = e.clientX; py = e.clientY; kick(); } }, { passive: true });
+  document.addEventListener('pointerleave', () => { px = py = -1e4; kick(); });
+  addEventListener('blur', () => { px = py = -1e4; kick(); });
+})();
+
+// ---------- свет за курсором: координаты — той поверхности, над которой курсор (раз за кадр) ----------
+(() => {
+  if (!SverkaFx.fine) return;
+  const LIT = '.card2, .r-hero, .tally, .totals, .pane';
+  let cur = null, ev = null, raf = 0;
+  const off = el => { if (el) el.style.setProperty('--fx-on', '0'); };
+  function frame() {
+    raf = 0; if (!ev) return;
+    const el = ev.target instanceof Element ? ev.target.closest(LIT) : null;
+    if (el !== cur) { off(cur); cur = el; }
+    if (!el) return;
+    const r = el.getBoundingClientRect();
+    el.style.setProperty('--mx', (ev.clientX - r.left).toFixed(0) + 'px'); el.style.setProperty('--my', (ev.clientY - r.top).toFixed(0) + 'px');
+    el.style.setProperty('--fx-on', '1');
+  }
+  addEventListener('pointermove', e => { if (e.pointerType !== 'mouse' && e.pointerType !== 'pen') return; ev = e; if (!raf) raf = requestAnimationFrame(frame); }, { passive: true });
+  document.addEventListener('pointerleave', () => { ev = null; off(cur); cur = null; });
+})();
+
+// ---------- шапка при прокрутке: html.fx-scrolled. Зазор 160/20 px: шапка меняет высоту на ~60 px, браузер подправляет
+// прокрутку — с узким зазором класс включался бы и выключался по кругу ----------
+(() => {
+  let on = false;
+  const check = () => { const y = scrollY; if (!on && y > 160) { on = true; document.documentElement.classList.add('fx-scrolled'); } else if (on && y < 20) { on = false; document.documentElement.classList.remove('fx-scrolled'); } };
+  addEventListener('scroll', check, { passive: true });
+  check();
+})();
+
+// ---------- «Что осталось»: только что сделанное дело «щёлкает» (список перерисовывается целиком — помним, что уже было сделано) ----------
+(() => {
+  if (SverkaFx.reduce) return;
+  const done = new Set();
+  SverkaFx.each('[data-todo]', b => {
+    const k = b.dataset.todo, on = b.getAttribute('aria-pressed') === 'true';
+    if (!on) { done.delete(k); return; }
+    if (done.has(k)) return;
+    done.add(k); if (performance.now() > 2500) b.classList.add('fx-done');   // при загрузке страницы сделанное уже сделано — без щелчка
+  });
+})();
+
+// ---------- вкладки (.tabs): подсветка переезжает со старой вкладки на новую ----------
+// Вкладки перерисовываются целиком, поэтому помним, где была выбранная в прошлый раз.
+(() => {
+  if (SverkaFx.reduce) return;
+  let last = null;
+  SverkaFx.each('.tabs', tabs => {
+    const btns = [...tabs.querySelectorAll('button')], i = btns.findIndex(b => b.getAttribute('aria-selected') === 'true');
+    if (i < 0) return;
+    const tr = tabs.getBoundingClientRect(), r = btns[i].getBoundingClientRect();
+    const now = { i, n: btns.length, x: r.left - tr.left - tabs.clientLeft, y: r.top - tr.top - tabs.clientTop, w: r.width, h: r.height };
+    const prev = last; last = now;
+    if (!prev || prev.i === i || prev.n !== now.n || !r.width) return;
+    const pill = document.createElement('span'); pill.className = 'fx-pill'; pill.setAttribute('aria-hidden', 'true');
+    Object.assign(pill.style, { left: now.x + 'px', top: now.y + 'px', width: now.w + 'px', height: now.h + 'px' });
+    tabs.appendChild(pill); tabs.classList.add('fx-sliding');
+    pill.animate([{ left: prev.x + 'px', width: prev.w + 'px' }, { left: now.x + 'px', width: now.w + 'px' }], { duration: 520, easing: SverkaFx.ease('--spring') })
+      .onfinish = () => { pill.remove(); tabs.classList.remove('fx-sliding'); };
+  });
+})();
+
+// ---------- фильтр и вкладка: строки, оставшиеся на экране, доезжают со старых мест на новые (FLIP) ----------
+// Перед щелчком в итоге запоминаем, где стояли видимые строки таблицы (по номеру строки вставки); после перерисовки
+// та же строка едет пружиной со старого места, новая — проявляется. Только если колонки те же и прошло < 1,5 с.
+(() => {
+  if (SverkaFx.reduce) return;
+  let snap = null;
+  const key = tr => { const g = tr.querySelector('td.gut[data-line]'); return g && g.dataset.line !== '' ? g.dataset.w + ':' + g.dataset.line : null; };
+  const seen = r => r.bottom > 0 && r.top < innerHeight;
+  function take() {
+    const grid = document.getElementById('res-grid'), body = grid && grid.tBodies[0]; if (!body) { snap = null; return; }
+    const m = new Map();
+    for (const tr of body.rows) { const r = tr.getBoundingClientRect(); if (!seen(r)) continue; const k = key(tr); if (k) m.set(k, r.top); }
+    snap = { head: grid.tHead ? grid.tHead.textContent : '', m, at: performance.now() };
+  }
+  document.addEventListener('pointerdown', e => { if (e.target.closest && e.target.closest('#out')) take(); }, true);
+  document.addEventListener('keydown', e => { const a = document.activeElement; if ((e.key === 'Enter' || e.key === ' ') && a && a.closest && a.closest('#out')) take(); }, true);
+  SverkaFx.each('#res-grid', grid => {
+    const s = snap; snap = null; const body = grid.tBodies[0];
+    if (!s || !body || performance.now() - s.at > 1500 || !s.m.size || (grid.tHead ? grid.tHead.textContent : '') !== s.head) return;
+    let n = 0;
+    for (const tr of body.rows) {
+      const r = tr.getBoundingClientRect(); if (!seen(r) || n > 60) continue;
+      n++; tr.classList.remove('ri');   // своё движение вместо общей волны появления
+      const k = key(tr), old = k == null ? undefined : s.m.get(k);
+      if (old === undefined) { tr.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 300, delay: 140, easing: 'ease-out', fill: 'backwards' }); continue; }
+      const dy = old - r.top; if (Math.abs(dy) < 1) continue;
+      tr.animate([{ transform: `translateY(${dy}px)` }, { transform: 'none' }], { duration: 560, easing: SverkaFx.ease('--spring') });
+    }
+  });
+})();
+
+// ---------- объёмные зёрна (WebGL2, без библиотек): кольцо итога рисуется настоящими зёрнами со светом ----------
+// Траектории считает Orb, здесь только отрисовка: каждое зерно — эллипсоид (рассеянный свет, блик, подсветка края),
+// кольцо наклонено в перспективе. Не вышло (нет WebGL2, контекст потерян) — ok = false, Orb рисует плоско, как раньше.
+SverkaFx.grainGL = canvas => {
+  const gl = canvas.getContext('webgl2', { premultipliedAlpha: true, antialias: true, alpha: true });
+  if (!gl) return { ok: false };
+  const sh = (type, src) => { const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s); return gl.getShaderParameter(s, gl.COMPILE_STATUS) ? s : null; };
+  const vs = sh(gl.VERTEX_SHADER, `#version 300 es
+    in vec3 aPos; in vec4 aI; in vec4 aC; in vec2 aE;
+    uniform vec2 uView, uCenter; uniform mat3 uTilt; uniform float uF;
+    out vec3 vN; out vec4 vC; out float vG;
+    void main() {
+      float s = aI.w, c = cos(aI.z), si = sin(aI.z);
+      mat3 R = mat3(c, si, 0., -si, c, 0., 0., 0., 1.);
+      vec3 p = R * (aPos * vec3(2.5 * s, 1.1 * s, 1.05 * s));
+      vN = uTilt * (R * normalize(aPos / vec3(2.5, 1.1, 1.05)));
+      vec3 w = uTilt * (vec3(aI.xy, aE.x) + p);
+      float k = uF / (uF + w.z);
+      vec2 sc = uCenter + w.xy * k;
+      gl_Position = vec4(sc.x / uView.x * 2. - 1., 1. - sc.y / uView.y * 2., clamp(w.z / 1500., -1., 1.), 1.);
+      vC = aC; vG = aE.y;
+    }`);
+  const fs = sh(gl.FRAGMENT_SHADER, `#version 300 es
+    precision mediump float;
+    in vec3 vN; in vec4 vC; in float vG; out vec4 o;
+    void main() {
+      vec3 n = normalize(vN), L = normalize(vec3(-.45, -.75, -.6)), V = vec3(0., 0., -1.);
+      float d = max(dot(n, L), 0.), sp = pow(max(dot(n, normalize(L + V)), 0.), 26.), rim = pow(1. - max(dot(n, V), 0.), 2.);
+      vec3 col = vC.rgb * (.36 + .78 * d) + vec3(sp * .6) + vC.rgb * (rim * .35 + vG);
+      o = vec4(col * vC.a, vC.a);
+    }`);
+  if (!vs || !fs) return { ok: false };
+  const pr = gl.createProgram(); gl.attachShader(pr, vs); gl.attachShader(pr, fs); gl.linkProgram(pr);
+  if (!gl.getProgramParameter(pr, gl.LINK_STATUS)) return { ok: false };
+  // эллипсоид 10 × 6 — для зерна в несколько пикселей этого хватает
+  const P = [], I = [], SEG = 10, RING = 6;
+  for (let j = 0; j <= RING; j++) for (let i = 0; i <= SEG; i++) { const v = j / RING * Math.PI, u = i / SEG * 2 * Math.PI; P.push(Math.cos(v), Math.sin(v) * Math.cos(u), Math.sin(v) * Math.sin(u)); }
+  for (let j = 0; j < RING; j++) for (let i = 0; i < SEG; i++) { const a = j * (SEG + 1) + i, b = a + SEG + 1; I.push(a, b, a + 1, b, b + 1, a + 1); }
+  const vao = gl.createVertexArray(); gl.bindVertexArray(vao);
+  const pb = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, pb); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(P), gl.STATIC_DRAW);
+  const loc = n => gl.getAttribLocation(pr, n);
+  gl.enableVertexAttribArray(loc('aPos')); gl.vertexAttribPointer(loc('aPos'), 3, gl.FLOAT, false, 0, 0);
+  const ib = gl.createBuffer(); gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ib); gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(I), gl.STATIC_DRAW);
+  const STRIDE = 10, inst = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, inst);
+  [['aI', 4, 0], ['aC', 4, 4], ['aE', 2, 8]].forEach(([n, size, off]) => { const l = loc(n); gl.enableVertexAttribArray(l); gl.vertexAttribPointer(l, size, gl.FLOAT, false, STRIDE * 4, off * 4); gl.vertexAttribDivisor(l, 1); });
+  gl.bindVertexArray(null);
+  const U = n => gl.getUniformLocation(pr, n), uView = U('uView'), uCenter = U('uCenter'), uTilt = U('uTilt'), uF = U('uF');
+  let data = new Float32Array(STRIDE * 1200), n = 0, W = 1, H = 1;
+  // цвет CSS → [r, g, b] (через холст: он понимает любые записи цвета)
+  const probe = document.createElement('canvas').getContext('2d'), memo = {};
+  const rgb = c => memo[c] || (memo[c] = (() => { probe.fillStyle = '#000'; probe.fillStyle = c; const h = probe.fillStyle; if (h[0] === '#') return [1, 3, 5].map(i => parseInt(h.substr(i, 2), 16) / 255); const m = h.match(/[\d.]+/g) || [0, 0, 0]; return [m[0] / 255, m[1] / 255, m[2] / 255]; })());
+  const api = {
+    ok: true,
+    size(w, h, dpr) { W = w; H = h; canvas.width = Math.round(w * dpr); canvas.height = Math.round(h * dpr); canvas.style.width = w + 'px'; canvas.style.height = h + 'px'; },
+    begin() { n = 0; },
+    push(x, y, a, s, color, alpha, z, glow) {
+      if ((n + 1) * STRIDE > data.length) { const d = new Float32Array(data.length * 2); d.set(data); data = d; }
+      const c = rgb(color), o = n++ * STRIDE;
+      data[o] = x; data[o + 1] = y; data[o + 2] = a; data[o + 3] = s; data[o + 4] = c[0]; data[o + 5] = c[1]; data[o + 6] = c[2]; data[o + 7] = alpha; data[o + 8] = z; data[o + 9] = glow;
+    },
+    end(cx, cy, tx, ty) {
+      gl.viewport(0, 0, canvas.width, canvas.height); gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+      if (!n) return;
+      gl.enable(gl.DEPTH_TEST); gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+      gl.useProgram(pr); gl.bindVertexArray(vao);
+      gl.bindBuffer(gl.ARRAY_BUFFER, inst); gl.bufferData(gl.ARRAY_BUFFER, data.subarray(0, n * STRIDE), gl.DYNAMIC_DRAW);
+      // наклон: сначала вокруг горизонтали (tx), потом вокруг вертикали (ty); матрица по столбцам
+      const a = Math.cos(tx), b = Math.sin(tx), c = Math.cos(ty), d = Math.sin(ty);
+      gl.uniformMatrix3fv(uTilt, false, [c, 0, -d, b * d, a, b * c, a * d, -b, a * c]);
+      gl.uniform2f(uView, W, H); gl.uniform2f(uCenter, cx, cy); gl.uniform1f(uF, 900);
+      gl.drawElementsInstanced(gl.TRIANGLES, I.length, gl.UNSIGNED_SHORT, 0, n);
+      gl.bindVertexArray(null);
+    }
+  };
+  canvas.addEventListener('webglcontextlost', e => { e.preventDefault(); api.ok = false; });
+  return api;
+};
+
+// ---------- итог оживает, когда его видно (fx-seen снимает паузу с CSS-появления) ----------
+(() => {
+  if (SverkaFx.reduce || !('IntersectionObserver' in window)) return;
+  document.documentElement.classList.add('fx-io');
+  const io = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) { e.target.classList.add('fx-seen'); io.unobserve(e.target); } }), { rootMargin: '0px 0px -8% 0px' });
+  SverkaFx.each('#out .r-hero, #out .tally, #out .card2, #out .notice, #out .result-sheet', el => io.observe(el));
+})();
+
+// ---------- сцена «Сверить» (~1 с, потом страница едет к итогу) ----------
+// По окнам вставки проходит луч; строка вспыхивает своим цветом, когда луч её коснулся; между парами протягиваются
+// светящиеся нити; в конце нити рассыпаются зерном. Рисуется поверх таблиц на отдельном холсте и только то, что видно:
+// строки, их значения и порядок не трогаются. rows: [{ tr, k }], links: [{ a, b, k }], k — 'ok' / 'warn' / 'bad'.
+SverkaFx.scene = (() => {
+  const VAR = { ok: '--ok-ink', warn: '--ch-diff', bad: '--bad-ink' };
+  const SCAN = .55, DRAW = .32, END = .95, TAIL = 1.0;   // секунды: луч, нить, рассыпание, хвост зерна — на глаз
+  let cv = null, ctx = null, raf = 0;
+  const ease = p => 1 - Math.pow(1 - p, 3);
+  function box(tr) {
+    const sc = tr.closest('.scroll'), r = tr.getBoundingClientRect(), c = (sc || tr).getBoundingClientRect();
+    const top = Math.max(r.top, c.top, 0), bot = Math.min(r.bottom, c.bottom, innerHeight);
+    if (bot - top < r.height * .6) return null;
+    const left = Math.max(r.left, c.left), right = Math.min(r.right, c.right);
+    return { x: left, y: top, w: right - left, h: bot - top, cy: (top + bot) / 2, clip: sc || tr, ct: c.top, ch: c.height };
+  }
+  return function play(data, done) {
+    if (SverkaFx.reduce || !data) { done(); return; }
+    const css = getComputedStyle(document.documentElement), C = {}; for (const k in VAR) C[k] = css.getPropertyValue(VAR[k]).trim();
+    const col = k => C[k];
+    const rows = data.rows.map(o => ({ b: box(o.tr), k: o.k })).filter(o => o.b);
+    if (rows.length < 3) { done(); return; }
+    const at = b => ((b.cy - b.ct + 30) / (b.ch + 60)) * SCAN;   // когда луч дошёл до строки
+    // конец нити: строка видна — у строки; прокручена за край окна — у края, и нить к нему растворяется («пара ниже»)
+    const anchor = tr => {
+      const sc = tr.closest('.scroll'), r = tr.getBoundingClientRect(), c = (sc || tr).getBoundingClientRect();
+      const top = Math.max(c.top, 0), bot = Math.min(c.bottom, innerHeight);
+      if (bot - top < 20) return null;   // само окно за экраном
+      const cy = (r.top + r.bottom) / 2;
+      return { x: Math.max(r.left, c.left), w: Math.min(r.right, c.right) - Math.max(r.left, c.left), cy: Math.min(bot - 3, Math.max(top + 3, cy)), hid: cy < top || cy > bot, ct: c.top, ch: c.height };
+    };
+    const links = data.links.map(o => ({ a: anchor(o.a), b: anchor(o.b), k: o.k })).filter(o => o.a && o.b && !(o.a.hid && o.b.hid)).map(o => {
+      const stacked = o.b.ct > o.a.ct + o.a.ch - 10;   // окна друг под другом (узкий экран)
+      // концы — внутри таблиц, в 34 px от края: между окнами всего ~18 px, нить должна быть видна дугой
+      const p0 = { x: o.a.x + o.a.w - 34, y: o.a.cy }, p3 = stacked ? { x: o.b.x + o.b.w - 34, y: o.b.cy } : { x: o.b.x + 34, y: o.b.cy };
+      const bend = stacked ? Math.max(30, Math.min(110, innerWidth - 6 - p0.x)) : Math.max(50, (p3.x - p0.x) * .5);
+      const t = Math.max(o.a.hid ? 0 : at(o.a), o.b.hid ? 0 : at(o.b)) + .05;
+      return { k: o.k, p0, p3, c1: { x: p0.x + bend, y: p0.y }, c2: { x: p3.x + (stacked ? bend : -bend), y: p3.y }, t, fa: o.a.hid, fb: o.b.hid };
+    });
+    const clips = [...new Set(rows.map(o => o.b.clip))].map(el => el.getBoundingClientRect());
+    if (!cv) { cv = document.createElement('canvas'); cv.className = 'fx-scene'; cv.setAttribute('aria-hidden', 'true'); document.body.appendChild(cv); ctx = cv.getContext('2d'); }
+    const D = Math.min(2, devicePixelRatio || 1), W = innerWidth, H = innerHeight;
+    cv.width = Math.round(W * D); cv.height = Math.round(H * D); cv.style.display = 'block';
+    const bez = (L, u) => { const v = 1 - u; return { x: v * v * v * L.p0.x + 3 * v * v * u * L.c1.x + 3 * v * u * u * L.c2.x + u * u * u * L.p3.x, y: v * v * v * L.p0.y + 3 * v * v * u * L.c1.y + 3 * v * u * u * L.c2.y + u * u * u * L.p3.y }; };
+    const grains = [], t0 = performance.now() / 1000;
+    let ticks = 0, lastTick = 0, scrolled = false;
+    const finish = () => { if (!scrolled) { scrolled = true; done(); } };
+    setTimeout(finish, (END + .4) * 1000);   // вкладка в фоне — кадров нет, а к итогу всё равно перейти
+    links.forEach(L => { L.ticked = false; });
+    cancelAnimationFrame(raf);
+    function frame() {
+      const t = performance.now() / 1000 - t0;
+      ctx.setTransform(D, 0, 0, D, 0, 0); ctx.clearRect(0, 0, W, H);
+      // луч по каждому окну
+      if (t < SCAN + .1) for (const c of clips) {
+        const y = c.top - 30 + (c.height + 60) * Math.min(1, t / SCAN);
+        ctx.save(); ctx.beginPath(); ctx.rect(c.left, c.top, c.width, c.height); ctx.clip();
+        const g = ctx.createLinearGradient(0, y - 36, 0, y + 6);
+        g.addColorStop(0, 'rgba(124,196,255,0)'); g.addColorStop(.85, 'rgba(124,196,255,.22)'); g.addColorStop(1, 'rgba(190,226,255,.65)');
+        ctx.fillStyle = g; ctx.fillRect(c.left, y - 36, c.width, 42); ctx.restore();
+      }
+      // строки вспыхивают своим цветом, к рассыпанию гаснут; «пары нет» мигает дважды
+      const fadeOut = t < END ? 1 : Math.max(0, 1 - (t - END) / .12);
+      for (const o of rows) {
+        const s = t - at(o.b); if (s <= 0) continue;
+        let a = s < .08 ? s / .08 * .26 : .26 - Math.min(.17, (s - .08) * .35);
+        if (o.k === 'bad') a = .1 + .2 * Math.abs(Math.cos(s * 7));
+        ctx.globalAlpha = a * fadeOut; ctx.fillStyle = col(o.k); ctx.fillRect(o.b.x, o.b.y, o.b.w, o.b.h);
+        ctx.globalAlpha = Math.min(1, s / .08) * fadeOut; ctx.fillRect(o.b.x, o.b.y, 3, o.b.h);
+      }
+      // нити между парами
+      ctx.lineCap = 'round';
+      for (const L of links) {
+        const s = t - L.t; if (s <= 0) continue;
+        const p = ease(Math.min(1, s / DRAW)), c = col(L.k);
+        if (p >= 1 && !L.ticked) { L.ticked = true; if (data.tick && ticks < 14 && t - lastTick > .045) { ticks++; lastTick = t; data.tick(); } }
+        if (t >= END && !L.burst) {   // нить рассыпается зерном
+          L.burst = true;
+          for (let i = 0; i < 9; i++) { const q = bez(L, (i + Math.random()) / 9); grains.push({ x: q.x, y: q.y, vx: (Math.random() - .5) * 120, vy: -40 - Math.random() * 120, r: Math.random() * 6, vr: (Math.random() - .5) * 8, c, t: t }); }
+        }
+        ctx.strokeStyle = c; ctx.shadowColor = c; ctx.shadowBlur = 10; ctx.lineWidth = 1.6;
+        const n = 24, fade = u => (L.fa ? Math.min(1, u / .45) : 1) * (L.fb ? Math.min(1, (1 - u) / .45) : 1);
+        let prev = L.p0;
+        for (let i = 1; i <= Math.ceil(n * p); i++) {
+          const u = Math.min(p, i / n), q = bez(L, u);
+          ctx.globalAlpha = fadeOut * .95 * fade(u - .5 / n); ctx.beginPath(); ctx.moveTo(prev.x, prev.y); ctx.lineTo(q.x, q.y); ctx.stroke(); prev = q;
+        }
+        ctx.shadowBlur = 0; ctx.fillStyle = c; ctx.globalAlpha = fadeOut;
+        ctx.beginPath(); if (!L.fa) ctx.arc(L.p0.x, L.p0.y, 2.6, 0, 6.283); if (p >= 1 && !L.fb) { ctx.moveTo(L.p3.x + 2.6, L.p3.y); ctx.arc(L.p3.x, L.p3.y, 2.6, 0, 6.283); } ctx.fill();
+      }
+      // зерно падает вслед за страницей
+      for (const g of grains) {
+        const s = t - g.t; if (s > TAIL) continue;
+        const x = g.x + g.vx * s, y = g.y + g.vy * s + 520 * s * s;
+        ctx.globalAlpha = 1 - s / TAIL; ctx.fillStyle = g.c; ctx.beginPath(); ctx.ellipse(x, y, 2.6, 1.15, g.r + g.vr * s, 0, 6.283); ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+      if (t >= END + .05) finish();
+      if (t < END + TAIL) raf = requestAnimationFrame(frame); else { ctx.clearRect(0, 0, W, H); cv.style.display = 'none'; raf = 0; }
+    }
+    raf = requestAnimationFrame(frame);
+  };
+})();
+
+// ---------- кнопка сменила текст — отклик (не чаще раза в 0,35 с: стрелками выделение меняется на каждый шаг) ----------
+SverkaFx.changed('.btn', el => {
+  if (SverkaFx.reduce) return;
+  const now = performance.now(); if (now - (el._fxp || 0) < 350) return; el._fxp = now;
+  el.classList.remove('fx-pulse'); void el.offsetWidth; el.classList.add('fx-pulse');
+  el.addEventListener('animationend', () => el.classList.remove('fx-pulse'), { once: true });
+});
+</script>
+
 <script>
 (() => {
   'use strict';
@@ -2031,8 +2659,10 @@ if (typeof module !== 'undefined') module.exports = Zap;
     res: null, tab: 'issues', filter: null, marked: { port: new Set(), mine: new Set() }, fillOn: true,
   };
   let toastTimer;
-  function toast(msg, ms) {
-    const t = $('#toast'); t.textContent = msg; t.classList.add('show');
+  // kind — вид сообщения для дизайна (data-kind: 'restore' — значок возврата); --toast-ms — полоска оставшегося времени
+  function toast(msg, ms, kind) {
+    const t = $('#toast'); t.textContent = msg; t.dataset.kind = kind || ''; t.style.setProperty('--toast-ms', (ms || 3200) + 'ms');
+    t.dataset.tick = t.dataset.tick === 'a' ? 'b' : 'a'; t.classList.add('show');
     clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('show'), ms || 3200);
   }
   const letter = c => { let s = ''; c++; while (c > 0) { const m = (c - 1) % 26; s = String.fromCharCode(65 + m) + s; c = Math.floor((c - 1) / 26); } return s; };
@@ -2233,7 +2863,8 @@ if (typeof module !== 'undefined') module.exports = Zap;
     try { const past = store.get(HKEY) || []; S.hist = Sverka.historyCheck(res, past, undefined, { client: clientName() }); store.set(HKEY, Sverka.historySave(past, S.hist)); fillClients(); } catch (e) { S.hist = null; }
     // Номера строк перерисовываются после сверки, чтобы пометки «пропущена» были видны и в окнах вставки.
     renderResults();
-    if (fromButton) out.scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
+    // сначала сцена на окнах вставки (нити между парами), потом — к итогу
+    if (fromButton) SverkaFx.scene(sceneData(res), () => out.scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' }));
   }
 
   // Подтверждённые водители (скачали файл или скопировали строки) — в справочник на этом компьютере.
@@ -3160,7 +3791,8 @@ if (typeof module !== 'undefined') module.exports = Zap;
         if (reduce || !el) return; const r = el.getBoundingClientRect(), g = document.createElement('div');
         g.className = 'copyghost'; g.textContent = text; g.style.left = (r.left + r.width / 2) + 'px'; g.style.top = r.top + 'px';
         document.body.appendChild(g);
-        g.animate([{ transform: 'translate(-50%, 0)', opacity: 1 }, { transform: 'translate(-50%, -34px)', opacity: 0 }], { duration: 800, easing: 'cubic-bezier(.2,.7,.2,1)' }).onfinish = () => g.remove();
+        // выскакивает пружиной, держится, тает вверх (кривые — из дизайн-слоя SverkaFx)
+        g.animate([{ transform: 'translate(-50%, 2px) scale(.6)', opacity: 0, easing: SverkaFx.ease('--spring-pop') }, { transform: 'translate(-50%, -12px) scale(1)', opacity: 1, offset: .38, easing: 'linear' }, { transform: 'translate(-50%, -16px) scale(1)', opacity: 1, offset: .7, easing: 'cubic-bezier(.4, 0, .7, .2)' }, { transform: 'translate(-50%, -30px) scale(.96)', opacity: 0 }], { duration: 1050 }).onfinish = () => g.remove();
       },
       // волна по скопированным ячейкам
       ripple(cells) {
@@ -3170,7 +3802,9 @@ if (typeof module !== 'undefined') module.exports = Zap;
       },
       // число набирается от нуля
       countUp(el, to, fmt) {
-        if (reduce || !el || !(to > 0)) return; const t0 = performance.now(), d = 750, fin = el.textContent;
+        if (reduce || !el || !(to > 0)) return;
+        if (SverkaFx.odometer(el)) return;   // цифры прокручиваются (дизайн-слой); ниже — прежний счёт, если одометр не взялся
+        const t0 = performance.now(), d = 750, fin = el.textContent;
         const step = () => { const k = Math.min(1, (performance.now() - t0) / d); el.textContent = k < 1 ? fmt(Math.round(to * ease(k))) : fin; if (k < 1) requestAnimationFrame(step); };
         el.textContent = fmt(0); requestAnimationFrame(step);
       },
@@ -3184,19 +3818,33 @@ if (typeof module !== 'undefined') module.exports = Zap;
       reduce
     };
   })();
-  // строки появляются одна за другой (только первые 30 — длинный лист не ждёт)
+  // для сцены «Сверить»: строки окон вставки (в том же порядке, что записи) со статусом и пары между ними
+  function sceneData(res) {
+    const trs = w => document.querySelectorAll('#pane-' + w + ' .sheet-body tbody tr');
+    const P = trs('port'), Mn = trs('mine'), pi = new Map(res.port.recs.map((r, i) => [r, i]));
+    const kind = s => s === 'ok' ? 'ok' : s === 'diff' || s === 'dup' || s === 'split' ? 'warn' : s === 'missing' ? 'bad' : null;
+    const rows = [], links = [];
+    res.port.recs.forEach((r, i) => { const k = kind(r.status); if (k && P[i]) rows.push({ tr: P[i], k }); });
+    res.mine.recs.forEach((r, i) => {
+      const k = kind(r.status); if (!k || !Mn[i]) return;
+      rows.push({ tr: Mn[i], k });
+      const j = r.pair ? pi.get(r.pair) : -1; if (j >= 0 && P[j]) links.push({ a: P[j], b: Mn[i], k });
+    });
+    return { rows, links, tick: () => Snd.play('tick') };
+  }
+  // строки появляются одна за другой (только первые 20 — длинный лист не ждёт; шаг 30 мс — в дизайн-слое)
   function staggerRows(root) {
     if (Motion.reduce || !root) return;
-    root.querySelectorAll('tbody tr').forEach((tr, i) => { if (i < 30) { tr.style.setProperty('--i', i); tr.classList.add('ri'); } });
+    root.querySelectorAll('tbody tr').forEach((tr, i) => { if (i < 20) { tr.style.setProperty('--i', i); tr.classList.add('ri'); } });
   }
 
   function afterRender(fresh, viewChanged) {
     if (viewChanged) staggerRows($('.result-sheet'));
     if (!fresh || Motion.reduce) return;
     const num = el => +String(el.textContent).replace(/[^\d]/g, '');
-    document.querySelectorAll('#out .tally .n, #out .r-lede h2 .n, #out .r-orb .core b').forEach(el => Motion.countUp(el, num(el), v => String(v)));
+    document.querySelectorAll('#out .tally .n, #out .r-lede h2 .n, #out .r-orb .core b, #out [data-fx~="odometer"]').forEach(el => Motion.countUp(el, num(el), v => String(v)));
     const big = $('#out .s-big b'); if (big && /^[\d\s ]+$/.test(big.textContent)) Motion.countUp(big, num(big), v => Sverka.fmtNum(v));
-    Snd.play('rustle', 1.6); setTimeout(() => Snd.play('chime'), 2200);
+    Orb.onStart(() => { Snd.play('rustle', 1.6); setTimeout(() => Snd.play('chime'), 2200); });
   }
   Snd.paintBtn();
 
@@ -3281,6 +3929,8 @@ if (typeof module !== 'undefined') module.exports = Zap;
     const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
     const KEYS = ['ok', 'diff', 'dup', 'missing'];
     let host, cv, ctx, orbEl, W = 0, H = 0, DPR = 1, cx = 0, cy = 0, R = 110, grains = [], beads = [], t0 = 0, raf = 0, col = {}, focus = null, lastRes = null, vis = true;
+    // объёмные зёрна (дизайн-слой, WebGL2): один холст на все перерисовки — он переезжает в новый итог; наклон кольца — за курсором
+    let glc = null, G = null, tiltX = .28, tiltY = 0, tgtX = .28, tgtY = 0;
     const fa = { ok: 1, diff: 1, dup: 1, missing: 1, fill: 1 };
     const rnd = (a, b) => a + Math.random() * (b - a), gauss = () => (Math.random() + Math.random() + Math.random() - 1.5) / 1.5;
     const easeOut = p => 1 - Math.pow(1 - p, 3), clock = () => performance.now() / 1000;
@@ -3303,6 +3953,7 @@ if (typeof module !== 'undefined') module.exports = Zap;
       DPR = Math.min(2, devicePixelRatio || 1); W = hr.width; H = hr.height;
       cv.width = Math.round(W * DPR); cv.height = Math.round(H * DPR); cv.style.width = W + 'px'; cv.style.height = H + 'px';
       cx = or.left - hr.left + or.width / 2; cy = or.top - hr.top + or.height / 2; R = Math.min(or.width, or.height) * .4;
+      if (G && G.ok) G.size(W, H, DPR);
     }
     function pos(o, t, th, rad, delay, dur, top, side) {
       const p = Math.max(0, Math.min(1, (t - delay) / dur)); if (p <= 0) return null;
@@ -3317,6 +3968,7 @@ if (typeof module !== 'undefined') module.exports = Zap;
       ctx.setTransform(DPR, 0, 0, DPR, 0, 0); ctx.clearRect(0, 0, W, H);
       const amb = reduce ? 0 : t, rot = amb * .012, small = W < 640 ? .85 : 1;
       for (const k in fa) fa[k] += ((focus ? (k === focus ? 1 : .16) : 1) - fa[k]) * (reduce ? 1 : .14);
+      const g3 = G && G.ok ? G : null; if (g3) { g3.begin(); if (!reduce) { tiltX += (tgtX - tiltX) * .06; tiltY += (tgtY - tiltY) * .06; } }
       for (const k of KEYS) {
         ctx.fillStyle = col[k]; ctx.globalAlpha = .9 * fa[k]; ctx.beginPath();
         for (const g of grains) {
@@ -3324,36 +3976,50 @@ if (typeof module !== 'undefined') module.exports = Zap;
           const th = g.th + rot, rad = R + g.rr * R * .12 + Math.sin(amb * 1.3 + g.ph) * .7, q = pos(g.ox, t, th, rad, g.delay, g.dur, g.top, g.side);
           if (!q) continue;
           const s = Math.pow(q.e, 4), a = q.fly * (1 - s) + (th + Math.PI / 2 + g.jit) * s, z = g.sz * small * (.55 + .45 * q.e);
-          ell(q.x, q.y, 2.5 * z, 1.1 * z, a);
+          if (g3) g3.push(q.x - cx, q.y - cy, a, z, col[k], .95 * fa[k], (g.oy - .5) * R * .24 * q.e, 0); else ell(q.x, q.y, 2.5 * z, 1.1 * z, a);
         }
-        ctx.fill();
+        if (!g3) ctx.fill();
       }
       ctx.fillStyle = col.fill; ctx.shadowColor = col.fill;
       for (const b of beads) {
         const th = b.th - rot * 1.6, q = pos(b.ox, t, th, R * .64, b.delay, b.dur, true, b.side); if (!q) continue;
         b.flash *= reduce ? 0 : .95;
         const z = small * (.6 + .4 * q.e) * (1 + b.flash * 1.3), a = q.fly * (1 - q.e) + (th + Math.PI / 2) * q.e;
+        if (g3) { g3.push(q.x - cx, q.y - cy, a, 2 * z, col.fill, fa.fill, -R * .05, .35 + b.flash * .9); continue; }
         ctx.globalAlpha = fa.fill; ctx.shadowBlur = 8 + b.flash * 24; ctx.beginPath(); ell(q.x, q.y, 5 * z, 2.3 * z, a); ctx.fill();
       }
       ctx.shadowBlur = 0; ctx.globalAlpha = 1;
+      if (g3) g3.end(cx, cy, tiltX, tiltY);
     }
-    function frame() { raf = 0; if (!host || !host.isConnected) return; draw(clock() - t0); if (!reduce && vis && !document.hidden) raf = requestAnimationFrame(frame); }
+    function frame() { raf = 0; if (!host || !host.isConnected || pend) return; draw(clock() - t0); if (!reduce && vis && !document.hidden) raf = requestAnimationFrame(frame); }
     const kick = () => { if (!raf) raf = requestAnimationFrame(frame); };
-    const io = 'IntersectionObserver' in window ? new IntersectionObserver(es => { vis = es[0].isIntersecting; if (vis) kick(); }) : null;
+    // новая сверка: зерно летит в кольцо, когда кольцо показалось на экране (pend), а не пока страница едет к итогу
+    let pend = false, onStart = null;
+    const begin = () => { if (!pend) return; pend = false; t0 = clock(); const f = onStart; onStart = null; if (f) f(); };
+    const io = 'IntersectionObserver' in window ? new IntersectionObserver(es => { vis = es[0].isIntersecting; if (vis) { begin(); kick(); } }, { rootMargin: '0px 0px -12% 0px' }) : null;
     const ro = 'ResizeObserver' in window ? new ResizeObserver(() => { measure(); kick(); }) : null;
     document.addEventListener('visibilitychange', kick);
+    if (!reduce) addEventListener('pointermove', e => {
+      if (e.pointerType !== 'mouse' || !G || !G.ok || !orbEl || !orbEl.isConnected || !vis) return;
+      const o = orbEl.getBoundingClientRect(), dx = (e.clientX - (o.left + o.width / 2)) / (innerWidth / 2), dy = (e.clientY - (o.top + o.height / 2)) / (innerHeight / 2);
+      tgtY = Math.max(-1, Math.min(1, dx)) * .32; tgtX = .28 - Math.max(-1, Math.min(1, dy)) * .2;
+    }, { passive: true });
     return {
       mount(res, n) {
         host = document.querySelector('.r-hero'); if (!host) return;
         cv = host.querySelector('canvas.orb-cv'); orbEl = host.querySelector('.r-orb'); ctx = cv.getContext('2d');
+        if (!glc && typeof SverkaFx !== 'undefined' && SverkaFx.grainGL) { glc = document.createElement('canvas'); glc.className = 'orb-cv orb-gl'; glc.setAttribute('aria-hidden', 'true'); G = SverkaFx.grainGL(glc); }
+        if (G && G.ok) cv.after(glc);
         const fresh = res !== lastRes; lastRes = res;
         colors(); if (fresh || !grains.length) build(n);
-        t0 = fresh && !reduce ? clock() : clock() - 60;
+        if (fresh && !reduce && io) { pend = true; ctx.clearRect(0, 0, cv.width, cv.height); } else { pend = false; t0 = fresh && !reduce ? clock() : clock() - 60; }
         measure();
+        if (pend && G && G.ok) { G.begin(); G.end(cx, cy, tiltX, tiltY); }   // холст объёма переехал из прошлого итога — очистить
         if (io) { io.disconnect(); io.observe(host); }
         if (ro) { ro.disconnect(); ro.observe(host); }
         kick(); if (reduce) draw(99);
       },
+      onStart(f) { if (pend) onStart = f; else f(); },
       focus(k) { focus = k; kick(); if (reduce) draw(99); },
       recolor() { colors(); kick(); if (reduce) draw(99); }
     };
@@ -3877,7 +4543,7 @@ if (typeof module !== 'undefined') module.exports = Zap;
     const box = $('#todo'); if (!box) return;
     const items = todoItems(), left = items.filter(i => !i.done).length;
     box.innerHTML = !items.length ? '' : `<span class="eyebrow">${left ? 'Что осталось по этой сверке · ' + left : 'Всё по этой сверке сделано'}</span>` +
-      items.map(i => `<button class="btn btn-sm${i.done ? ' btn-quiet' : ''}" data-todo="${i.key}"${i.done ? ' aria-pressed="true"' : ''}>${i.done ? '✓ ' : ''}${esc(i.label)}</button>`).join('');
+      items.map(i => `<button class="btn btn-sm${i.done ? ' btn-quiet' : ''}" data-todo="${i.key}"${i.done ? ' aria-pressed="true"' : ''}><i class="tick" aria-hidden="true"></i><span>${esc(i.label)}</span></button>`).join('');
   }
   function todoNote(text) {
     if (!text) return;
@@ -3942,7 +4608,7 @@ if (typeof module !== 'undefined') module.exports = Zap;
       if (S.res && s.todo) S.todo = s.todo;
       if (S.res) renderResults();
     }
-    toast('Вернул то, что было до закрытия страницы. Начать заново — «Очистить всё».', 5000);
+    toast('Вернул то, что было до закрытия страницы. Начать заново — «Очистить всё».', 5000, 'restore');
   }
   try { sessionRestore(); } catch (e) { /* испорченное сохранение не должно ломать страницу */ try { localStorage.removeItem(SKEY); } catch (e2) { /* нет памяти */ } }
 
