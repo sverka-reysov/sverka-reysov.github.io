@@ -579,7 +579,7 @@ tr.just .n-ok { display: inline-block; animation: popIn .45s cubic-bezier(.3, 1.
   </section>
 
   <div id="out"></div>
-  <footer style="margin-top:40px;color:var(--ink-3);font-size:12px">Сверка рейсов · версия <span id="app-ver"><!--ВЕРСИЯ-->14.10.2026 · 31f8d5<!--/ВЕРСИЯ--></span></footer>
+  <footer style="margin-top:40px;color:var(--ink-3);font-size:12px">Сверка рейсов · версия <span id="app-ver"><!--ВЕРСИЯ-->14.10.2026 · d55bb4<!--/ВЕРСИЯ--></span></footer>
 </main>
 
 <div class="modal" id="report" role="dialog" aria-modal="true" aria-labelledby="report-title">
@@ -2225,31 +2225,66 @@ mark.fx-dd { background: color-mix(in srgb, var(--warn-ink) 18%, transparent); c
 .tg-end p { margin: 0; color: var(--ink-2); }
 @media (max-width: 600px) { .tg-cmp { grid-template-columns: minmax(0, 1fr); } .tg-arrow { transform: rotate(90deg); justify-self: center; } #triage .modal-card { padding: 18px 16px; } }
 
-/* «Пары» (#pairs-view, код ниже): порт и ваша таблица рядом с одинаковыми колонками, между парами — нити цветом
-   статуса; наведение подсвечивает пару и её нить, остальные гаснут; отличия в паре подсвечены в ячейках. */
+/* «Пары» (#pairs-view, код ниже): одна строка — одна пара; слева порт, справа у вас, одинаковые колонки (по ролям);
+   посередине — короткая связка со значком статуса (без пересечений: на настоящих реестрах 50 нитей сплетались в клубок);
+   отличия пары — в ячейках; строки без пары — группами ниже. Длинное значение обрезано, целиком — в подсказке. */
 #pairs-view { padding: 0; }
 .pv-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 18px; padding: 12px 16px; border-bottom: 1px solid var(--rule); color: var(--ink-2); font-size: 13px; }
 .pv-head b { color: var(--ink); font-variant-numeric: tabular-nums; }
 .pv-head .pv-hint { margin-left: auto; color: var(--ink-3); }
-.pv-scroll { max-height: min(72vh, 900px); overflow: auto; position: relative; }
-.pv-grid { display: grid; grid-template-columns: minmax(0, 1fr) 120px minmax(0, 1fr); min-width: 980px; position: relative; }
-.pv-t { width: 100%; border-collapse: collapse; font-size: 13px; }
-.pv-t th { position: sticky; top: 0; z-index: 2; background: var(--head); color: var(--ink-2); font-weight: 500; text-align: left; padding: 0 10px; height: 34px; border-bottom: 1px solid var(--rule); white-space: nowrap; }
-.pv-t td { height: 34px; padding: 0 10px; border-bottom: 1px solid var(--rule); white-space: nowrap; font-variant-numeric: tabular-nums; transition: background-color var(--t-fast) var(--ease-out), opacity var(--t) var(--ease-out); }
+.pv-scroll { max-height: min(72vh, 900px); overflow: auto; }
+.pv-t { width: 100%; min-width: 960px; border-collapse: separate; border-spacing: 0; font-size: 13px; }
+.pv-t th { position: sticky; z-index: 2; background: var(--head); color: var(--ink-2); font-weight: 500; text-align: left; padding: 0 8px; white-space: nowrap; }
+.pv-t thead tr:first-child th { top: 0; height: 30px; font: 600 11px/1 var(--mono); letter-spacing: .12em; text-transform: uppercase; }
+.pv-t thead tr:last-child th { top: 30px; height: 30px; border-bottom: 1px solid var(--rule); }
+.pv-t th.grp-port { color: var(--sea); } .pv-t th.grp-mine { color: var(--wheat); text-align: right; }
+.pv-t td { height: 34px; padding: 0 8px; border-bottom: 1px solid var(--rule); white-space: nowrap; max-width: 190px; overflow: hidden; text-overflow: ellipsis; font-variant-numeric: tabular-nums; transition: background-color var(--t-fast) var(--ease-out); }
 .pv-t td.n { text-align: right; }
-.pv-t td.no { width: 1%; color: var(--ink-3); text-align: right; font-family: var(--mono); font-size: 12px; box-shadow: inset 3px 0 var(--st, transparent); }
-.pv-t.mine td.no { box-shadow: inset -3px 0 var(--st, transparent); }
-.pv-t tr.s-ok { --st: var(--ok-ink); } .pv-t tr.s-diff, .pv-t tr.s-dup, .pv-t tr.s-split { --st: var(--ch-diff); } .pv-t tr.s-missing { --st: var(--bad-ink); }
-.pv-t tr.s-missing td:not(.no) { background: color-mix(in srgb, var(--bad-ink) 7%, transparent); }
-.pv-t .plate { transform: scale(.92); transform-origin: left center; }
-.pv-links { position: absolute; left: 0; top: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
-.pv-links path { fill: none; stroke-width: 1.6; stroke-linecap: round; opacity: .55; transition: opacity var(--t) var(--ease-out), stroke-width var(--t) var(--ease-out); }
-.pv-links circle { opacity: .8; transition: opacity var(--t) var(--ease-out); }
-.pv.hot .pv-links path, .pv.hot .pv-links circle { opacity: .08; }
-.pv.hot .pv-links .on { opacity: 1; stroke-width: 2.6; filter: drop-shadow(0 0 4px currentColor); }
-.pv.hot .pv-t tr:not(.on) td { opacity: .45; }
-.pv-t tr.on td { background: color-mix(in srgb, var(--sea) 10%, transparent); }
-@media (prefers-reduced-motion: reduce) { .pv-links path { transition: none; } }
+.pv-t td.no { width: 1%; color: var(--ink-3); text-align: right; font-family: var(--mono); font-size: 12px; }
+.pv-t td.pv-none { color: var(--ink-3); }
+.pv-t th.n { text-align: right; }
+.pv-t .side-port { box-shadow: inset 3px 0 var(--st, transparent); }
+.pv-t .side-mine { box-shadow: inset -3px 0 var(--st, transparent); }
+.pv-t tr.s-ok { --st: var(--ok-ink); --lk: var(--ok-ink); --i: var(--i-ok); } .pv-t tr.s-diff { --st: var(--ch-diff); --lk: var(--warn-ink); --i: var(--i-diff); }
+.pv-t tr.s-dup { --st: var(--ch-dup); --lk: var(--dup-ink); --i: var(--i-dup); } .pv-t tr.s-split { --st: var(--ch-dup); --lk: var(--warn-ink); --i: var(--i-split); }
+.pv-t tr.s-missing { --st: var(--bad-ink); --lk: var(--bad-ink); --i: var(--i-miss); }
+.pv-t td.lk { width: 64px; min-width: 64px; padding: 0; position: relative; }
+.pv-t td.lk::before { content: ""; position: absolute; left: 6px; right: 6px; top: 50%; height: 2px; margin-top: -1px; border-radius: 2px; background: color-mix(in srgb, var(--lk) 55%, transparent); transform-origin: 50% 50%; }
+.pv-t td.lk::after { content: ""; position: absolute; left: 50%; top: 50%; width: 22px; height: 22px; margin: -11px 0 0 -11px; border-radius: 50%; background: var(--sheet); box-shadow: 0 0 0 1.5px color-mix(in srgb, var(--lk) 60%, transparent); -webkit-mask: none; }
+.pv-t td.lk i { position: absolute; left: 50%; top: 50%; width: 12px; height: 12px; margin: -6px 0 0 -6px; z-index: 1; background: var(--lk); -webkit-mask: var(--i) center / contain no-repeat; mask: var(--i) center / contain no-repeat; }
+.pv-t tr.alone td.lk::before { right: 50%; }
+.pv-t tr.alone.mine-only td.lk::before { left: 50%; right: 6px; }
+.pv-t tbody tr:hover td { background: color-mix(in srgb, var(--sea) 7%, transparent); }
+.pv-t tbody tr:hover td.lk::before { height: 3px; margin-top: -1.5px; background: var(--lk); }
+.pv-t tr.grp td { height: 38px; padding-top: 10px; background: var(--sheet); color: var(--ink-2); font-weight: 600; font-size: 12.5px; border-bottom: 1px solid var(--rule); }
+.pv-t tr.grp td b { color: var(--ink); font-variant-numeric: tabular-nums; }
+.pv-t .plate { min-width: 9.4em; transform: scale(.88); transform-origin: left center; margin-right: -1em; }
+@keyframes fxLink { from { transform: scaleX(0); } }
+@keyframes fxLinkDot { from { transform: scale(0); } }
+.pv.fresh tbody tr:nth-child(-n + 30) td.lk::before { animation: fxLink .5s var(--ease-out) calc(var(--r, 0) * 25ms) backwards; }
+.pv.fresh tbody tr:nth-child(-n + 30) td.lk::after, .pv.fresh tbody tr:nth-child(-n + 30) td.lk i { animation: fxLinkDot .45s var(--spring-pop) calc(var(--r, 0) * 25ms + .2s) backwards; }
+
+/* свой набор значков (линия 2,2 из 24, скруглённые концы) — маски CSS, цвет — от текста. Совпало — галочка,
+   расхождение — «≠», повтор — два листа, перегруз — линия делится на две, нет пары — пустой круг с чертой,
+   из порта — стрелка в лоток. */
+:root { --i-ok: url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%2024%2024'%20fill%3D'none'%20stroke%3D'black'%20stroke-width%3D'2.2'%20stroke-linecap%3D'round'%20stroke-linejoin%3D'round'%3E%3Cpath%20d%3D'M5%2012.5l4.5%204.5L19%207.5'%2F%3E%3C%2Fsvg%3E"); --i-diff: url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%2024%2024'%20fill%3D'none'%20stroke%3D'black'%20stroke-width%3D'2.2'%20stroke-linecap%3D'round'%20stroke-linejoin%3D'round'%3E%3Cpath%20d%3D'M5%209.5h14M5%2014.5h14M15%204.5l-6%2015'%2F%3E%3C%2Fsvg%3E"); --i-dup: url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%2024%2024'%20fill%3D'none'%20stroke%3D'black'%20stroke-width%3D'2.2'%20stroke-linecap%3D'round'%20stroke-linejoin%3D'round'%3E%3Crect%20x%3D'8.5'%20y%3D'8.5'%20width%3D'11'%20height%3D'11'%20rx%3D'2.5'%2F%3E%3Cpath%20d%3D'M15.5%208.5V6.5a2%202%200%200%200-2-2h-7a2%202%200%200%200-2%202v7a2%202%200%200%200%202%202h2'%2F%3E%3C%2Fsvg%3E"); --i-split: url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%2024%2024'%20fill%3D'none'%20stroke%3D'black'%20stroke-width%3D'2.2'%20stroke-linecap%3D'round'%20stroke-linejoin%3D'round'%3E%3Cpath%20d%3D'M3.5%2012H9l3.5-5H20M12.5%2012l3.5%205H20M17%204.5L20%207l-3%202.5M17%2014.5L20%2017l-3%202.5'%2F%3E%3C%2Fsvg%3E"); --i-miss: url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%2024%2024'%20fill%3D'none'%20stroke%3D'black'%20stroke-width%3D'2.2'%20stroke-linecap%3D'round'%20stroke-linejoin%3D'round'%3E%3Ccircle%20cx%3D'12'%20cy%3D'12'%20r%3D'8'%2F%3E%3Cpath%20d%3D'M6.5%2017.5l11-11'%2F%3E%3C%2Fsvg%3E"); --i-fill: url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%2024%2024'%20fill%3D'none'%20stroke%3D'black'%20stroke-width%3D'2.2'%20stroke-linecap%3D'round'%20stroke-linejoin%3D'round'%3E%3Cpath%20d%3D'M12%204v10M7.5%209.5L12%2014l4.5-4.5M5%2019.5h14'%2F%3E%3C%2Fsvg%3E"); }
+.fx-ico { display: inline-block; flex: none; width: 1.05em; height: 1.05em; background: currentColor; -webkit-mask: var(--i) center / contain no-repeat; mask: var(--i) center / contain no-repeat; vertical-align: -.15em; }
+/* колонка «Статус»: ярлык-пилюля со значком; символ шрифта остаётся в тексте ячейки (копирование, отчёты), но не виден */
+.st-tag { display: inline-flex; align-items: center; gap: 6px; height: 22px; padding: 0 10px 0 7px; border-radius: 999px; font-size: 12px; font-weight: 600; white-space: nowrap; color: var(--k); background: color-mix(in srgb, var(--k) 13%, transparent); }
+.st-tag::before { content: ""; width: 13px; height: 13px; flex: none; background: currentColor; -webkit-mask: var(--i) center / contain no-repeat; mask: var(--i) center / contain no-repeat; }
+.st-sym { font-size: 0; }
+.st-tag.k-ok { --k: var(--ok-ink); --i: var(--i-ok); } .st-tag.k-diff { --k: var(--warn-ink); --i: var(--i-diff); } .st-tag.k-dup { --k: var(--dup-ink); --i: var(--i-dup); }
+.st-tag.k-split { --k: var(--warn-ink); --i: var(--i-split); } .st-tag.k-miss { --k: var(--bad-ink); --i: var(--i-miss); }
+/* плашки-счётчики: значок вместо цветной точки (цвет — прежний, из разметки) */
+.tally button .l i { border-radius: 0 !important; width: 13px !important; height: 13px !important; vertical-align: -2px; -webkit-mask: var(--i, none) center / contain no-repeat; mask: var(--i, none) center / contain no-repeat; }
+.tally button:nth-child(1) { --i: var(--i-ok); } .tally button:nth-child(2) { --i: var(--i-diff); } .tally button:nth-child(3) { --i: var(--i-dup); } .tally button:nth-child(4) { --i: var(--i-split); } .tally button:nth-child(5), .tally button:nth-child(6) { --i: var(--i-miss); } .tally button:nth-child(7) { --i: var(--i-fill); }   /* порядок плашек постоянный: совпало, расхождения, повторы, перегруз, нет в порту, нет у вас, цены из порта */
+.tally button[data-filter="ok"] { --i: var(--i-ok); } .tally button[data-filter="diff"] { --i: var(--i-diff); } .tally button[data-filter="dup"] { --i: var(--i-dup); }
+.tally button[data-filter="split"] { --i: var(--i-split); } .tally button[data-filter="missing"] { --i: var(--i-miss); } .tally button[data-filter="noprice"] { --i: var(--i-fill); }
+/* шаги в шапке: сделанный шаг — значок-галочка, а не символ */
+.steps li.done i::before { content: ""; width: 12px; height: 12px; background: currentColor; -webkit-mask: var(--i-ok) center / contain no-repeat; mask: var(--i-ok) center / contain no-repeat; }
+/* метка вида в разборе — значком */
+.tg-kind[data-i]::before { width: 13px; height: 13px; border-radius: 0; background: var(--k); -webkit-mask: var(--i) center / contain no-repeat; mask: var(--i) center / contain no-repeat; }
+.tg-kind[data-i="ok"] { --i: var(--i-ok); } .tg-kind[data-i="diff"] { --i: var(--i-diff); } .tg-kind[data-i="dup"] { --i: var(--i-dup); } .tg-kind[data-i="split"] { --i: var(--i-split); } .tg-kind[data-i="missing"], .tg-kind[data-i="missing-mine"] { --i: var(--i-miss); }
 
 /* клавиши (kbd) — как настоящие колпачки; в пустом окне вставки — свои, крупнее */
 kbd { display: inline-grid; place-items: center; min-width: 22px; height: 22px; padding: 0 6px; margin: 0 1px; border-radius: 6px; border: 1px solid var(--rule-strong); border-bottom-width: 2px; background: var(--sheet); color: var(--ink); font: 600 12px/1 var(--mono); vertical-align: 1px; box-shadow: 0 1px 0 var(--rule); }
@@ -2641,7 +2676,7 @@ const SverkaFx = (() => {
   const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const plate = v => { const m = String(v || '').replace(/\s+/g, '').match(/^([A-ZА-ЯІЇЄ]{2})(\d{4})([A-ZА-ЯІЇЄ]{2})$/i); return m ? `<span class="plate"><i>${esc(m[1])}</i><i>${esc(m[2])}</i><i>${esc(m[3])}</i></span>` : esc(v); };
   const marked = (s, set) => [...String(s)].map((c, i) => set && set.has(i) ? `<mark class="fx-dd">${esc(c)}</mark>` : esc(c)).join('');
-  let box = null, list = [], at = 0, done = new Set(), wrote = new Set(), sig = '', from = null;
+  let box = null, list = [], at = 0, done = new Set(), wrote = new Set(), copied = new Set(), sig = '', from = null;
   const api = () => window.SverkaTriage;
   function build() {
     box = document.createElement('div'); box.className = 'modal'; box.id = 'triage';
@@ -2655,19 +2690,20 @@ const SverkaFx = (() => {
   function refresh() {
     const a = api(); list = a && a.list ? a.list() : [];
     const s = list.map(x => x.key + x.plate + x.what).join('|');
-    if (s !== sig) { sig = s; done = new Set(); wrote = new Set(); at = 0; }
+    if (s !== sig) { sig = s; done = new Set(); wrote = new Set(); copied = new Set(); at = 0; }
   }
   function card(x) {
     const [kname, kvar] = KIND[x.kind] || [x.kind, '--ink-3'];
     const mk = x.port && x.mine && SverkaFx.diff ? SverkaFx.diff(String(x.port), String(x.mine)) : null;
     const side = (cls, label, v, set) => `<div class="tg-side ${cls}"><small>${label}</small>${v ? `<b>${marked(v, set)}</b>` : '<b class="none">нет</b>'}</div>`;
-    const canWrite = x.edit && !x.sent && !wrote.has(x.key);
+    const canWrite = x.edit && !x.sent && !wrote.has(x.key) && !copied.has(x.key);
     const why = x.sent || wrote.has(x.key) ? '<span class="tg-sent">↗ передано в Numbers</span>'
+      : copied.has(x.key) ? '<p class="tg-note">Вписывать сами умеют только Мак и Numbers — здесь ничего не вписано. Список правки скопирован: вставьте его и поправьте вручную.</p>'
       : canWrite ? ''
       : x.field === 'date' || x.field === 'ttn' ? '<p class="tg-note">Дату и ТТН программа не вписывает — у вас они записаны по-своему. Проверьте и исправьте сами, если нужно.</p>'
       : '<p class="tg-note">Здесь вписывать нечего — посмотрите строку и решите сами.</p>';
     return `<div class="tg-card">
-      <div class="tg-meta"><span class="tg-kind" style="--k: var(${kvar})">${esc(kname)}</span>${x.row ? `<span>строка у вас <b>${esc(x.row)}</b></span>` : ''}${x.portRow ? `<span>в порту <b>${esc(x.portRow)}</b></span>` : ''}${x.plate ? plate(x.plate) : ''}${x.ttn ? `<span>ТТН <b>${esc(x.ttn)}</b></span>` : ''}</div>
+      <div class="tg-meta"><span class="tg-kind" data-i="${esc(x.kind)}" style="--k: var(${kvar})">${esc(kname)}</span>${x.row ? `<span>строка у вас <b>${esc(x.row)}</b></span>` : ''}${x.portRow ? `<span>в порту <b>${esc(x.portRow)}</b></span>` : ''}${x.plate ? plate(x.plate) : ''}${x.ttn ? `<span>ТТН <b>${esc(x.ttn)}</b></span>` : ''}</div>
       <h3 class="tg-what">${esc(x.what || '')}${x.field && FIELD[x.field] && !String(x.what || '').startsWith(FIELD[x.field]) ? ` <span style="color:var(--ink-2)">· ${FIELD[x.field]}</span>` : ''}</h3>
       ${x.port || x.mine ? `<div class="tg-cmp">${side('port', 'В порту', x.port, mk && mk[0])}<span class="tg-arrow" aria-hidden="true">→</span>${side('mine' + (wrote.has(x.key) ? ' done' : ''), 'У вас', wrote.has(x.key) ? x.port : x.mine, wrote.has(x.key) ? null : mk && mk[1])}</div>` : ''}
       ${why}
@@ -2707,7 +2743,7 @@ const SverkaFx = (() => {
     if (k === 'write') {
       const x = list[at]; if (!x || !x.edit || x.sent || wrote.has(x.key)) return go(1);
       const ok = api() && api().write(x.edit || x.key);
-      if (!ok) return;
+      if (!ok) { copied.add(x.key); paint(0); return; }   // не на Маке: правка не ушла, список скопирован — говорим как есть
       wrote.add(x.key); done.add(x.key);
       const keep = at; refresh(); at = keep;   // после «вписать» итог перерисован — данные заново, место то же
       paint(0);
@@ -2742,67 +2778,57 @@ const SverkaFx = (() => {
   }, true);
 })();
 
-// ---------- «Пары»: сшитые таблицы (вкладка «Пары», #pairs-view перерисовывается вместе с итогом) ----------
+// ---------- «Пары»: одна строка — одна пара (вкладка «Пары», #pairs-view перерисовывается вместе с итогом) ----------
 (() => {
   const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const plate = v => { const m = String(v || '').replace(/\s+/g, '').match(/^([A-ZА-ЯІЇЄ]{2})(\d{4})([A-ZА-ЯІЇЄ]{2})$/i); return m ? `<span class="plate"><i>${esc(m[1])}</i><i>${esc(m[2])}</i><i>${esc(m[3])}</i></span>` : null; };
   const marked = (s, set) => [...String(s)].map((c, i) => set && set.has(i) ? `<mark class="fx-dd">${esc(c)}</mark>` : esc(c)).join('');
-  const COL = { ok: '--ok-ink', diff: '--ch-diff', dup: '--ch-dup', split: '--ch-dup' };
   const NUM = /^[\s\d.,\u00a0−-]+$/;
+  const ROLES = [['ttn', 'ТТН'], ['plate', 'Машина'], ['date', 'Дата'], ['weight', 'Вес'], ['price', 'Цена'], ['sum', 'Сумма']];
+  // роль колонки: из SverkaPairs (head.portRoles / head.mineRoles), иначе — по словам заголовка (рус. и укр.)
+  const guess = name => { const s = String(name || '').toLowerCase();
+    if (/дата|date/.test(s)) return 'date'; if (/ттн|ttn/.test(s)) return 'ttn'; if (/причіп|прицеп/.test(s) && !/авто|машин|тягач/.test(s)) return 'trailer';
+    if (/авто|машин|тягач|номер|госн/.test(s)) return 'plate'; if (/вес|вага|нетто|тонн|маса/.test(s)) return 'weight';
+    if (/цена|ціна|price/.test(s)) return 'price'; if (/сумм|сума|вартіст|стоимост/.test(s)) return 'sum'; return 'none'; };
+  const map = (names, roles) => { const r = {}; (roles && roles.length === names.length ? roles : names.map(guess)).forEach((role, i) => { if (role && r[role] == null) r[role] = i; }); return r; };
   function mount(view) {
     if (!window.SverkaPairs) return;
     const P = window.SverkaPairs(); if (!P || !P.port) return;
-    // колонки: колонки порта по порядку и такие же по названию у вас (так пары сравниваются глазами)
-    const norm = s => String(s || '').trim().toLowerCase();
-    const cols = P.head.port.map((name, pi) => ({ name, pi, mi: P.head.mine.findIndex(m => norm(m) && norm(m) === norm(name)) })).filter(c => norm(c.name));
-    const portBy = new Map(P.port.map(x => [x.line, x])), pairOf = new Map();
-    P.mine.forEach(m => { if (m.pairLine != null && portBy.has(m.pairLine)) pairOf.set(m.pairLine, m); });
-    const cell = (v, other, isPlate) => {
-      if (isPlate) { const p = plate(v); if (p) return `<td>${p}</td>`; }
-      const mk = other != null && v && other && v !== other && SverkaFx.diff ? SverkaFx.diff(String(v), String(other)) : null;
-      return `<td${NUM.test(String(v)) ? ' class="n"' : ''}>${mk ? marked(v, mk[0]) : esc(v)}</td>`;
+    const rp = map(P.head.port, P.head.portRoles), rm = map(P.head.mine, P.head.mineRoles);
+    const hasBy = P.port.concat(P.mine).some(x => x && x.by);
+    const cols = hasBy ? ROLES.filter(([k]) => P.port.concat(P.mine).some(x => x.by && String(x.by[k] ?? '').trim())) : ROLES.filter(([k]) => rp[k] != null || rm[k] != null);
+    const portBy = new Map(P.port.map(x => [x.line, x])), paired = new Set();
+    const val = (row, r, k) => !row ? '' : row.by ? String(row.by[k] ?? '') : r[k] != null ? String(row.cells[r[k]] ?? '') : '';
+    // отличие подсвечиваем только у пар с расхождением; «23960,000» кг и «23,96» т — не отличие, а единицы
+    const num = s => { const t = String(s).replace(/[\s\u00a0]/g, '').replace(',', '.'); return /^-?\d+(\.\d+)?$/.test(t) ? +t : null; };
+    const units = (a, b) => { const x = num(a), y = num(b); if (x == null || y == null || !x || !y) return false; const q = x > y ? x / y : y / x; return Math.abs(q - 1000) < 1; };
+    let markOn = false;
+    const cell = (v, other, k, side) => {
+      const t = esc(v);
+      if (k === 'plate') { const p = plate(v); if (p) return `<td class="${side}" title="${t}">${p}</td>`; }
+      const mk = markOn && other && v && v !== other && !units(v, other) && SverkaFx.diff ? SverkaFx.diff(v, other) : null;
+      return `<td class="${side}${NUM.test(v) ? ' n' : ''}${v ? '' : ' pv-none'}" title="${t}">${v ? (mk ? marked(v, mk[0]) : t) : '—'}</td>`;
     };
-    const isPlate = name => /машин|номер авто|авто/i.test(name);
-    const portRows = P.port.map(x => { const m = pairOf.get(x.line), st = m ? x.status : 'missing';
-      return `<tr class="s-${st}" data-k="${x.line}"><td class="no">${esc(x.rowNo)}</td>${cols.map(c => cell(x.cells[c.pi], m && c.mi >= 0 ? m.cells[c.mi] : null, isPlate(c.name))).join('')}</tr>`; }).join('');
-    const mineRows = P.mine.map(x => { const p = x.pairLine != null ? portBy.get(x.pairLine) : null, st = p || x.status === 'dup' || x.status === 'split' ? x.status : 'missing';   // повтор и часть перегруза — жёлтые, не «нет пары»
-      return `<tr class="s-${st}"${p ? ` data-k="${x.pairLine}"` : ''}>${cols.map(c => c.mi >= 0 ? cell(x.cells[c.mi], p ? p.cells[c.pi] : null, isPlate(c.name)) : '<td></td>').join('')}<td class="no">${esc(x.rowNo)}</td></tr>`; }).join('');
-    const head = (side) => (side === 'port' ? '<th>№</th>' : '') + cols.map(c => `<th>${esc(c.name)}</th>`).join('') + (side === 'mine' ? '<th>№</th>' : '');
-    const nMineAlone = P.mine.filter(x => x.pairLine == null || !portBy.has(x.pairLine)).length, nPortAlone = P.port.length - pairOf.size;
-    view.innerHTML = `<div class="pv"><div class="pv-head"><span>Пар <b>${pairOf.size}</b></span><span>у вас без пары <b>${nMineAlone}</b></span><span>в порту без пары <b>${nPortAlone}</b></span><span class="pv-hint">слева порт, справа ваша таблица · наведите на строку — подсветится её пара</span></div>
-      <div class="pv-scroll"><div class="pv-grid"><table class="pv-t port"><thead><tr>${head('port')}</tr></thead><tbody>${portRows}</tbody></table>
-      <div class="pv-mid"></div><table class="pv-t mine"><thead><tr>${head('mine')}</tr></thead><tbody>${mineRows}</tbody></table>
-      <svg class="pv-links" aria-hidden="true"></svg></div></div></div>`;
-    const pv = view.firstElementChild, grid = pv.querySelector('.pv-grid'), svg = pv.querySelector('.pv-links');
-    let drawn = false;
-    function draw() {
-      const g = grid.getBoundingClientRect(); if (!g.width) return;
-      const pt = grid.querySelector('.pv-t.port').getBoundingClientRect(), mt = grid.querySelector('.pv-t.mine').getBoundingClientRect();
-      const x0 = pt.right - g.left - 2, x1 = mt.left - g.left + 2, cx = (x1 - x0) * .55;
-      const rowsP = new Map([...grid.querySelectorAll('.pv-t.port tr[data-k]')].map(tr => [tr.dataset.k, tr]));
-      let out = '', i = 0;
-      for (const tr of grid.querySelectorAll('.pv-t.mine tr[data-k]')) {
-        const a = rowsP.get(tr.dataset.k); if (!a) continue;
-        const ra = a.getBoundingClientRect(), rb = tr.getBoundingClientRect(), ya = ra.top - g.top + ra.height / 2, yb = rb.top - g.top + rb.height / 2;
-        const m = pairOf.get(+tr.dataset.k), color = `var(${COL[m ? m.status : 'ok'] || '--ok-ink'})`;
-        out += `<path data-k="${tr.dataset.k}" d="M${x0} ${ya} C${x0 + cx} ${ya} ${x1 - cx} ${yb} ${x1} ${yb}" style="stroke:${color};color:${color};--i:${i++}"/><circle data-k="${tr.dataset.k}" cx="${x0}" cy="${ya}" r="2.6" style="fill:${color}"/><circle data-k="${tr.dataset.k}" cx="${x1}" cy="${yb}" r="2.6" style="fill:${color}"/>`;
-      }
-      svg.setAttribute('viewBox', `0 0 ${g.width} ${g.height}`); svg.innerHTML = out;
-      if (!drawn && !SverkaFx.reduce) svg.querySelectorAll('path').forEach((p, k) => { const L = p.getTotalLength(); p.animate([{ strokeDasharray: `${L}`, strokeDashoffset: L }, { strokeDasharray: `${L}`, strokeDashoffset: 0 }], { duration: 700, delay: Math.min(k, 30) * 22, easing: 'cubic-bezier(.25, 1, .5, 1)', fill: 'backwards' }); });
-      drawn = true;
-    }
-    requestAnimationFrame(draw);
-    if ('ResizeObserver' in window) new ResizeObserver(() => requestAnimationFrame(draw)).observe(grid);
-    // наведение: пара и её нить — ярко, остальное приглушено
-    let hot = null;
-    const light = k => {
-      if (k === hot) return; hot = k;
-      pv.querySelectorAll('.on').forEach(e => e.classList.remove('on'));
-      pv.classList.toggle('hot', k != null);
-      if (k != null) pv.querySelectorAll(`[data-k="${k}"]`).forEach(e => e.classList.add('on'));
-    };
-    pv.addEventListener('mouseover', e => { const tr = e.target.closest && e.target.closest('.pv-t tbody tr'); light(tr && tr.dataset.k != null ? tr.dataset.k : null); });
-    pv.addEventListener('mouseleave', () => light(null));
+    const half = (row, r, other, ro, side) => cols.map(([k], c) => {
+      const cls = c === 0 && side === 'side-port' ? 'side-port' : c === cols.length - 1 && side === 'side-mine' ? 'side-mine' : '';
+      return row ? cell(val(row, r, k), other ? val(other, ro, k) : '', k, cls) : `<td class="${cls} pv-none">—</td>`;
+    }).join('');
+    let n = 0;
+    const tr = (p, m, st, extra) => (markOn = st === 'diff', '') + `<tr class="s-${st}${extra || ''}" style="--r:${Math.min(n++, 40)}"><td class="no">${p ? esc(p.rowNo) : ''}</td>${half(p, rp, m, rm, 'side-port')}<td class="lk"><i></i></td>${half(m, rm, p, rp, 'side-mine')}<td class="no">${m ? esc(m.rowNo) : ''}</td></tr>`;
+    const pairs = [], mineAlone = [];
+    P.mine.forEach(m => { const p = m.pairLine != null ? portBy.get(m.pairLine) : null; if (p) { paired.add(p.line); pairs.push(tr(p, m, m.status === 'ok' ? 'ok' : 'diff')); } else mineAlone.push(m); });
+    const portAlone = P.port.filter(x => !paired.has(x.line));
+    const span = cols.length * 2 + 3;
+    const grp = (title, k) => k ? `<tr class="grp"><td colspan="${span}">${title} <b>${k}</b></td></tr>` : '';
+    const rows = pairs.join('')
+      + grp('У вас, пары в порту нет', mineAlone.length) + mineAlone.map(m => tr(null, m, m.status === 'dup' || m.status === 'split' ? m.status : 'missing', ' alone mine-only')).join('')
+      + grp('В порту, пары у вас нет', portAlone.length) + portAlone.map(p => tr(p, null, 'missing', ' alone')).join('');
+    const heads = side => cols.map(([k, name]) => `<th${k === 'weight' || k === 'price' || k === 'sum' ? ' class="n"' : ''}>${name}</th>`).join('');
+    view.innerHTML = `<div class="pv fresh"><div class="pv-head"><span>Пар <b>${pairs.length}</b></span><span>у вас без пары <b>${mineAlone.length}</b></span><span>в порту без пары <b>${portAlone.length}</b></span><span class="pv-hint">строка — пара: слева порт, справа ваша таблица; отличия подсвечены</span></div>
+      <div class="pv-scroll"><table class="pv-t"><thead><tr><th colspan="${cols.length + 1}" class="grp-port">Порт</th><th></th><th colspan="${cols.length + 1}" class="grp-mine">У вас</th></tr>
+      <tr><th>№</th>${heads('port')}<th></th>${heads('mine')}<th>№</th></tr></thead><tbody>${rows}</tbody></table></div></div>`;
+    if (SverkaFx.reduce) view.firstElementChild.classList.remove('fresh');
+    else setTimeout(() => view.firstElementChild && view.firstElementChild.classList.remove('fresh'), 2200);
   }
   SverkaFx.each('#pairs-view', mount);
 })();
@@ -5184,8 +5210,11 @@ SverkaFx.changed('.btn', el => {
   window.SverkaPairs = () => {
     const res = S.res; if (!res) return null;
     const head = t => { const hr = t.recs.find(r => r.status === 'header'); return hr ? hr.cells.slice() : (t.roles || []).map(r => (r && r !== 'none' ? Sverka.ROLE_NAMES[r] || '' : '')); };
-    const row = (t, r) => ({ line: r.line, rowNo: res.rowNo(t, r), cells: r.cells.slice(), status: r.status });
-    return { head: { port: head(res.port), mine: head(res.mine) }, port: res.port.live.map(r => row(res.port, r)),
+    // by — значения по ролям, как их прочла сверка (ttn, plate, trailer, date, weight, price, sum, crop…): заголовки у
+    // реестров разные («№ ТТН», «Марка авто / № авто»), а роли — общие; portRoles/mineRoles — роль каждой колонки (14.10)
+    const row = (t, r) => ({ line: r.line, rowNo: res.rowNo(t, r), cells: r.cells.slice(), status: r.status, by: Object.assign({}, r.raw) });
+    return { head: { port: head(res.port), mine: head(res.mine), portRoles: (res.port.roles || []).slice(), mineRoles: (res.mine.roles || []).slice() },
+      port: res.port.live.map(r => row(res.port, r)),
       mine: res.mine.live.map(r => Object.assign(row(res.mine, r), { pairLine: r.pair ? r.pair.line : null })) };
   };
 
