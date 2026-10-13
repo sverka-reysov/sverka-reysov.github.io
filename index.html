@@ -579,7 +579,7 @@ tr.just .n-ok { display: inline-block; animation: popIn .45s cubic-bezier(.3, 1.
   </section>
 
   <div id="out"></div>
-  <footer style="margin-top:40px;color:var(--ink-3);font-size:12px">Сверка рейсов · версия <span id="app-ver"><!--ВЕРСИЯ-->14.10.2026 · fb545d<!--/ВЕРСИЯ--></span></footer>
+  <footer style="margin-top:40px;color:var(--ink-3);font-size:12px">Сверка рейсов · версия <span id="app-ver"><!--ВЕРСИЯ-->14.10.2026 · a95e58<!--/ВЕРСИЯ--></span></footer>
 </main>
 
 <div class="modal" id="report" role="dialog" aria-modal="true" aria-labelledby="report-title">
@@ -2146,6 +2146,23 @@ html.fx-scrolled .top { padding-top: 7px; padding-bottom: 7px; box-shadow: var(-
 @media (prefers-reduced-motion: reduce) {
   :is(.btn, .icon-btn, .bot-btn):active:not([disabled]) { scale: none; }
   .btn-primary:hover, .btn-blue:hover, .fchip:hover, .tally button:not([disabled]):hover .n, .tally button:not([disabled]):active .n, .tally button:not([disabled]):hover .l i, .bar:hover span { transform: none; }
+}
+
+/* реестр порта (.notice.hist.reg). «Новых машин N» — спокойная синяя сводка со значком реестра, числа — счётчиками;
+   «уже сверяли» (.warn) — прежний жёлтый смысл и значок повтора. Значки — маской из CSS, разметку не трогаем. */
+.notice.reg { position: relative; padding-left: 50px; }
+.notice.reg::before { content: ""; position: absolute; left: 17px; top: 16px; width: 20px; height: 20px; -webkit-mask: var(--reg-ico) center / contain no-repeat; mask: var(--reg-ico) center / contain no-repeat; }
+.notice.reg:not(.warn) { --reg-ico: url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%2024%2024'%20fill%3D'none'%20stroke%3D'black'%20stroke-width%3D'2'%20stroke-linecap%3D'round'%20stroke-linejoin%3D'round'%3E%3Cpath%20d%3D'M14%203H7a2%202%200%200%200-2%202v14a2%202%200%200%200%202%202h10a2%202%200%200%200%202-2V8z'%2F%3E%3Cpath%20d%3D'M14%203v5h5'%2F%3E%3Cpath%20d%3D'M12%2011v6M9%2014h6'%2F%3E%3C%2Fsvg%3E"); color: var(--ink); background: color-mix(in srgb, var(--sea) 7%, var(--sheet)); border-color: color-mix(in srgb, var(--sea) 28%, transparent); }
+.notice.reg:not(.warn)::before { background: var(--sea); }
+.notice.reg.warn { --reg-ico: url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%2024%2024'%20fill%3D'none'%20stroke%3D'black'%20stroke-width%3D'2'%20stroke-linecap%3D'round'%20stroke-linejoin%3D'round'%3E%3Cpath%20d%3D'M17%202l4%204-4%204'%2F%3E%3Cpath%20d%3D'M3%2011V9a3%203%200%200%201%203-3h15'%2F%3E%3Cpath%20d%3D'M7%2022l-4-4%204-4'%2F%3E%3Cpath%20d%3D'M21%2013v2a3%203%200%200%201-3%203H3'%2F%3E%3C%2Fsvg%3E"); }
+.notice.reg.warn::before { background: var(--warn-ink); top: 17px; }
+.notice.reg b { display: inline-block; min-width: 1.7em; padding: 0 7px; margin: 0 1px; border-radius: 999px; text-align: center; line-height: 1.5; font-variant-numeric: tabular-nums; background: color-mix(in srgb, var(--sea) 16%, transparent); color: var(--sea); }
+
+/* списки истории с номером машины на телефоне («нашлись в порту», «уже были в прошлой сверке»): номер рвал строку —
+   теперь «строка N:» и номер сверху, описание под ними во всю ширину. Без :has() (старый Safari) — как было. */
+@media (max-width: 700px) {
+  .notice.hist:not(.tails) li:has(> .plate) { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 8px; }
+  .notice.hist:not(.tails) li:has(> .plate) > .plate { margin: 0; }
 }
 
 /* клавиши (kbd) — как настоящие колпачки; в пустом окне вставки — свои, крупнее */
