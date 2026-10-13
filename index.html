@@ -579,7 +579,7 @@ tr.just .n-ok { display: inline-block; animation: popIn .45s cubic-bezier(.3, 1.
   </section>
 
   <div id="out"></div>
-  <footer style="margin-top:40px;color:var(--ink-3);font-size:12px">Сверка рейсов · версия <span id="app-ver"><!--ВЕРСИЯ-->14.10.2026 · d55bb4<!--/ВЕРСИЯ--></span></footer>
+  <footer style="margin-top:40px;color:var(--ink-3);font-size:12px">Сверка рейсов · версия <span id="app-ver"><!--ВЕРСИЯ-->14.10.2026 · e71232<!--/ВЕРСИЯ--></span></footer>
 </main>
 
 <div class="modal" id="report" role="dialog" aria-modal="true" aria-labelledby="report-title">
@@ -2286,6 +2286,40 @@ mark.fx-dd { background: color-mix(in srgb, var(--warn-ink) 18%, transparent); c
 .tg-kind[data-i]::before { width: 13px; height: 13px; border-radius: 0; background: var(--k); -webkit-mask: var(--i) center / contain no-repeat; mask: var(--i) center / contain no-repeat; }
 .tg-kind[data-i="ok"] { --i: var(--i-ok); } .tg-kind[data-i="diff"] { --i: var(--i-diff); } .tg-kind[data-i="dup"] { --i: var(--i-dup); } .tg-kind[data-i="split"] { --i: var(--i-split); } .tg-kind[data-i="missing"], .tg-kind[data-i="missing-mine"] { --i: var(--i-miss); }
 
+/* единая шкала скруглений (было 11 разных: 6, 8, 9, 11, 12, 14, 16, 18, 20, 22, 28): 6 — клавиши; 10 — маленькие кнопки
+   и метки; 12 — кнопки, поля, вкладки, тост; 16 — вложенные блоки, предупреждения, выпадающие списки; 20 — карточки,
+   окна вставки, плашки, окна; 24 — итог и первый экран. Новые детали — только из этих токенов. */
+:root { --r-xs: 6px; --r-s: 10px; --r-m: 12px; --r-l: 16px; --r-xl: 20px; --r-xxl: 24px; }
+.btn-sm, .fchip, .tabs button, .rp, .notice.tails li { border-radius: var(--r-s); }
+.btn, .icon-btn, .top .icon-btn, .bot-btn, .hsearch input, .tabs, .toast, .steps li { border-radius: var(--r-m); }
+.notice, .notice.hist, .msg-box, .hs-list, .empty, .bk-box, .hello li, .tg-side { border-radius: var(--r-l); }
+.card2, .pane, .tally, .totals, .result-sheet, .todo, .top, .modal-card { border-radius: var(--r-xl); }
+.r-hero, .hello, .stage { border-radius: var(--r-xxl); }
+.btn.btn-sm { border-radius: var(--r-s); }
+
+/* материал: едва заметное зерно бумаги поверх страницы (не мешает тексту — 3–5 %) и тонкий блик по верхней кромке
+   поверхностей в тёмной теме — как стекло и металл, а не ровная заливка */
+html::after { content: ""; position: fixed; inset: 0; z-index: 70; pointer-events: none; background: url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20width%3D'160'%20height%3D'160'%3E%3Cfilter%20id%3D'n'%3E%3CfeTurbulence%20type%3D'fractalNoise'%20baseFrequency%3D'.9'%20numOctaves%3D'3'%20stitchTiles%3D'stitch'%2F%3E%3CfeColorMatrix%20values%3D'0%200%200%200%20.5%20%200%200%200%200%20.5%20%200%200%200%200%20.5%20%200%200%200%201.4%20-.35'%2F%3E%3C%2Ffilter%3E%3Crect%20width%3D'100%25'%20height%3D'100%25'%20filter%3D'url(%23n)'%2F%3E%3C%2Fsvg%3E"); background-size: 160px; opacity: .035; mix-blend-mode: multiply; }
+:root[data-theme="dark"]::after { opacity: .05; mix-blend-mode: screen; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"])::after { opacity: .05; mix-blend-mode: screen; } }
+:root[data-theme="dark"] :is(.card2, .pane, .tally, .totals, .result-sheet, .r-hero, .todo, .modal-card, .top) { box-shadow: inset 0 1px 0 rgba(255, 255, 255, .06), var(--shadow-1); }
+:root[data-theme="dark"] .card2:hover { box-shadow: inset 0 1px 0 rgba(255, 255, 255, .08), var(--shadow-2); }
+
+/* пустые окна вставки — рисунок тонкой линией: у порта судно у причала, у вас — зерновоз */
+.pane .empty > div::before { content: ""; display: block; width: 64px; height: 64px; margin: 0 auto 10px; background: var(--ink-3); opacity: .8; -webkit-mask: var(--pic) center / contain no-repeat; mask: var(--pic) center / contain no-repeat; }
+.pane.port .empty { --pic: url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%2064%2064'%20fill%3D'none'%20stroke%3D'black'%20stroke-width%3D'1.7'%20stroke-linecap%3D'round'%20stroke-linejoin%3D'round'%3E%3Cpath%20d%3D'M6%2040h52l-6%209H13z'%2F%3E%3Cpath%20d%3D'M14%2040V30h26v10'%2F%3E%3Cpath%20d%3D'M20%2030v-7h10v7'%2F%3E%3Cpath%20d%3D'M44%2040V24M44%2024l9%206'%2F%3E%3Cpath%20d%3D'M4%2055c4%200%204-2%208-2s4%202%208%202%204-2%208-2%204%202%208%202%204-2%208-2%204%202%208%202%204-2%208-2'%2F%3E%3C%2Fsvg%3E"); } .pane.mine .empty { --pic: url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%2064%2064'%20fill%3D'none'%20stroke%3D'black'%20stroke-width%3D'1.7'%20stroke-linecap%3D'round'%20stroke-linejoin%3D'round'%3E%3Cpath%20d%3D'M4%2044V26h32v18'%2F%3E%3Cpath%20d%3D'M36%2031h11l7%208v5H36'%2F%3E%3Cpath%20d%3D'M4%2044h52'%2F%3E%3Ccircle%20cx%3D'15'%20cy%3D'47'%20r%3D'4'%2F%3E%3Ccircle%20cx%3D'45'%20cy%3D'47'%20r%3D'4'%2F%3E%3Cpath%20d%3D'M7%2026c5-8%2021-8%2026%200'%2F%3E%3Cpath%20d%3D'M13%2021l1-3M20%2019v-3M27%2021l-1-3'%2F%3E%3C%2Fsvg%3E"); }
+.pane.port .empty > div::before { background: color-mix(in srgb, var(--sea) 70%, var(--ink-3)); }
+.pane.mine .empty > div::before { background: color-mix(in srgb, var(--wheat) 75%, var(--ink-3)); }
+
+/* «всё совпало» — вокруг кольца распускается венок из колосьев (код ниже) */
+.fx-wreath { position: absolute; inset: -6%; width: 112%; height: 112%; pointer-events: none; overflow: visible; color: var(--ok-ink); }
+.fx-wreath path.st { fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; opacity: .8; }
+.fx-wreath ellipse { fill: color-mix(in srgb, var(--wheat) 55%, var(--ok-ink)); }
+@keyframes fxStem { from { stroke-dashoffset: var(--L); } }
+@keyframes fxEar { from { transform: scale(0); opacity: 0; } }
+.fx-wreath.go path.st { stroke-dasharray: var(--L); animation: fxStem 1.1s var(--ease-out) .2s backwards; }
+.fx-wreath.go ellipse { transform-box: fill-box; transform-origin: 50% 50%; animation: fxEar .5s var(--spring-pop) calc(.35s + var(--k) * 45ms) backwards; }
+
 /* клавиши (kbd) — как настоящие колпачки; в пустом окне вставки — свои, крупнее */
 kbd { display: inline-grid; place-items: center; min-width: 22px; height: 22px; padding: 0 6px; margin: 0 1px; border-radius: 6px; border: 1px solid var(--rule-strong); border-bottom-width: 2px; background: var(--sheet); color: var(--ink); font: 600 12px/1 var(--mono); vertical-align: 1px; box-shadow: 0 1px 0 var(--rule); }
 
@@ -2831,6 +2865,37 @@ const SverkaFx = (() => {
     else setTimeout(() => view.firstElementChild && view.firstElementChild.classList.remove('fresh'), 2200);
   }
   SverkaFx.each('#pairs-view', mount);
+})();
+
+// ---------- «всё совпало» — венок из колосьев вокруг кольца итога (только при нуле проблем и без цен из порта) ----------
+(() => {
+  const NS = 'http://www.w3.org/2000/svg';
+  function wreath(hero) {
+    const h2 = hero.querySelector('.r-lede h2'), orb = hero.querySelector('.r-orb');
+    if (!h2 || !orb || h2.querySelector('.n') || orb.querySelector('.fx-wreath')) return;   // «.n» — есть число проблем или цен: не наш случай
+    const s = document.createElementNS(NS, 'svg'); s.setAttribute('class', 'fx-wreath'); s.setAttribute('viewBox', '0 0 200 200'); s.setAttribute('aria-hidden', 'true');
+    let k = 0, out = '';
+    for (const side of [-1, 1]) {
+      // стебель — дуга от низа к верху по своей стороне; внизу просвет — под подписью «ваша таблица»
+      const pts = []; for (let i = 0; i <= 12; i++) { const a = Math.PI / 2 + side * (.34 + i / 12 * 2.0); pts.push([100 + Math.cos(a) * 92, 100 + Math.sin(a) * 92, a]); }
+      out += `<path class="st" d="M${pts.map(p => p[0].toFixed(1) + ' ' + p[1].toFixed(1)).join(' L')}"/>`;
+      // колоски — парами по обе стороны стебля, к верху мельче
+      pts.slice(1).forEach(([x, y, a], i) => {
+        const z = 1 - i / 16, tang = a + side * Math.PI / 2;
+        for (const off of [-.55, .55]) {
+          const ang = tang + off * side, cx = x + Math.cos(ang) * 5 * z, cy = y + Math.sin(ang) * 5 * z, deg = ang * 180 / Math.PI + 90;
+          out += `<g transform="rotate(${deg.toFixed(0)} ${cx.toFixed(1)} ${cy.toFixed(1)})"><ellipse cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" rx="${(2.4 * z).toFixed(2)}" ry="${(5.8 * z).toFixed(2)}" style="--k:${k++}"/></g>`;   // поворот — на обёртке: иначе анимация сдвигает точку отсчёта и колосок улетает
+        }
+      });
+    }
+    s.innerHTML = out; orb.appendChild(s);
+    s.querySelectorAll('path.st').forEach(p => p.style.setProperty('--L', p.getTotalLength().toFixed(0)));
+    if (!SverkaFx.reduce) {
+      const go = () => s.classList.add('go');
+      if ('IntersectionObserver' in window) { const io = new IntersectionObserver(es => { if (es[0].isIntersecting) { io.disconnect(); go(); } }); io.observe(orb); } else go();
+    }
+  }
+  SverkaFx.each('#out .r-hero', wreath);
 })();
 
 // ---------- «Что осталось»: только что сделанное дело «щёлкает» (список перерисовывается целиком — помним, что уже было сделано) ----------
