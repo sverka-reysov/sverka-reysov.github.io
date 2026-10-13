@@ -579,7 +579,7 @@ tr.just .n-ok { display: inline-block; animation: popIn .45s cubic-bezier(.3, 1.
   </section>
 
   <div id="out"></div>
-  <footer style="margin-top:40px;color:var(--ink-3);font-size:12px">Сверка рейсов · версия <span id="app-ver"><!--ВЕРСИЯ-->14.10.2026 · e71232<!--/ВЕРСИЯ--></span></footer>
+  <footer style="margin-top:40px;color:var(--ink-3);font-size:12px">Сверка рейсов · версия <span id="app-ver"><!--ВЕРСИЯ-->14.10.2026 · 72d3a0<!--/ВЕРСИЯ--></span></footer>
 </main>
 
 <div class="modal" id="report" role="dialog" aria-modal="true" aria-labelledby="report-title">
@@ -2264,19 +2264,19 @@ mark.fx-dd { background: color-mix(in srgb, var(--warn-ink) 18%, transparent); c
 .pv.fresh tbody tr:nth-child(-n + 30) td.lk::before { animation: fxLink .5s var(--ease-out) calc(var(--r, 0) * 25ms) backwards; }
 .pv.fresh tbody tr:nth-child(-n + 30) td.lk::after, .pv.fresh tbody tr:nth-child(-n + 30) td.lk i { animation: fxLinkDot .45s var(--spring-pop) calc(var(--r, 0) * 25ms + .2s) backwards; }
 
-/* свой набор значков (линия 2,2 из 24, скруглённые концы) — маски CSS, цвет — от текста. Совпало — галочка,
-   расхождение — «≠», повтор — два листа, перегруз — линия делится на две, нет пары — пустой круг с чертой,
-   из порта — стрелка в лоток. */
-:root { --i-ok: url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%2024%2024'%20fill%3D'none'%20stroke%3D'black'%20stroke-width%3D'2.2'%20stroke-linecap%3D'round'%20stroke-linejoin%3D'round'%3E%3Cpath%20d%3D'M5%2012.5l4.5%204.5L19%207.5'%2F%3E%3C%2Fsvg%3E"); --i-diff: url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%2024%2024'%20fill%3D'none'%20stroke%3D'black'%20stroke-width%3D'2.2'%20stroke-linecap%3D'round'%20stroke-linejoin%3D'round'%3E%3Cpath%20d%3D'M5%209.5h14M5%2014.5h14M15%204.5l-6%2015'%2F%3E%3C%2Fsvg%3E"); --i-dup: url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%2024%2024'%20fill%3D'none'%20stroke%3D'black'%20stroke-width%3D'2.2'%20stroke-linecap%3D'round'%20stroke-linejoin%3D'round'%3E%3Crect%20x%3D'8.5'%20y%3D'8.5'%20width%3D'11'%20height%3D'11'%20rx%3D'2.5'%2F%3E%3Cpath%20d%3D'M15.5%208.5V6.5a2%202%200%200%200-2-2h-7a2%202%200%200%200-2%202v7a2%202%200%200%200%202%202h2'%2F%3E%3C%2Fsvg%3E"); --i-split: url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%2024%2024'%20fill%3D'none'%20stroke%3D'black'%20stroke-width%3D'2.2'%20stroke-linecap%3D'round'%20stroke-linejoin%3D'round'%3E%3Cpath%20d%3D'M3.5%2012H9l3.5-5H20M12.5%2012l3.5%205H20M17%204.5L20%207l-3%202.5M17%2014.5L20%2017l-3%202.5'%2F%3E%3C%2Fsvg%3E"); --i-miss: url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%2024%2024'%20fill%3D'none'%20stroke%3D'black'%20stroke-width%3D'2.2'%20stroke-linecap%3D'round'%20stroke-linejoin%3D'round'%3E%3Ccircle%20cx%3D'12'%20cy%3D'12'%20r%3D'8'%2F%3E%3Cpath%20d%3D'M6.5%2017.5l11-11'%2F%3E%3C%2Fsvg%3E"); --i-fill: url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%2024%2024'%20fill%3D'none'%20stroke%3D'black'%20stroke-width%3D'2.2'%20stroke-linecap%3D'round'%20stroke-linejoin%3D'round'%3E%3Cpath%20d%3D'M12%204v10M7.5%209.5L12%2014l4.5-4.5M5%2019.5h14'%2F%3E%3C%2Fsvg%3E"); }
+/* свой набор значков, двухтонный: мягкая подложка 22 % того же цвета и контур 1,75 из 24 — одна маска, цвет от текста.
+   Совпало — галочка в круге, расхождение — «≠» в круге, повтор — два листа, перегруз — капсула из двух половин,
+   нет пары — «●○» (одна есть, второй нет), из порта — стрелка в лоток. Исходник рисунков — дизайн-сессия (icons-v2.js). */
+:root { --i-ok: url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2024%2024%27%20fill%3D%27none%27%20stroke%3D%27black%27%20stroke-width%3D%271.75%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%3E%3Ccircle%20fill%3D%27black%27%20fill-opacity%3D%27.22%27%20stroke%3D%27none%27%20cx%3D%2712%27%20cy%3D%2712%27%20r%3D%279.5%27%2F%3E%3Cpath%20d%3D%27M7.6%2012.4l3%203%205.8-6.6%27%2F%3E%3C%2Fsvg%3E"); --i-diff: url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2024%2024%27%20fill%3D%27none%27%20stroke%3D%27black%27%20stroke-width%3D%271.75%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%3E%3Ccircle%20fill%3D%27black%27%20fill-opacity%3D%27.22%27%20stroke%3D%27none%27%20cx%3D%2712%27%20cy%3D%2712%27%20r%3D%279.5%27%2F%3E%3Cpath%20d%3D%27M7.8%2010h8.4M7.8%2014h8.4M13.7%206.6l-3.4%2010.8%27%2F%3E%3C%2Fsvg%3E"); --i-dup: url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2024%2024%27%20fill%3D%27none%27%20stroke%3D%27black%27%20stroke-width%3D%271.75%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%3E%3Crect%20fill%3D%27black%27%20fill-opacity%3D%27.22%27%20stroke%3D%27none%27%20x%3D%273.5%27%20y%3D%273.5%27%20width%3D%2712%27%20height%3D%2712%27%20rx%3D%273%27%2F%3E%3Crect%20x%3D%278.5%27%20y%3D%278.5%27%20width%3D%2712%27%20height%3D%2712%27%20rx%3D%273%27%2F%3E%3Cpath%20d%3D%27M12%2013h5M12%2016h3.5%27%2F%3E%3C%2Fsvg%3E"); --i-split: url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2024%2024%27%20fill%3D%27none%27%20stroke%3D%27black%27%20stroke-width%3D%271.75%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%3E%3Crect%20fill%3D%27black%27%20fill-opacity%3D%27.22%27%20stroke%3D%27none%27%20x%3D%272.5%27%20y%3D%277%27%20width%3D%2719%27%20height%3D%2710%27%20rx%3D%275%27%2F%3E%3Cpath%20d%3D%27M10%207.5H7.5a4.5%204.5%200%200%200%200%209H10zM14%207.5h2.5a4.5%204.5%200%200%201%200%209H14z%27%2F%3E%3C%2Fsvg%3E"); --i-miss: url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2024%2024%27%20fill%3D%27none%27%20stroke%3D%27black%27%20stroke-width%3D%271.75%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%3E%3Ccircle%20fill%3D%27black%27%20fill-opacity%3D%27.22%27%20stroke%3D%27none%27%20cx%3D%2712%27%20cy%3D%2712%27%20r%3D%279.5%27%2F%3E%3Ccircle%20cx%3D%278.6%27%20cy%3D%2712%27%20r%3D%273.1%27%20fill%3D%27black%27%20stroke%3D%27none%27%2F%3E%3Ccircle%20cx%3D%2715.6%27%20cy%3D%2712%27%20r%3D%273.1%27%20stroke-dasharray%3D%271.9%201.7%27%2F%3E%3C%2Fsvg%3E"); --i-fill: url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2024%2024%27%20fill%3D%27none%27%20stroke%3D%27black%27%20stroke-width%3D%271.75%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%3E%3Cpath%20fill%3D%27black%27%20fill-opacity%3D%27.22%27%20stroke%3D%27none%27%20d%3D%27M4%2014h16v3.5A2.5%202.5%200%200%201%2017.5%2020h-11A2.5%202.5%200%200%201%204%2017.5z%27%2F%3E%3Cpath%20d%3D%27M12%203.5v10M8%209.8l4%204%204-4M4%2014v3.5A2.5%202.5%200%200%200%206.5%2020h11a2.5%202.5%200%200%200%202.5-2.5V14%27%2F%3E%3C%2Fsvg%3E"); }
 .fx-ico { display: inline-block; flex: none; width: 1.05em; height: 1.05em; background: currentColor; -webkit-mask: var(--i) center / contain no-repeat; mask: var(--i) center / contain no-repeat; vertical-align: -.15em; }
 /* колонка «Статус»: ярлык-пилюля со значком; символ шрифта остаётся в тексте ячейки (копирование, отчёты), но не виден */
 .st-tag { display: inline-flex; align-items: center; gap: 6px; height: 22px; padding: 0 10px 0 7px; border-radius: 999px; font-size: 12px; font-weight: 600; white-space: nowrap; color: var(--k); background: color-mix(in srgb, var(--k) 13%, transparent); }
-.st-tag::before { content: ""; width: 13px; height: 13px; flex: none; background: currentColor; -webkit-mask: var(--i) center / contain no-repeat; mask: var(--i) center / contain no-repeat; }
+.st-tag::before { content: ""; width: 15px; height: 15px; flex: none; background: currentColor; -webkit-mask: var(--i) center / contain no-repeat; mask: var(--i) center / contain no-repeat; }
 .st-sym { font-size: 0; }
 .st-tag.k-ok { --k: var(--ok-ink); --i: var(--i-ok); } .st-tag.k-diff { --k: var(--warn-ink); --i: var(--i-diff); } .st-tag.k-dup { --k: var(--dup-ink); --i: var(--i-dup); }
 .st-tag.k-split { --k: var(--warn-ink); --i: var(--i-split); } .st-tag.k-miss { --k: var(--bad-ink); --i: var(--i-miss); }
 /* плашки-счётчики: значок вместо цветной точки (цвет — прежний, из разметки) */
-.tally button .l i { border-radius: 0 !important; width: 13px !important; height: 13px !important; vertical-align: -2px; -webkit-mask: var(--i, none) center / contain no-repeat; mask: var(--i, none) center / contain no-repeat; }
+.tally button .l i { border-radius: 0 !important; width: 15px !important; height: 15px !important; vertical-align: -3px; -webkit-mask: var(--i, none) center / contain no-repeat; mask: var(--i, none) center / contain no-repeat; }
 .tally button:nth-child(1) { --i: var(--i-ok); } .tally button:nth-child(2) { --i: var(--i-diff); } .tally button:nth-child(3) { --i: var(--i-dup); } .tally button:nth-child(4) { --i: var(--i-split); } .tally button:nth-child(5), .tally button:nth-child(6) { --i: var(--i-miss); } .tally button:nth-child(7) { --i: var(--i-fill); }   /* порядок плашек постоянный: совпало, расхождения, повторы, перегруз, нет в порту, нет у вас, цены из порта */
 .tally button[data-filter="ok"] { --i: var(--i-ok); } .tally button[data-filter="diff"] { --i: var(--i-diff); } .tally button[data-filter="dup"] { --i: var(--i-dup); }
 .tally button[data-filter="split"] { --i: var(--i-split); } .tally button[data-filter="missing"] { --i: var(--i-miss); } .tally button[data-filter="noprice"] { --i: var(--i-fill); }
@@ -2896,6 +2896,20 @@ const SverkaFx = (() => {
     }
   }
   SverkaFx.each('#out .r-hero', wreath);
+})();
+
+// ---------- колонка «Статус» в таблицах итога: «✓ совпало» → ярлык со значком; текст ячейки не меняется ----------
+(() => {
+  const K = { '✓': 'ok', '⚠': 'diff', '↻': 'dup', '✂': 'split', '✕': 'miss' };
+  const tag = td => {
+    const t = td.firstChild; if (!t || t.nodeType !== 3 || td.childNodes.length !== 1) return;
+    const s = t.nodeValue, k = K[s.trim()[0]]; if (!k) return;
+    const i = s.indexOf(s.trim()[0]), j = s.slice(i + 1).search(/\S/) + i + 1;
+    const span = document.createElement('span'); span.className = 'st-tag k-' + k;
+    const sym = document.createElement('span'); sym.className = 'st-sym'; sym.setAttribute('aria-hidden', 'true'); sym.textContent = s.slice(0, j);
+    span.append(sym, s.slice(j)); t.replaceWith(span);
+  };
+  SverkaFx.each('#res-grid', grid => grid.querySelectorAll('td.st').forEach(tag));
 })();
 
 // ---------- «Что осталось»: только что сделанное дело «щёлкает» (список перерисовывается целиком — помним, что уже было сделано) ----------
