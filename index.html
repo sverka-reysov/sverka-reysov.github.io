@@ -579,7 +579,7 @@ tr.just .n-ok { display: inline-block; animation: popIn .45s cubic-bezier(.3, 1.
   </section>
 
   <div id="out"></div>
-  <footer style="margin-top:40px;color:var(--ink-3);font-size:12px">Сверка рейсов · версия <span id="app-ver"><!--ВЕРСИЯ-->13.10.2026 · 1c52b6<!--/ВЕРСИЯ--></span></footer>
+  <footer style="margin-top:40px;color:var(--ink-3);font-size:12px">Сверка рейсов · версия <span id="app-ver"><!--ВЕРСИЯ-->13.10.2026 · 366da1<!--/ВЕРСИЯ--></span></footer>
 </main>
 
 <div class="modal" id="report" role="dialog" aria-modal="true" aria-labelledby="report-title">
@@ -1607,7 +1607,7 @@ const Sverka = (() => {
     const out = [];
     (Array.isArray(sessions) ? sessions : []).filter(s => s && Array.isArray(s.trips))
       .slice().sort((x, y) => (x.at < y.at ? -1 : x.at > y.at ? 1 : 0))
-      .forEach(s => { const i = sameSession(s, out); if (i >= 0) out.splice(i, 1); out.push(s); });
+      .forEach(s => { const i = sameSession(s, out); out.push(i >= 0 ? mergeSame(out.splice(i, 1)[0], s) : s); });
     return out;
   }
   function historyCheck(res, sessions, at, meta) {
@@ -1629,10 +1629,17 @@ const Sverka = (() => {
     });
     return { same, repeats: [...repeats.values()].sort((a, b) => a.row - b.row), found: [...found.values()].sort((a, b) => a.row - b.row), entry: cur };
   }
+  // Та же сверка ещё раз заменяет прежнюю, но рейсы прежней, которых в новой версии листа нет (удалили оплаченные
+  // строки), остаются в следе: по ним ловится двойная оплата и держатся «хвосты» (ревью 13.10.2026).
+  function mergeSame(old, cur) {
+    const keys = new Set(cur.trips.map(t => t.k)), kept = (old.trips || []).filter(t => !keys.has(t.k));
+    return kept.length ? Object.assign({}, cur, { trips: cur.trips.concat(kept) }) : cur;
+  }
   function historySave(sessions, check, max) {
     const list = (Array.isArray(sessions) ? sessions : []).slice();
-    if (check.same >= 0) list.splice(check.same, 1);
-    list.push(check.entry);
+    let entry = check.entry;
+    if (check.same >= 0) entry = mergeSame(list.splice(check.same, 1)[0], entry);
+    list.push(entry);
     return list.slice(-(max || 200));
   }
   // Восстановление из резервной копии: две истории сливаются без потерь — сверка узнаётся по времени, одинаковые
@@ -2750,6 +2757,12 @@ SverkaFx.changed('.btn', el => {
     const saved = store.get('sverka.roles.' + t.sig);
     return saved && saved.length === t.autoRoles.length ? saved : null;
   }
+  // Щелчок по окну уже скопировал ячейку — и ⌘V вставил бы её вместо реестра (ревью 13.10). Свой же текст — не таблица.
+  function selfPaste(t) {
+    if (!S.lastCopy || String(t).replace(/\r/g, '') !== S.lastCopy) return false;
+    toast('В буфере — ячейки, скопированные здесь же, а не таблица. Скопируйте реестр или свою таблицу заново и вставьте.', 6000);
+    return true;
+  }
   function setText(which, text) {
     const fresh = !!(text && text.trim() && text !== S.text[which]);
     S.text[which] = text || '';
@@ -2766,7 +2779,7 @@ SverkaFx.changed('.btn', el => {
     wrap.addEventListener('click', e => { if (!e.target.closest('select, button, input')) ta.focus({ preventScroll: true }); });
     ta.addEventListener('paste', e => {
       const t = e.clipboardData && e.clipboardData.getData('text/plain');
-      if (t) { e.preventDefault(); setText(which, t); toast('Вставлено. Колонки определены — проверьте шапку.'); }
+      if (t) { e.preventDefault(); if (selfPaste(t)) return; setText(which, t); toast('Вставлено. Колонки определены — проверьте шапку.'); }
     });
     ta.addEventListener('input', () => { if (ta.value) { setText(which, ta.value); ta.value = ''; } });
     $('#start-' + which).addEventListener('change', () => { renderPane(which); if (S.res) run(); });
@@ -2778,7 +2791,7 @@ SverkaFx.changed('.btn', el => {
     if (b.dataset.act === 'clear') setText(which, '');
     if (b.dataset.act === 'paste') {
       if (navigator.clipboard && navigator.clipboard.readText) {
-        navigator.clipboard.readText().then(t => { if (t) setText(which, t); else toast('Буфер пуст — скопируйте строки в таблице.'); },
+        navigator.clipboard.readText().then(t => { if (t && selfPaste(t)) return; if (t) setText(which, t); else toast('Буфер пуст — скопируйте строки в таблице.'); },
           () => { $('#ta-' + which).focus(); toast('Нажмите ⌘V — браузер не дал прочитать буфер сам.'); });
       } else { $('#ta-' + which).focus(); toast('Нажмите ⌘V'); }
     }
@@ -3297,6 +3310,7 @@ SverkaFx.changed('.btn', el => {
 
   // ---------- копирование в Excel / Numbers ----------
   function copyRich(html, text) {
+    S.lastCopy = String(text).replace(/\r/g, '');   // вставка этого же текста в окно — не новая таблица (selfPaste)
     let ok = false;
     const onCopy = e => { e.clipboardData.setData('text/html', html); e.clipboardData.setData('text/plain', text); e.preventDefault(); ok = true; };
     document.addEventListener('copy', onCopy);
@@ -4210,11 +4224,12 @@ SverkaFx.changed('.btn', el => {
   }
   function tailsHtml(exclude) {
     const list = tailsNow(exclude); if (!list.length) return '';
-    S.tailsMsg = Sverka.tailsMessage(list);
+    const mk = exclude ? 'tailsMsg' : 'tailsMsgAll';   // итог — без машин этой сверки, поиск — все
+    S[mk] = Sverka.tailsMessage(list);
     const n = list.length;
     const li = t => `<li>${plateHtml(t.plate)} ТТН ${esc(t.ttn || '—')}${hTons(t.w)}${t.date ? ' · ' + esc(t.date) : ''} — без пары с ${hDate(t.since)}${t.times > 1 ? `, сверок без пары: ${t.times}` : ''}${t.client ? ' · ' + esc(t.client) : ''} <button class="btn btn-sm btn-quiet" data-tail-close="${esc(t.k)}" title="Убрать из хвостов — например, оплачено без порта или ошибка в таблице">Снять</button></li>`;
     return `<div class="notice warn hist tails"><h3>${n} ${plural(n, 'машина', 'машины', 'машин')} из прошлых сверок так и не ${plural(n, 'нашлась', 'нашлись', 'нашлись')} в порту</h3><ul>${list.slice(0, 12).map(li).join('')}</ul>${n > 12 ? `<p>и ещё ${n - 12} — все есть в сообщении порту</p>` : ''}
-      <div class="row"><button class="btn btn-sm" data-tails-copy>Скопировать сообщение порту</button><a class="btn btn-sm btn-tg" data-tails-tg href="tg://msg?text=${encodeURIComponent(S.tailsMsg)}">Открыть в Телеграме</a></div></div>`;
+      <div class="row"><button class="btn btn-sm" data-tails-copy="${mk}">Скопировать сообщение порту</button><a class="btn btn-sm btn-tg" data-tails-tg="${mk}" href="tg://msg?text=${encodeURIComponent(S[mk])}">Открыть в Телеграме</a></div></div>`;
   }
   function tailsRefresh() { if (S.res) renderResults(); if (!hsl.hidden) renderSearch(); }
   document.addEventListener('click', e => {
@@ -4222,7 +4237,8 @@ SverkaFx.changed('.btn', el => {
     if (c) { const cl = store.get(TKEY) || []; if (!cl.includes(c.dataset.tailClose)) cl.push(c.dataset.tailClose); store.set(TKEY, cl.slice(-2000)); toast('Убрано из хвостов. Вернуть — внизу поиска «Вернуть снятые»'); tailsRefresh(); return; }
     if (e.target.closest('[data-tails-reopen]')) { store.set(TKEY, []); toast('Снятые хвосты возвращены'); tailsRefresh(); return; }
     const cp = e.target.closest('[data-tails-copy], [data-tails-tg]');
-    if (cp && S.tailsMsg) copyMsg(S.tailsMsg, cp, 'Сообщение порту');
+    const tm = cp && S[cp.dataset.tailsCopy || cp.dataset.tailsTg || 'tailsMsg'];
+    if (tm) copyMsg(tm, cp, 'Сообщение порту');
   });
   // «Этот реестр уже был» (13.10.2026) — как в боте: последние 20 отпечатков реестров порта на этом компьютере (набор
   // рейсов, без номеров открытым текстом). «Тот же» — только если ваша таблица другая (повтор той же сверки — не повод),
@@ -4489,7 +4505,7 @@ SverkaFx.changed('.btn', el => {
       let j; try { j = JSON.parse(r.result); } catch (e) { toast('Это не файл копии «Сверки» — не удалось прочитать'); return; }
       if (!j || j.app !== 'sverka' || !j.data) { toast('Это не файл копии «Сверки»'); return; }
       const inc = j.data, curH = store.get(HKEY) || [], curD = store.get('zap.drivers') || {};
-      const h = Sverka.historyMerge(curH, inc[HKEY] || []), dir = Object.assign({}, inc['zap.drivers'] || {}, curD);
+      const h = Sverka.historyFold(Sverka.historyMerge(curH, inc[HKEY] || [])), dir = Object.assign({}, inc['zap.drivers'] || {}, curD);
       store.set(HKEY, h); store.set('zap.drivers', dir);
       let other = 0;
       Object.keys(inc).forEach(k => { if (BK_KEYS(k) && k !== HKEY && k !== 'zap.drivers' && store.get(k) == null) { store.set(k, inc[k]); other++; } });

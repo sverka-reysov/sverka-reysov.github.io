@@ -2,7 +2,7 @@
 // Страница: сначала сеть (новая версия приходит сразу), а без сети или если сеть молчит 4 с — сохранённая копия.
 // Дополнения (extra/, иконки): сохранённое сразу, свежее подтягивается в фоне. Таблицы сюда не попадают — только файлы
 // сайта. Если что-то пойдёт не так: заменить этот файл на одну строку self.registration.unregister() и опубликовать.
-const CACHE = 'sverka-1';
+const CACHE = 'sverka-2';   // 2 — с 13.10.2026: прежний мог сохранить под адресом страницы открытую напрямую иконку
 const PAGE = new URL('./', self.registration.scope).href;
 const CORE = [PAGE, 'manifest.webmanifest', 'icon.svg', 'icon-180.png', 'icon-512.png'];
 
@@ -20,7 +20,8 @@ self.addEventListener('fetch', e => {
   if (req.method !== 'GET') return;
   const url = new URL(req.url);
   if (url.origin !== self.location.origin) return;
-  const isPage = req.mode === 'navigate' || url.href.split('?')[0] === PAGE || url.pathname.endsWith('/index.html');
+  // страница — только сама программа; другой переход (например, иконка, открытая адресом) — не она (ревью 13.10)
+  const isPage = url.href.split('?')[0] === PAGE || url.pathname.endsWith('/index.html');
   if (isPage) {
     e.respondWith((async () => {
       const cache = await caches.open(CACHE);
@@ -37,7 +38,7 @@ self.addEventListener('fetch', e => {
   }
   e.respondWith((async () => {
     const cache = await caches.open(CACHE);
-    const hit = await cache.match(req, { ignoreSearch: true });
+    const hit = await cache.match(req);   // с учётом «?v=…»: новая версия дополнения — новый файл
     const fresh = fetch(req).then(r => { if (r.ok) cache.put(req, r.clone()); return r; });
     if (hit) { e.waitUntil(fresh.catch(() => null)); return hit; }
     return fresh;
