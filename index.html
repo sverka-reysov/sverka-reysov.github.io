@@ -495,6 +495,8 @@ tr.just .n-ok { display: inline-block; animation: popIn .45s cubic-bezier(.3, 1.
 .bk-box { grid-column: 1 / -1; background: var(--head); border-radius: 14px; padding: 14px 16px; }
 .bk-box p { margin: 0 0 10px; color: var(--ink-2); font-size: 13.5px; }
 .bk-a { display: flex; gap: 8px; flex-wrap: wrap; }
+.todo { margin: 0 0 18px; align-items: center; }
+.todo:empty { display: none; }
 .hs-acts { display: inline-flex; gap: 2px; flex-wrap: wrap; justify-content: flex-end; }
 .n-act { text-align: right; white-space: nowrap; }
 .n-ok { color: var(--ok-ink); font-weight: 600; font-size: 12.5px; }
@@ -577,7 +579,7 @@ tr.just .n-ok { display: inline-block; animation: popIn .45s cubic-bezier(.3, 1.
   </section>
 
   <div id="out"></div>
-  <footer style="margin-top:40px;color:var(--ink-3);font-size:12px">Сверка рейсов · версия <span id="app-ver"><!--ВЕРСИЯ-->13.10.2026 · c0945a<!--/ВЕРСИЯ--></span></footer>
+  <footer style="margin-top:40px;color:var(--ink-3);font-size:12px">Сверка рейсов · версия <span id="app-ver"><!--ВЕРСИЯ-->13.10.2026 · 6c6ba6<!--/ВЕРСИЯ--></span></footer>
 </main>
 
 <div class="modal" id="report" role="dialog" aria-modal="true" aria-labelledby="report-title">
@@ -646,7 +648,8 @@ tr.just .n-ok { display: inline-block; animation: popIn .45s cubic-bezier(.3, 1.
       <div>
         <h3>Выделение, как в Numbers</h3>
         <ul>
-          <li>протяжка мышью — прямоугольник ячеек, ⇧ + щелчок — расширить;</li>
+          <li>щелчок, протяжка мышью или стрелки — выделенное сразу в буфере, вставляйте ⌘V;</li>
+          <li>⇧ + щелчок или ⇧ + стрелка — расширить, ⌘ + стрелка — к краю таблицы;</li>
           <li>щелчок по заголовку — вся колонка, ⌘A — всё, Esc — снять;</li>
           <li>внутри одной ячейки или двойной щелчок — обычное выделение текста.</li>
         </ul>
@@ -659,6 +662,14 @@ tr.just .n-ok { display: inline-block; animation: popIn .45s cubic-bezier(.3, 1.
           <li>бот <b>@zerno_sverka_bot</b> присылает эту программу по фразе «пришли программу».</li>
           <li>кнопка с динамиком вверху — звук: «включён», «днём, ночью тихо (22:00–7:00)» или «выключен»;</li>
           <li>каждая сверка запоминается на этом компьютере: если рейс уже был в прошлой сверке — предупреждение «не оплачен ли дважды»; поиск сверху находит машину или ТТН во всех прошлых сверках, там же — «Очистить историю».</li>
+        </ul>
+      </div>
+      <div>
+        <h3>Клавиши</h3>
+        <ul>
+          <li><b>⌘↵</b> — сверить;</li>
+          <li><b>/</b> — найти машину или ТТН во всех сверках (пустое поле — «хвосты»);</li>
+          <li><b>⌘V</b> в окне — вставить таблицу, <b>Esc</b> — снять выделение.</li>
         </ul>
       </div>
       <div class="bk-box">
@@ -2049,7 +2060,7 @@ if (typeof module !== 'undefined') module.exports = Zap;
   function setText(which, text) {
     const fresh = !!(text && text.trim() && text !== S.text[which]);
     S.text[which] = text || '';
-    S.overrides[which] = null; S.confirmedNoSwap = false; S.marked[which].clear(); S.zedits = {}; S.done3 = false;
+    S.overrides[which] = null; S.confirmedNoSwap = false; S.marked[which].clear(); S.zedits = {}; S.done3 = false; S.todo = {};
     renderPane('port'); renderPane('mine');
     if (S.res || fillMode()) run();
     if (fresh) { const fd = $('#found-' + which); fd.classList.remove('just'); void fd.offsetWidth; fd.classList.add('just'); setTimeout(() => fd.classList.remove('just'), 1500); Field.fill(which); staggerRows($('#pane-' + which + ' .sheet-body')); Snd.play('rustle', 1.1); }
@@ -2190,7 +2201,7 @@ if (typeof module !== 'undefined') module.exports = Zap;
   $('#btn-clear').onclick = () => {
     S.text.port = S.text.mine = ''; S.overrides.port = S.overrides.mine = null; S.res = null; S.filter = null;
     S.marked.port.clear(); S.marked.mine.clear(); S.confirmedNoSwap = false;
-    S.zedits = {};
+    S.zedits = {}; S.todo = {};
     renderPane('port'); renderPane('mine'); $('#out').innerHTML = ''; Field.clear('port'); Field.clear('mine');
   };
 
@@ -2335,6 +2346,7 @@ if (typeof module !== 'undefined') module.exports = Zap;
     const totalsHtml = `<div class="duo">${settleHtml(tt, tSum, msg, nf)}${daysHtml(res)}</div>${messagesHtml(res)}${clientHistHtml()}`;
     out.innerHTML = `
       ${heroHtml(res)}
+      <div class="r-ctas todo" id="todo" aria-label="Что осталось по этой сверке"></div>
       ${historyHtml()}
       <div class="tally">${tally}</div>
       ${totalsHtml}
@@ -2374,6 +2386,7 @@ if (typeof module !== 'undefined') module.exports = Zap;
     bindNumbers();
     bindDays();
     bindMessages();
+    paintTodo();
     if (keep) { const sc = out.querySelector('.result-sheet .scroll'); if (sc) { sc.scrollTop = keep[0]; sc.scrollLeft = keep[1]; } }
     afterRender(fresh, viewChanged);
     updateSteps();
@@ -3585,7 +3598,7 @@ if (typeof module !== 'undefined') module.exports = Zap;
       </div></section>`;
   }
   function copyMsg(text, btn, what) {
-    if (copyRich('<p>' + esc(text).replace(/\n/g, '<br>') + '</p>', text)) { toast(what + ' скопировано — вставьте в чат ⌘V'); Motion.ghost(btn, 'Скопировано'); Snd.play('tick'); return true; }
+    if (copyRich('<p>' + esc(text).replace(/\n/g, '<br>') + '</p>', text)) { todoNote(text); toast(what + ' скопировано — вставьте в чат ⌘V'); Motion.ghost(btn, 'Скопировано'); Snd.play('tick'); return true; }
     toast('Не получилось скопировать — выделите текст мышью и ⌘C'); return false;
   }
   function bindMessages() {
@@ -3845,6 +3858,53 @@ if (typeof module !== 'undefined') module.exports = Zap;
     if ((e.metaKey || e.ctrlKey) && (e.key === 'a' || e.code === 'KeyA')) { e.preventDefault(); Object.assign(PS, { a: { r: 0, c: 0 }, b: { r: psLastRow(PS.grid), c: psLastCol(PS.grid) }, cols: false }); psPaint(); psCopy(); }
   });
 
+  // ================= «Что осталось» по этой сверке (13.10.2026) =================
+  // Дела после сверки отмечаются сами: все правки переданы в Numbers, сообщение порту / клиенту / по хвостам
+  // скопировано или открыто в Телеграме, предупреждение о двойной оплате открыто. Состояние — S.todo; новая вставка
+  // сбрасывает, после обновления страницы возвращается (sverka.session.v1). Только функции: вызывается и при
+  // восстановлении сессии, которое стоит в коде ниже.
+  function todoItems() {
+    if (!S.res) return [];
+    const t = S.todo || (S.todo = {}), items = [], nl = numbersList(), sent = S.nsent || new Set();
+    if (nl.length) items.push({ key: 'numbers', label: 'Вписать в Numbers · ' + nl.length, done: nl.every(e => sent.has(nKey(e))) });
+    if (S.hist && S.hist.repeats.length) items.push({ key: 'repeats', label: 'Проверить двойную оплату · ' + S.hist.repeats.length, done: !!t.repeats });
+    if (S.portMsg) items.push({ key: 'port', label: 'Написать порту', done: !!t.port });
+    if (S.tailsMsg && document.querySelector('#out .tails')) items.push({ key: 'tails', label: 'Хвосты — написать порту', done: !!t.tails });
+    if (S.clientMsg) items.push({ key: 'client', label: 'Отправить клиенту итог', done: !!t.client });
+    return items;
+  }
+  function paintTodo() {
+    const box = $('#todo'); if (!box) return;
+    const items = todoItems(), left = items.filter(i => !i.done).length;
+    box.innerHTML = !items.length ? '' : `<span class="eyebrow">${left ? 'Что осталось по этой сверке · ' + left : 'Всё по этой сверке сделано'}</span>` +
+      items.map(i => `<button class="btn btn-sm${i.done ? ' btn-quiet' : ''}" data-todo="${i.key}"${i.done ? ' aria-pressed="true"' : ''}>${i.done ? '✓ ' : ''}${esc(i.label)}</button>`).join('');
+  }
+  function todoNote(text) {
+    if (!text) return;
+    const t = S.todo || (S.todo = {});
+    if (text === S.portMsg) t.port = true;
+    if (text === S.tailsMsg) t.tails = true;
+    if (text === S.clientMsg) t.client = true;
+    paintTodo();
+  }
+  document.addEventListener('click', e => {
+    const b = e.target.closest('[data-todo]'); if (!b) return;
+    const k = b.dataset.todo, go = sel => { const el = $(sel); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' }); };
+    if (k === 'numbers') { S.filter = null; S.tab = 'numbers'; renderResults(); $('.result-bar').scrollIntoView({ behavior: 'smooth', block: 'start' }); return; }
+    if (k === 'repeats') { (S.todo || (S.todo = {})).repeats = true; paintTodo(); go('#out .notice.warn.hist'); return; }
+    if (k === 'tails') { go('#out .tails'); return; }
+    go('#out .card2.msgs');
+  });
+
+  // ================= клавиши (13.10.2026) =================
+  // ⌘↵ (Ctrl+Enter) — «Сверить» откуда угодно; «/» — поиск машины или ТТН (если не набираете текст).
+  document.addEventListener('keydown', e => {
+    const mod = e.metaKey || e.ctrlKey, a = document.activeElement;
+    const typing = a && ((/INPUT|TEXTAREA|SELECT/.test(a.tagName) && !a.classList.contains('paste-target')) || a.isContentEditable);
+    if (mod && e.key === 'Enter') { e.preventDefault(); $('#btn-run').click(); return; }
+    if (e.key === '/' && !mod && !e.altKey && !typing) { e.preventDefault(); $('#hs-q').focus(); }
+  });
+
   // ================= работа не пропадает при обновлении страницы (13.10.2026) =================
   // Вставленные таблицы, выбранные колонки, первые строки, клиент, вкладка, пометки, правки заполнялки и что уже
   // передано в Numbers хранятся в этом браузере (как история сверок) и возвращаются после обновления или перезапуска.
@@ -3856,7 +3916,7 @@ if (typeof module !== 'undefined') module.exports = Zap;
       v: 1, at: new Date().toISOString(), text: S.text, overrides: S.overrides,
       start: { port: $('#start-port').value, mine: $('#start-mine').value }, client: $('#client').value,
       ran: !!S.res, tab: S.tab, fillOn: S.fillOn, noSwap: S.confirmedNoSwap, zedits: S.zedits || {},
-      marked: { port: [...S.marked.port], mine: [...S.marked.mine] }, nsent: S.nsent ? [...S.nsent] : [],
+      marked: { port: [...S.marked.port], mine: [...S.marked.mine] }, nsent: S.nsent ? [...S.nsent] : [], todo: S.todo || {},
     });
   }
   let saveTimer = null;
@@ -3879,6 +3939,7 @@ if (typeof module !== 'undefined') module.exports = Zap;
       run();
       if (s.marked) ['port', 'mine'].forEach(w => (s.marked[w] || []).forEach(x => S.marked[w].add(x)));
       if (S.res && s.nsent) S.nsent = new Set(s.nsent);
+      if (S.res && s.todo) S.todo = s.todo;
       if (S.res) renderResults();
     }
     toast('Вернул то, что было до закрытия страницы. Начать заново — «Очистить всё».', 5000);
