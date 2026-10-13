@@ -579,7 +579,7 @@ tr.just .n-ok { display: inline-block; animation: popIn .45s cubic-bezier(.3, 1.
   </section>
 
   <div id="out"></div>
-  <footer style="margin-top:40px;color:var(--ink-3);font-size:12px">Сверка рейсов · версия <span id="app-ver"><!--ВЕРСИЯ-->13.10.2026 · 14342e<!--/ВЕРСИЯ--></span></footer>
+  <footer style="margin-top:40px;color:var(--ink-3);font-size:12px">Сверка рейсов · версия <span id="app-ver"><!--ВЕРСИЯ-->13.10.2026 · 06a18e<!--/ВЕРСИЯ--></span></footer>
 </main>
 
 <div class="modal" id="report" role="dialog" aria-modal="true" aria-labelledby="report-title">
@@ -648,9 +648,9 @@ tr.just .n-ok { display: inline-block; animation: popIn .45s cubic-bezier(.3, 1.
       <div>
         <h3>Выделение, как в Numbers</h3>
         <ul>
-          <li>щелчок, протяжка мышью или стрелки — выделенное сразу в буфере, вставляйте ⌘V;</li>
-          <li>⇧ + щелчок или ⇧ + стрелка — расширить, ⌘ + стрелка — к краю таблицы;</li>
-          <li>щелчок по заголовку — вся колонка, ⌘A — всё, Esc — снять;</li>
+          <li>щелчок, протяжка мышью или стрелки — выделенное сразу в буфере, вставляйте <kbd>⌘</kbd><kbd>V</kbd>;</li>
+          <li><kbd>⇧</kbd> + щелчок или <kbd>⇧</kbd> + стрелка — расширить, <kbd>⌘</kbd> + стрелка — к краю таблицы;</li>
+          <li>щелчок по заголовку — вся колонка, <kbd>⌘</kbd><kbd>A</kbd> — всё, <kbd>Esc</kbd> — снять;</li>
           <li>внутри одной ячейки или двойной щелчок — обычное выделение текста.</li>
         </ul>
       </div>
@@ -2094,17 +2094,27 @@ if (typeof module !== 'undefined') module.exports = Zap;
 #hs-list .tails .row { gap: 6px; }
 
 /* шапка при прокрутке (html.fx-scrolled ставит код ниже): тоньше и с тенью; в окне уже 1100 px (программа рядом
-   с Numbers) прячет шаги и подпись — одна строка вместо двух. До 700 px шапка не прилипает. */
-.top { transition: padding var(--t-slow) var(--ease-out), box-shadow var(--t-slow) var(--ease-out), background-color var(--t-slow) var(--ease-out); }
+   с Numbers) прячет шаги, шире — укорачивает их подписи: одна строка вместо двух. До 700 px шапка не прилипает. */
+.top { transition: box-shadow var(--t-slow) var(--ease-out), background-color var(--t-slow) var(--ease-out); }   /* отступы — без перехода: высоту меряет код */
 html.fx-scrolled .top { padding-top: 7px; padding-bottom: 7px; box-shadow: var(--shadow-2); }
-@media (min-width: 701px) and (max-width: 1099px) {
-  html.fx-scrolled .top .steps, html.fx-scrolled .top .brand span { display: none; }
-}
+@media (min-width: 701px) { html.fx-scrolled .top .steps li .w, html.fx-scrolled .top .brand span { display: none; } }
+@media (min-width: 701px) and (max-width: 1099px) { html.fx-scrolled .top .steps { display: none; } html.fx-scrolled .hsearch input { width: 230px; } }
 
 /* строка под курсором — лёгкая подсветка во всю длину (глазу проще идти от «Статуса» до «Суммы»). Без сдвигов;
    выделенные ячейки (их фон — тоже картинка) и протяжку выделения не трогает. */
 @media (hover: hover) {
   :is(.grid.cells, .sheet-body .grid):not(.dragging) tbody tr:hover > td:not(.sel) { background-image: linear-gradient(color-mix(in srgb, var(--ink) 6%, transparent), color-mix(in srgb, var(--ink) 6%, transparent)); }
+}
+
+/* над плавающей шапкой (она в 12 px от верха) прокрученное содержимое не торчит обрезками — уходит под мягкий край
+   цвета фона. Только там, где шапка прилипает (шире 700 px). */
+@media (min-width: 701px) { body::before { content: ""; position: fixed; left: 0; right: 0; top: 0; height: 22px; z-index: 29; pointer-events: none; background: linear-gradient(var(--paper) 55%, transparent); } }
+
+/* «Уменьшить движение»: переходы страница уже выключает, поэтому сдвиги при наведении и нажатии стали бы прыжками —
+   убираем их совсем; свет, тени и цвета остаются */
+@media (prefers-reduced-motion: reduce) {
+  :is(.btn, .icon-btn, .bot-btn):active:not([disabled]) { scale: none; }
+  .btn-primary:hover, .btn-blue:hover, .fchip:hover, .tally button:not([disabled]):hover .n, .tally button:not([disabled]):active .n, .tally button:not([disabled]):hover .l i, .bar:hover span { transform: none; }
 }
 
 /* клавиши (kbd) — как настоящие колпачки; в пустом окне вставки — свои, крупнее */
@@ -2116,6 +2126,19 @@ kbd { display: inline-grid; place-items: center; min-width: 22px; height: 22px; 
 .tabs.fx-sliding button[aria-selected="true"] { background: transparent; box-shadow: none; }
 .fx-pill { position: absolute; z-index: 0; border-radius: 9px; background: var(--sheet); box-shadow: 0 1px 2px rgba(0, 0, 0, .12), 0 6px 16px rgba(0, 0, 0, .1); pointer-events: none; }
 
+/* переходы прокруткой (к итогу после «Сверить», к таблице, к делам, стрелками по ячейкам) не прячут верх под
+   прилипшей шапкой: отступ прокрутки на её высоту. Шапка прилипает только шире 700 px. */
+@media (min-width: 701px) { html { scroll-padding-top: 84px; } }
+
+/* узкий экран (телефон): вкладки во всю ширину и в одну строку — раньше «В Numbers 4» ломалось на две строки,
+   а полоска вылезала за край на 4 px и страница ездила вбок; не хватит места — полоска прокручивается сама */
+@media (max-width: 700px) {
+  .tabs { display: flex; width: 100%; max-width: 100%; overflow-x: auto; scrollbar-width: none; }
+  .tabs::-webkit-scrollbar { display: none; }
+  .tabs button { flex: 1 0 auto; padding: 0 8px; font-size: 13px; white-space: nowrap; }
+  .tabs .cnt { margin-left: 3px; }
+}
+
 /* итог оживает, когда его видно: пока блок за краем экрана, его появление стоит на паузе (класс fx-io ставит код,
    если браузер умеет следить за видимостью; без него всё играет сразу, как раньше) */
 html.fx-io #out.fresh :is(.r-hero, .tally, .card2, .notice, .result-sheet):not(.fx-seen),
@@ -2124,10 +2147,13 @@ html.fx-io #out.fresh :is(.r-hero, .tally, .card2, .notice, .result-sheet):not(.
 
 /* одометр: на время прокрутки число разбито на колонки цифр, потом снова обычный текст (копируется как число).
    Цифры одной ширины — иначе в конце число дёрнется.
-   Свои теги fx-odo / fx-s / fx-n: правила страницы вида «.s-big span» их не задевают. */
-fx-odo { display: inline-block; overflow: hidden; vertical-align: top; white-space: pre; }
-fx-s { display: block; font-variant-numeric: lining-nums tabular-nums; }
-fx-n { display: block; }
+   Свои теги fx-odo-wrap / fx-odo / fx-s: правила страницы вида «.s-big span» их не задевают. Настоящее число под
+   колонками — прозрачный текст: выделяется и копируется как число; колонки — поверх, вне выделения. */
+.fx-odo-on { position: relative; color: transparent !important; }
+fx-odo-wrap { position: absolute; inset: 0; display: flex; align-items: center; white-space: pre; pointer-events: none; -webkit-user-select: none; user-select: none; }
+fx-odo { display: block; flex: none; overflow: hidden; }
+fx-s { display: block; white-space: pre; font-variant-numeric: lining-nums tabular-nums; }
+fx-s::before { content: attr(data-d); }
 .r-lede h2 .n, .r-orb .core b { font-variant-numeric: lining-nums tabular-nums; }
 
 /* кнопки: нажатие — быстрое сжатие, отпустили — пружина обратно. Главные (.btn-primary, .btn-blue) ещё и тянутся
@@ -2170,7 +2196,9 @@ const SverkaFx = (() => {
   const fine = matchMedia('(hover: hover) and (pointer: fine)').matches;   // мышь или трекпад, не палец
   const hasLinear = typeof CSS !== 'undefined' && CSS.supports && CSS.supports('transition-timing-function', 'linear(0, 1)');
   const cssVar = k => getComputedStyle(document.documentElement).getPropertyValue(k).trim();
-  const ease = name => (hasLinear && cssVar(name)) || 'cubic-bezier(.25, 1, .5, 1)';
+  // кривые читаются из CSS один раз: чтение стиля после новой анимации заставляет браузер пересчитать стили всей
+  // страницы — на 20 строках при фильтре это было ~100 мс
+  const easeMemo = {}, ease = name => easeMemo[name] || (easeMemo[name] = (hasLinear && cssVar(name)) || 'cubic-bezier(.25, 1, .5, 1)');
   // Пружина «в коде»: шаг физики для магнита и других движений, которые следуют за мышью.
   // k — жёсткость, c — затухание (масса 1). Возвращает true, пока не успокоилась.
   function step(s, target, dt, k = 260, c = 22) {
@@ -2204,23 +2232,23 @@ const SverkaFx = (() => {
     }
   }).observe(document.body, { childList: true, subtree: true });
   // Одометр: каждая цифра прокручивается вертикально к своему значению, младшие — с лишними оборотами и дольше,
-  // в конце — мягкая отдача на 12 % высоты цифры. Потом элемент снова содержит ровно прежний текст.
+  // в конце — мягкая отдача на 12 % высоты цифры. Настоящее число всё время остаётся текстом элемента (копируется,
+  // читается диктором) — оно только прозрачно, а колонки цифр рисуются поверх: пустые элементы fx-*, цифры в них —
+  // из CSS (::before, data-d), поэтому их нет ни в textContent, ни в выделении, ни у диктора (aria-hidden).
   function odometer(el) {
     if (reduce || !el || el._odo) return false;
     const fin = el.textContent; if (!/\d/.test(fin)) return false;
     const cs = getComputedStyle(el), lh = parseFloat(cs.lineHeight) || parseFloat(cs.fontSize) * 1.2;
     const chars = [...fin], nd = chars.filter(c => /\d/.test(c)).length;
-    el._odo = true; el.setAttribute('aria-label', fin); el.textContent = '';
+    const wrap = document.createElement('fx-odo-wrap'); wrap.setAttribute('aria-hidden', 'true'); wrap.style.color = cs.color;
     let k = 0, longest = 0; const runs = [];
     for (const ch of chars) {
-      const box = document.createElement('fx-odo'); box.setAttribute('aria-hidden', 'true');
-      box.style.height = box.style.lineHeight = lh + 'px';
-      el.appendChild(box);
-      if (!/\d/.test(ch)) { box.textContent = ch; continue; }
+      const box = document.createElement('fx-odo'); box.style.height = lh + 'px';
+      const strip = document.createElement('fx-s'); strip.style.lineHeight = lh + 'px';
+      box.appendChild(strip); wrap.appendChild(box);
+      if (!/\d/.test(ch)) { strip.dataset.d = ch; continue; }
       const fromRight = nd - 1 - k++, loops = fromRight === 0 ? 2 : fromRight === 1 ? 1 : 0, n = loops * 10 + +ch;
-      const strip = document.createElement('fx-s');
-      strip.innerHTML = Array.from({ length: n + 1 }, (_, i) => `<fx-n style="height:${lh}px">${i % 10}</fx-n>`).join('');
-      box.appendChild(strip);
+      strip.dataset.d = Array.from({ length: n + 1 }, (_, i) => i % 10).join('\n');
       const dur = 760 + Math.min(nd - 1 - fromRight, 6) * 70 + loops * 120; longest = Math.max(longest, dur);
       runs.push(() => strip.animate([
         { transform: 'translateY(0)', easing: 'cubic-bezier(.3, .7, .25, 1)' },
@@ -2228,9 +2256,10 @@ const SverkaFx = (() => {
         { transform: `translateY(${-n * lh}px)` }
       ], { duration: dur, fill: 'forwards' }));
     }
-    // крутить, когда число на экране (до того стоят нули); не показалось за 30 с — просто вернуть текст
+    el._odo = true; el.classList.add('fx-odo-on'); el.appendChild(wrap);
+    // крутить, когда число на экране (до того поверх стоят нули); не показалось за 30 с — убрать колонки
     let started = false;
-    const back = () => { el.textContent = fin; el.removeAttribute('aria-label'); el._odo = false; };
+    const back = () => { wrap.remove(); el.classList.remove('fx-odo-on'); el._odo = false; };
     const go = () => { if (started) return; started = true; runs.forEach(f => f()); setTimeout(back, longest + 40); };
     const r0 = el.getBoundingClientRect();
     if ((r0.bottom > 0 && r0.top < innerHeight * .95) || !('IntersectionObserver' in window)) go();
@@ -2347,7 +2376,16 @@ const SverkaFx = (() => {
 // прокрутку — с узким зазором класс включался бы и выключался по кругу ----------
 (() => {
   let on = false;
-  const check = () => { const y = scrollY; if (!on && y > 160) { on = true; document.documentElement.classList.add('fx-scrolled'); } else if (on && y < 20) { on = false; document.documentElement.classList.remove('fx-scrolled'); } };
+  // шапка прилипает и стоит в потоке страницы: стань она ниже — всё под ней поднялось бы (итог уезжал под шапку после
+  // «Сверить»). Поэтому под сжатой шапкой остаётся место той же высоты — нижний отступ на разницу.
+  const set = v => {
+    const top = document.querySelector('.top'), h0 = top ? top.offsetHeight : 0;
+    document.documentElement.classList.toggle('fx-scrolled', v);
+    if (!top) return;
+    top.style.marginBottom = '';
+    if (v) { const d = h0 - top.offsetHeight; if (d > 0) top.style.marginBottom = (parseFloat(getComputedStyle(top).marginBottom) + d) + 'px'; }
+  };
+  const check = () => { const y = scrollY; if (!on && y > 160) { on = true; set(true); } else if (on && y < 20) { on = false; set(false); } };
   addEventListener('scroll', check, { passive: true });
   check();
 })();
@@ -2372,15 +2410,21 @@ const SverkaFx = (() => {
   SverkaFx.each('.tabs', tabs => {
     const btns = [...tabs.querySelectorAll('button')], i = btns.findIndex(b => b.getAttribute('aria-selected') === 'true');
     if (i < 0) return;
-    const tr = tabs.getBoundingClientRect(), r = btns[i].getBoundingClientRect();
-    const now = { i, n: btns.length, x: r.left - tr.left - tabs.clientLeft, y: r.top - tr.top - tabs.clientTop, w: r.width, h: r.height };
-    const prev = last; last = now;
-    if (!prev || prev.i === i || prev.n !== now.n || !r.width) return;
-    const pill = document.createElement('span'); pill.className = 'fx-pill'; pill.setAttribute('aria-hidden', 'true');
-    Object.assign(pill.style, { left: now.x + 'px', top: now.y + 'px', width: now.w + 'px', height: now.h + 'px' });
-    tabs.appendChild(pill); tabs.classList.add('fx-sliding');
-    pill.animate([{ left: prev.x + 'px', width: prev.w + 'px' }, { left: now.x + 'px', width: now.w + 'px' }], { duration: 520, easing: SverkaFx.ease('--spring') })
-      .onfinish = () => { pill.remove(); tabs.classList.remove('fx-sliding'); };
+    const prev = last, slide = prev && prev.i !== i && prev.n === btns.length;
+    if (slide) tabs.classList.add('fx-sliding');
+    // мерить — в начале кадра: сейчас программа ещё дописывает итог, и ранний замер раскладывал бы страницу дважды
+    requestAnimationFrame(() => {
+      if (!tabs.isConnected) return;
+      const tr = tabs.getBoundingClientRect(), r = btns[i].getBoundingClientRect();
+      const now = { i, n: btns.length, x: r.left - tr.left - tabs.clientLeft, y: r.top - tr.top - tabs.clientTop, w: r.width, h: r.height };
+      last = now;
+      if (!slide || !r.width) { tabs.classList.remove('fx-sliding'); return; }
+      const pill = document.createElement('span'); pill.className = 'fx-pill'; pill.setAttribute('aria-hidden', 'true');
+      Object.assign(pill.style, { left: now.x + 'px', top: now.y + 'px', width: now.w + 'px', height: now.h + 'px' });
+      tabs.appendChild(pill);
+      pill.animate([{ left: prev.x + 'px', width: prev.w + 'px' }, { left: now.x + 'px', width: now.w + 'px' }], { duration: 520, easing: SverkaFx.ease('--spring') })
+        .onfinish = () => { pill.remove(); tabs.classList.remove('fx-sliding'); };
+    });
   });
 })();
 
@@ -2395,7 +2439,7 @@ const SverkaFx = (() => {
   function take() {
     const grid = document.getElementById('res-grid'), body = grid && grid.tBodies[0]; if (!body) { snap = null; return; }
     const m = new Map();
-    for (const tr of body.rows) { const r = tr.getBoundingClientRect(); if (!seen(r)) continue; const k = key(tr); if (k) m.set(k, r.top); }
+    for (const tr of body.rows) { const r = tr.getBoundingClientRect(); if (r.top > innerHeight) break; if (!seen(r)) continue; const k = key(tr); if (k) m.set(k, r.top); }
     snap = { head: grid.tHead ? grid.tHead.textContent : '', m, at: performance.now() };
   }
   document.addEventListener('pointerdown', e => { if (e.target.closest && e.target.closest('#out')) take(); }, true);
@@ -2403,15 +2447,19 @@ const SverkaFx = (() => {
   SverkaFx.each('#res-grid', grid => {
     const s = snap; snap = null; const body = grid.tBodies[0];
     if (!s || !body || performance.now() - s.at > 1500 || !s.m.size || (grid.tHead ? grid.tHead.textContent : '') !== s.head) return;
-    let n = 0;
-    for (const tr of body.rows) {
-      const r = tr.getBoundingClientRect(); if (!seen(r) || n > 60) continue;
-      n++; tr.classList.remove('ri');   // своё движение вместо общей волны появления
-      const k = key(tr), old = k == null ? undefined : s.m.get(k);
-      if (old === undefined) { tr.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 300, delay: 140, easing: 'ease-out', fill: 'backwards' }); continue; }
-      const dy = old - r.top; if (Math.abs(dy) < 1) continue;
-      tr.animate([{ transform: `translateY(${dy}px)` }, { transform: 'none' }], { duration: 560, easing: SverkaFx.ease('--spring') });
-    }
+    // мерить — в начале кадра (до отрисовки, одна раскладка вместе с ней); сначала все замеры, потом все анимации
+    requestAnimationFrame(() => {
+      if (!grid.isConnected) return;
+      const plan = [];
+      for (const tr of body.rows) { if (plan.length > 60) break; const r = tr.getBoundingClientRect(); if (r.top > innerHeight) break; if (seen(r)) plan.push([tr, r.top]); }
+      for (const [tr, top] of plan) {
+        tr.classList.remove('ri');   // своё движение вместо общей волны появления
+        const k = key(tr), old = k == null ? undefined : s.m.get(k);
+        if (old === undefined) { tr.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 300, delay: 140, easing: 'ease-out', fill: 'backwards' }); continue; }
+        const dy = old - top; if (Math.abs(dy) < 1) continue;
+        tr.animate([{ transform: `translateY(${dy}px)` }, { transform: 'none' }], { duration: 560, easing: SverkaFx.ease('--spring') });
+      }
+    });
   });
 })();
 
@@ -2489,7 +2537,7 @@ SverkaFx.grainGL = canvas => {
       gl.bindVertexArray(null);
     }
   };
-  canvas.addEventListener('webglcontextlost', e => { e.preventDefault(); api.ok = false; });
+  canvas.addEventListener('webglcontextlost', e => { e.preventDefault(); api.ok = false; canvas.style.display = 'none'; });   // дальше — плоское кольцо, старый кадр не висит
   return api;
 };
 
@@ -2609,7 +2657,7 @@ SverkaFx.scene = (() => {
 SverkaFx.changed('.btn', el => {
   if (SverkaFx.reduce) return;
   const now = performance.now(); if (now - (el._fxp || 0) < 350) return; el._fxp = now;
-  el.classList.remove('fx-pulse'); void el.offsetWidth; el.classList.add('fx-pulse');
+  el.classList.remove('fx-pulse'); requestAnimationFrame(() => el.classList.add('fx-pulse'));   // перезапуск в следующем кадре — без принудительной раскладки
   el.addEventListener('animationend', () => el.classList.remove('fx-pulse'), { once: true });
 });
 </script>
@@ -4011,9 +4059,11 @@ SverkaFx.changed('.btn', el => {
         if (!glc && typeof SverkaFx !== 'undefined' && SverkaFx.grainGL) { glc = document.createElement('canvas'); glc.className = 'orb-cv orb-gl'; glc.setAttribute('aria-hidden', 'true'); G = SverkaFx.grainGL(glc); }
         if (G && G.ok) cv.after(glc);
         const fresh = res !== lastRes; lastRes = res;
-        colors(); if (fresh || !grains.length) build(n);
+        if (!col.ok) colors();   // цвета темы — один раз (смена темы — recolor): чтение стилей сразу после перерисовки итога стоило до 70 мс
+        if (fresh || !grains.length) build(n);
         if (fresh && !reduce && io) { pend = true; ctx.clearRect(0, 0, cv.width, cv.height); } else { pend = false; t0 = fresh && !reduce ? clock() : clock() - 60; }
-        measure();
+        // размер меряет ResizeObserver (ниже) после раскладки — синхронный замер здесь заставлял браузер раскладывать
+        // большую таблицу дважды (~95 мс на 300 строках при каждом фильтре)
         if (pend && G && G.ok) { G.begin(); G.end(cx, cy, tiltX, tiltY); }   // холст объёма переехал из прошлого итога — очистить
         if (io) { io.disconnect(); io.observe(host); }
         if (ro) { ro.disconnect(); ro.observe(host); }
