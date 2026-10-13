@@ -579,7 +579,7 @@ tr.just .n-ok { display: inline-block; animation: popIn .45s cubic-bezier(.3, 1.
   </section>
 
   <div id="out"></div>
-  <footer style="margin-top:40px;color:var(--ink-3);font-size:12px">Сверка рейсов · версия <span id="app-ver"><!--ВЕРСИЯ-->13.10.2026 · 366da1<!--/ВЕРСИЯ--></span></footer>
+  <footer style="margin-top:40px;color:var(--ink-3);font-size:12px">Сверка рейсов · версия <span id="app-ver"><!--ВЕРСИЯ-->13.10.2026 · ddc5db<!--/ВЕРСИЯ--></span></footer>
 </main>
 
 <div class="modal" id="report" role="dialog" aria-modal="true" aria-labelledby="report-title">
@@ -1814,7 +1814,7 @@ const Zap = (() => {
     const d = { raw: text, notes: [] };
     d.fio = findFio(text);
 
-    // права: три буквы + шесть цифр («ВХТ 280587»)
+    // права: три буквы + шесть цифр («ВХТ 123456»)
     const lic = text.match(new RegExp(`(^|[^${L}])([${L}]{3})\\s?(\\d{6})(?!\\d)`));
     d.licence = lic ? lic[2].toUpperCase() + ' ' + lic[3] : '';
 
@@ -4206,12 +4206,12 @@ SverkaFx.changed('.btn', el => {
     if (h.repeats.length) {
       const n = h.repeats.length;
       out += `<div class="notice warn hist"><h3>${n} ${plural(n, 'рейс уже был', 'рейса уже были', 'рейсов уже были')} в прошлой сверке — проверьте, не оплачены ли дважды</h3><ul>${h.repeats.slice(0, 12).map(r =>
-        `<li>строка ${r.row}: ${plateHtml(r.plate)} ТТН ${esc(r.ttn)}${hTons(r.w)} — в сверке ${r.client ? '«' + esc(r.client) + '» ' : ''}от ${hDate(r.at)}, там строка ${r.prevRow}</li>`).join('')}</ul>${n > 12 ? `<p>и ещё ${n - 12}</p>` : ''}</div>`;
+        `<li>строка ${esc(r.row)}: ${plateHtml(r.plate)} ТТН ${esc(r.ttn)}${hTons(r.w)} — в сверке ${r.client ? '«' + esc(r.client) + '» ' : ''}от ${hDate(r.at)}, там строка ${esc(r.prevRow)}</li>`).join('')}</ul>${n > 12 ? `<p>и ещё ${n - 12}</p>` : ''}</div>`;
     }
     if (h.found.length) {
       const n = h.found.length;
       out += `<div class="notice ok hist"><h3>${n} ${plural(n, 'машина нашлась', 'машины нашлись', 'машин нашлись')} в порту — в прошлой сверке у ${n === 1 ? 'неё' : 'них'} не было пары</h3><ul>${h.found.slice(0, 12).map(r =>
-        `<li>строка ${r.row}: ${plateHtml(r.plate)} ТТН ${esc(r.ttn)}${hTons(r.w)} — без пары в сверке от ${hDate(r.at)}</li>`).join('')}</ul></div>`;
+        `<li>строка ${esc(r.row)}: ${plateHtml(r.plate)} ТТН ${esc(r.ttn)}${hTons(r.w)} — без пары в сверке от ${hDate(r.at)}</li>`).join('')}</ul></div>`;
     }
     return out + tailsHtml(h.entry);
   }
@@ -4272,7 +4272,7 @@ SverkaFx.changed('.btn', el => {
       hsl.innerHTML = tl + `<div class="hs-foot"><span>Наберите номер машины или ТТН — поиск по всем сверкам</span></div>`; hsl.hidden = false; return;
     }
     const found = Sverka.historySearch(all, q, 40);
-    const items = found.map(t => `<div class="hs-i">${plateHtml(t.plate)}<span class="hs-t"><span><b>ТТН ${esc(t.ttn || '—')}</b>${hTons(t.w)}${t.date ? ' · ' + esc(t.date) : ''}</span><small>${t.client ? esc(t.client) + ' · ' : ''}сверка от ${hDate(t.at)}, строка ${t.row} · ${esc((STATUS[t.st] || [''])[0])}</small></span></div>`).join('');
+    const items = found.map(t => `<div class="hs-i">${plateHtml(t.plate)}<span class="hs-t"><span><b>ТТН ${esc(t.ttn || '—')}</b>${hTons(t.w)}${t.date ? ' · ' + esc(t.date) : ''}</span><small>${t.client ? esc(t.client) + ' · ' : ''}сверка от ${hDate(t.at)}, строка ${esc(t.row)} · ${esc((STATUS[t.st] || [''])[0])}</small></span></div>`).join('');
     hsl.innerHTML = (all.length ? (items || `<p class="hs-none">${q.length < 2 ? 'Наберите хотя бы два знака' : 'В сохранённых сверках такой машины и ТТН нет'}</p>`) : '<p class="hs-none">История пуста — она появится после первой сверки на этом компьютере.</p>') +
       `<div class="hs-foot"><span>Сохранено сверок: ${all.length}</span><span class="hs-acts">${(store.get(TKEY) || []).length ? `<button class="btn btn-sm btn-quiet" data-tails-reopen>Вернуть снятые хвосты (${(store.get(TKEY) || []).length})</button>` : ''}<button class="btn btn-sm btn-quiet" data-bk="save">Сохранить в файл</button><button class="btn btn-sm btn-quiet" data-bk="load">Восстановить</button>${all.length ? '<button class="btn btn-sm btn-quiet" id="hs-clear">Очистить историю</button>' : ''}</span></div>`;
     hsl.hidden = false;
@@ -4337,7 +4337,7 @@ SverkaFx.changed('.btn', el => {
     const cur = S.hist && S.hist.entry, nf = v => (v == null ? '—' : Sverka.fmtNum(Math.round(v * 100) / 100));
     const rows = list.slice(0, 8).map(s => {
       const t = s.tot || {}, rest = t.paid != null && t.sum != null ? t.sum - t.paid : null, isCur = cur && s.at === cur.at;
-      return `<tr${isCur ? ' class="cur"' : ''}><td>${hDate(s.at)}${isCur ? ' · <b>эта</b>' : ''}</td><td>${s.period ? esc(s.period.from + ' — ' + s.period.to) : '—'}</td><td class="num">${t.trips ?? s.n}</td><td class="num">${nf(t.tons)}</td><td class="num">${nf(t.sum)}</td><td class="num">${nf(t.paid)}</td><td class="num">${nf(rest)}</td></tr>`;
+      return `<tr${isCur ? ' class="cur"' : ''}><td>${hDate(s.at)}${isCur ? ' · <b>эта</b>' : ''}</td><td>${s.period ? esc(s.period.from + ' — ' + s.period.to) : '—'}</td><td class="num">${esc(t.trips ?? s.n)}</td><td class="num">${nf(t.tons)}</td><td class="num">${nf(t.sum)}</td><td class="num">${nf(t.paid)}</td><td class="num">${nf(rest)}</td></tr>`;
     }).join('');
     return `<section class="card2 chist" aria-label="Сверки клиента"><div class="c2-h"><h3>Сверки · ${esc(c)}</h3><span class="c2-sub">на этом компьютере: ${list.length}${list.length > 8 ? ', показаны последние 8' : ''}</span></div>
       <div class="scroll"><table class="grid"><thead><tr><th>Когда сверяли</th><th>Даты рейсов</th><th class="num">Рейсов</th><th class="num">Тонн</th><th class="num">Сумма</th><th class="num">Выдано</th><th class="num">Остаток</th></tr></thead><tbody>${rows}</tbody></table></div>
@@ -4499,13 +4499,23 @@ SverkaFx.changed('.btn', el => {
     a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000);
     toast(`Скачан файл «${name}»: сверок ${hist}, водителей в справочнике ${drv}. Сохраните его в iCloud Drive.`, 7000);
   }
+  // Сверки из файла копии — только ожидаемые поля и типы: файл мог прийти от кого угодно (аудит 13.10.2026).
+  function cleanHist(list) {
+    const num = v => (v == null || v === '' || !isFinite(+v) ? null : +v), str = v => (v == null ? '' : String(v));
+    return (Array.isArray(list) ? list : []).filter(s => s && typeof s.at === 'string' && Array.isArray(s.trips)).map(s => ({
+      at: s.at, client: str(s.client), n: num(s.n) || 0,
+      period: s.period ? { from: str(s.period.from), to: str(s.period.to) } : null,
+      tot: s.tot ? { trips: num(s.tot.trips), tons: num(s.tot.tons), sum: num(s.tot.sum), paid: num(s.tot.paid) } : null,
+      trips: s.trips.filter(t => t && typeof t.k === 'string').map(t => ({ k: t.k, row: num(t.row), ttn: str(t.ttn), plate: str(t.plate), w: num(t.w), date: str(t.date), st: str(t.st) })),
+    }));
+  }
   function backupLoad(file) {
     const r = new FileReader();
     r.onload = () => {
       let j; try { j = JSON.parse(r.result); } catch (e) { toast('Это не файл копии «Сверки» — не удалось прочитать'); return; }
       if (!j || j.app !== 'sverka' || !j.data) { toast('Это не файл копии «Сверки»'); return; }
       const inc = j.data, curH = store.get(HKEY) || [], curD = store.get('zap.drivers') || {};
-      const h = Sverka.historyFold(Sverka.historyMerge(curH, inc[HKEY] || [])), dir = Object.assign({}, inc['zap.drivers'] || {}, curD);
+      const h = Sverka.historyFold(Sverka.historyMerge(curH, cleanHist(inc[HKEY]))), dir = Object.assign({}, inc['zap.drivers'] || {}, curD);
       store.set(HKEY, h); store.set('zap.drivers', dir);
       let other = 0;
       Object.keys(inc).forEach(k => { if (BK_KEYS(k) && k !== HKEY && k !== 'zap.drivers' && store.get(k) == null) { store.set(k, inc[k]); other++; } });
