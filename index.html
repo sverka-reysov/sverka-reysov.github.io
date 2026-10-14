@@ -579,7 +579,7 @@ tr.just .n-ok { display: inline-block; animation: popIn .45s cubic-bezier(.3, 1.
   </section>
 
   <div id="out"></div>
-  <footer style="margin-top:40px;color:var(--ink-3);font-size:12px">Сверка рейсов · версия <span id="app-ver"><!--ВЕРСИЯ-->14.10.2026 · 64a161<!--/ВЕРСИЯ--></span></footer>
+  <footer style="margin-top:40px;color:var(--ink-3);font-size:12px">Сверка рейсов · версия <span id="app-ver"><!--ВЕРСИЯ-->14.10.2026 · bf3160<!--/ВЕРСИЯ--></span></footer>
 </main>
 
 <div class="modal" id="report" role="dialog" aria-modal="true" aria-labelledby="report-title">
@@ -2417,6 +2417,22 @@ html.fx-io #out.fresh .tally:not(.fx-seen) button::after { animation-play-state:
 .grid tbody tr.ri { animation-duration: var(--t-slow); animation-timing-function: var(--ease-out); animation-delay: calc(var(--i) * 30ms); }
 /* выпадающий список поиска — раскрывается от поля */
 .hs-list:not([hidden]) { animation: fxDrop var(--t) var(--ease-out) both; transform-origin: 100% 0; }
+/* таблица итога: строка под курсором подсвечивается целиком (поверх цвета ячеек, выделение не трогает);
+   полоса статуса слева — скруглённая капсула с отступами; прилипшая шапка — матовое стекло, строки проплывают под ней */
+:where(#res-grid) tbody tr:hover td:not(.sel) { background-image: linear-gradient(color-mix(in srgb, var(--ink) 5%, transparent), color-mix(in srgb, var(--ink) 5%, transparent)); }
+:where(#res-grid) tbody tr:hover td.gut { color: var(--ink); }
+#res-grid tr.s-ok { --rail: var(--ok-ink); } #res-grid :is(tr.s-diff, tr.s-dup, tr.s-split) { --rail: var(--warn-ink); } #res-grid :is(tr.s-missing, tr.s-missing-mine) { --rail: var(--bad-ink); }
+#res-grid tr:not(.marked)[class*="s-"] td.gut { box-shadow: none; }
+#res-grid tr:not(.marked)[class*="s-"] td.gut::before { content: ""; position: absolute; left: 3px; top: 5px; bottom: 5px; width: 3px; border-radius: 3px; background: var(--rail, transparent); transition: top var(--t-fast) var(--ease-out), bottom var(--t-fast) var(--ease-out), width var(--t-fast) var(--ease-out); }
+#res-grid tbody tr:not(.marked):hover td.gut::before { top: 3px; bottom: 3px; width: 4px; }
+#res-grid thead th { background: color-mix(in srgb, var(--head) 76%, transparent); -webkit-backdrop-filter: blur(14px) saturate(1.6); backdrop-filter: blur(14px) saturate(1.6); }
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) { #res-grid thead th { background: var(--head); } }
+/* кольцо итога под курсором: в центре вместо «34 рейса» — счёт статуса (цвет статуса) и доля; прежний центр уходит вверх */
+.r-orb .core { transition: opacity .22s var(--ease-out), transform var(--t-spring) var(--spring); }
+.r-orb.fx-peek .core:not(.fx-core-alt) { opacity: 0; transform: translateY(-12px) scale(.96); }
+.r-orb .fx-core-alt { opacity: 0; transform: translateY(12px) scale(.96); }
+.r-orb.fx-peek .fx-core-alt { opacity: 1; transform: none; }
+.r-orb .fx-core-alt b { color: var(--peek, var(--ink)); }
 </style>
 <script>
 // Движок пружин дизайн-слоя. Одни и те же кривые для CSS и для анимаций из кода.
@@ -4567,19 +4583,20 @@ SverkaFx.changed('.btn', el => {
   const Orb = (() => {
     const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
     const KEYS = ['ok', 'diff', 'dup', 'missing'];
-    let host, cv, ctx, orbEl, W = 0, H = 0, DPR = 1, cx = 0, cy = 0, R = 110, grains = [], beads = [], t0 = 0, raf = 0, col = {}, focus = null, lastRes = null, vis = true;
+    let host, cv, ctx, orbEl, W = 0, H = 0, DPR = 1, cx = 0, cy = 0, R = 110, grains = [], beads = [], segs = [], t0 = 0, raf = 0, col = {}, focus = null, lastRes = null, vis = true;
     // объёмные зёрна (дизайн-слой, WebGL2): один холст на все перерисовки — он переезжает в новый итог; наклон кольца — за курсором
     let glc = null, G = null, tiltX = .28, tiltY = 0, tgtX = .28, tgtY = 0;
-    const fa = { ok: 1, diff: 1, dup: 1, missing: 1, fill: 1 };
+    const fa = { ok: 1, diff: 1, dup: 1, missing: 1, fill: 1 }, lf = { ok: 0, diff: 0, dup: 0, missing: 0 };   // lf — выезд участка под курсором
     const rnd = (a, b) => a + Math.random() * (b - a), gauss = () => (Math.random() + Math.random() + Math.random() - 1.5) / 1.5;
     const easeOut = p => 1 - Math.pow(1 - p, 3), clock = () => performance.now() / 1000;
     function colors() { const cs = getComputedStyle(document.documentElement), g = k => cs.getPropertyValue(k).trim(); col = { ok: g('--ok-ink'), diff: g('--ch-diff'), dup: g('--ch-dup'), missing: g('--bad-ink'), fill: g('--fill-ink') }; }
     function build(n) {
       const groups = KEYS.filter(k => n[k] > 0), total = groups.reduce((s, k) => s + n[k], 0) || 1, G = innerWidth < 640 ? 600 : 1000, gap = groups.length > 1 ? .06 : 0;
       const span = 2 * Math.PI - gap * groups.length; let a = -Math.PI / 2;
-      grains = [];
+      grains = []; segs = [];
       for (const k of groups) {
         const w = span * n[k] / total, cnt = Math.max(8, Math.round(G * n[k] / total)); a += gap / 2;
+        segs.push({ k, a0: a, a1: a + w });
         for (let i = 0; i < cnt; i++) grains.push({ k, th: a + Math.random() * w, rr: gauss(), top: k !== 'missing' && Math.random() < .5, ox: Math.random(), oy: Math.random(), side: rnd(-1, 1), delay: rnd(0, 1.1), dur: rnd(1.4, 2.3), sz: rnd(.75, 1.25), ph: rnd(0, 6.28), jit: rnd(-.4, .4) });
         a += w + gap / 2;
       }
@@ -4607,12 +4624,13 @@ SverkaFx.changed('.btn', el => {
       ctx.setTransform(DPR, 0, 0, DPR, 0, 0); ctx.clearRect(0, 0, W, H);
       const amb = reduce ? 0 : t, rot = amb * .012, small = W < 640 ? .85 : 1;
       for (const k in fa) fa[k] += ((focus ? (k === focus ? 1 : .16) : 1) - fa[k]) * (reduce ? 1 : .14);
+      for (const k in lf) lf[k] += ((k === focus ? 1 : 0) - lf[k]) * (reduce ? 1 : .12);
       const g3 = G && G.ok ? G : null; if (g3) { g3.begin(); if (!reduce) { tiltX += (tgtX - tiltX) * .06; tiltY += (tgtY - tiltY) * .06; } }
       for (const k of KEYS) {
         ctx.fillStyle = col[k]; ctx.globalAlpha = .9 * fa[k]; ctx.beginPath();
         for (const g of grains) {
           if (g.k !== k) continue;
-          const th = g.th + rot, rad = R + g.rr * R * .12 + Math.sin(amb * 1.3 + g.ph) * .7, q = pos(g.ox, t, th, rad, g.delay, g.dur, g.top, g.side);
+          const th = g.th + rot, rad = R + g.rr * R * .12 + Math.sin(amb * 1.3 + g.ph) * .7 + lf[k] * R * .07, q = pos(g.ox, t, th, rad, g.delay, g.dur, g.top, g.side);
           if (!q) continue;
           const s = Math.pow(q.e, 4), a = q.fly * (1 - s) + (th + Math.PI / 2 + g.jit) * s, z = g.sz * small * (.55 + .45 * q.e);
           if (g3) g3.push(q.x - cx, q.y - cy, a, z, col[k], .95 * fa[k], (g.oy - .5) * R * .24 * q.e, 0); else ell(q.x, q.y, 2.5 * z, 1.1 * z, a);
@@ -4629,6 +4647,34 @@ SverkaFx.changed('.btn', el => {
       }
       ctx.shadowBlur = 0; ctx.globalAlpha = 1;
       if (g3) g3.end(cx, cy, tiltX, tiltY);
+    }
+    // наведение на кольцо (дизайн, 14.10.2026): участок статуса выезжает, остальные притухают, в центре вместо «34 рейса» —
+    // счёт статуса и доля. Мышь — по наведению, касание — на 2,6 с. Число меняется сдвигом, не набором с нуля.
+    function peek(n) {
+      if (!orbEl || orbEl._peek) return; orbEl._peek = true;
+      const alt = document.createElement('div'); alt.className = 'core fx-core-alt'; alt.setAttribute('aria-hidden', 'true'); alt.innerHTML = '<b></b><span></span>'; orbEl.appendChild(alt);
+      const total = KEYS.reduce((s, k) => s + (n[k] || 0), 0) || 1;
+      const NAME = { ok: () => 'совпало', diff: v => plural(v, 'расхождение', 'расхождения', 'расхождений'), dup: () => 'повтор · перегруз', missing: () => 'нет в порту' };
+      let cur = null, timer = 0;
+      const show = k => {
+        if (k === cur) return; cur = k; focus = k; kick(); if (reduce) draw(99);
+        orbEl.classList.toggle('fx-peek', !!k); if (!k) return;
+        const v = n[k] || 0; alt.style.setProperty('--peek', col[k]);
+        alt.firstChild.textContent = v; alt.lastChild.textContent = NAME[k](v) + ' · ' + Math.round(v / total * 100) + ' %';
+        if (!reduce) alt.animate([{ transform: 'translateY(7px)', opacity: .35 }, { transform: 'none', opacity: 1 }], { duration: 300, easing: 'cubic-bezier(.2, .7, .2, 1)' });
+      };
+      const hit = e => {
+        const o = orbEl.getBoundingClientRect(), x = e.clientX - (o.left + o.width / 2), y = e.clientY - (o.top + o.height / 2), d = Math.hypot(x, y), r = Math.min(o.width, o.height) * .4;
+        if (d < r * .6 || d > r * 1.4 || !segs.length) return null;
+        const rot = reduce ? 0 : (clock() - t0) * .012, T = 2 * Math.PI;
+        const th = ((Math.atan2(y, x) - rot + Math.PI / 2) % T + T) % T - Math.PI / 2;   // в ту же мерку, что участки: от верха по часовой
+        let best = null, bd = 1e9;
+        for (const s of segs) { const dd = th < s.a0 ? s.a0 - th : th > s.a1 ? th - s.a1 : 0; if (dd < bd) { bd = dd; best = s.k; } }
+        return best;
+      };
+      orbEl.addEventListener('pointermove', e => { if (e.pointerType === 'mouse') show(hit(e)); });
+      orbEl.addEventListener('pointerleave', e => { if (e.pointerType === 'mouse') show(null); });
+      orbEl.addEventListener('pointerdown', e => { if (e.pointerType === 'mouse') return; show(hit(e)); clearTimeout(timer); timer = setTimeout(() => show(null), 2600); });
     }
     function frame() { raf = 0; if (!host || !host.isConnected || pend) return; draw(clock() - t0); if (!reduce && vis && !document.hidden) raf = requestAnimationFrame(frame); }
     const kick = () => { if (!raf) raf = requestAnimationFrame(frame); };
@@ -4649,6 +4695,7 @@ SverkaFx.changed('.btn', el => {
         cv = host.querySelector('canvas.orb-cv'); orbEl = host.querySelector('.r-orb'); ctx = cv.getContext('2d');
         if (!glc && typeof SverkaFx !== 'undefined' && SverkaFx.grainGL) { glc = document.createElement('canvas'); glc.className = 'orb-cv orb-gl'; glc.setAttribute('aria-hidden', 'true'); G = SverkaFx.grainGL(glc); }
         if (G && G.ok) cv.after(glc);
+        peek(n);
         const fresh = res !== lastRes; lastRes = res;
         if (!col.ok) colors();   // цвета темы — один раз (смена темы — recolor): чтение стилей сразу после перерисовки итога стоило до 70 мс
         if (fresh || !grains.length) build(n);
