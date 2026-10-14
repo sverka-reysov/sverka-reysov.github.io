@@ -579,7 +579,7 @@ tr.just .n-ok { display: inline-block; animation: popIn .45s cubic-bezier(.3, 1.
   </section>
 
   <div id="out"></div>
-  <footer style="margin-top:40px;color:var(--ink-3);font-size:12px">Сверка рейсов · версия <span id="app-ver"><!--ВЕРСИЯ-->14.10.2026 · bf3160<!--/ВЕРСИЯ--></span></footer>
+  <footer style="margin-top:40px;color:var(--ink-3);font-size:12px">Сверка рейсов · версия <span id="app-ver"><!--ВЕРСИЯ-->14.10.2026 · 2723fc<!--/ВЕРСИЯ--></span></footer>
 </main>
 
 <div class="modal" id="report" role="dialog" aria-modal="true" aria-labelledby="report-title">
@@ -2433,6 +2433,13 @@ html.fx-io #out.fresh .tally:not(.fx-seen) button::after { animation-play-state:
 .r-orb .fx-core-alt { opacity: 0; transform: translateY(12px) scale(.96); }
 .r-orb.fx-peek .fx-core-alt { opacity: 1; transform: none; }
 .r-orb .fx-core-alt b { color: var(--peek, var(--ink)); }
+/* свет итога в цветах исхода: зелёный справа (совпавшие в кольце), янтарный снизу (расхождения, повторы), красный сверху (нет в порту); сила — доля статуса */
+.r-hero.fx-amb { --amb-k: 1; background:
+  radial-gradient(48% 70% at 96% 62%, color-mix(in srgb, var(--ok-ink) calc((5% + var(--amb-ok) * 24%) * var(--amb-k)), transparent), transparent 72%),
+  radial-gradient(46% 64% at 66% 104%, color-mix(in srgb, var(--warn-ink) calc((4% + var(--amb-warn) * 30%) * var(--amb-k)), transparent), transparent 72%),
+  radial-gradient(40% 58% at 66% -6%, color-mix(in srgb, var(--bad-ink) calc((3% + var(--amb-bad) * 34%) * var(--amb-k)), transparent), transparent 72%),
+  radial-gradient(70% 90% at 8% 100%, var(--glow-b), transparent 70%), var(--sheet); }
+:root[data-theme="dark"] .r-hero.fx-amb { --amb-k: 1.25; }
 </style>
 <script>
 // Движок пружин дизайн-слоя. Одни и те же кривые для CSS и для анимаций из кода.
@@ -2938,6 +2945,14 @@ addEventListener('DOMContentLoaded', () => { if (window.SverkaExtra) SverkaExtra
   }
   SverkaFx.each('#out .r-hero', wreath);
 })();
+
+// ---------- свет итога в цветах исхода (как Apple Card): доли статусов — из шкал плашек (--p), свечения стоят там же, где статусы в кольце ----------
+SverkaFx.each('#out .r-hero', hero => {
+  const b = [...document.querySelectorAll('#out .tally button')].map(x => parseFloat(x.style.getPropertyValue('--p')) || 0);
+  if (b.length < 5) return;
+  hero.style.setProperty('--amb-ok', b[0].toFixed(3)); hero.style.setProperty('--amb-warn', Math.min(1, b[1] + b[2] + b[3]).toFixed(3)); hero.style.setProperty('--amb-bad', b[4].toFixed(3));
+  hero.classList.add('fx-amb');
+});
 
 // ---------- колонка «Статус» в таблицах итога: «✓ совпало» → ярлык со значком; текст ячейки не меняется ----------
 (() => {
