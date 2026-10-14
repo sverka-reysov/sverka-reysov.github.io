@@ -571,7 +571,7 @@ tr.just .n-ok { display: inline-block; animation: popIn .45s cubic-bezier(.3, 1.
 
   <div class="actions">
     <button class="btn btn-primary" id="btn-run">Сверить</button>
-    <button class="btn" id="btn-swap">⇄ Поменять местами</button>
+    <button class="btn" id="btn-swap"><svg class="bi" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h15l-3.5-3.5M20 16H5l3.5 3.5"/></svg>Поменять местами</button>
     <button class="btn btn-quiet" id="btn-clear">Очистить всё</button>
     <span class="spacer"></span>
     <span class="legend"><span><i style="background:var(--ok-bg);box-shadow:inset 0 0 0 1px var(--ok-ink)"></i>совпало</span><span><i style="background:var(--warn-bg);box-shadow:inset 0 0 0 1px var(--warn-ink)"></i>расхождение, повтор</span><span><i style="background:var(--bad-bg);box-shadow:inset 0 0 0 1px var(--bad-ink)"></i>пары нет</span><span><i style="background:var(--fill-bg);box-shadow:inset 0 0 0 1px var(--fill-ink)"></i>цена из порта</span></span>
@@ -579,14 +579,14 @@ tr.just .n-ok { display: inline-block; animation: popIn .45s cubic-bezier(.3, 1.
   </section>
 
   <div id="out"></div>
-  <footer style="margin-top:40px;color:var(--ink-3);font-size:12px">Сверка рейсов · версия <span id="app-ver"><!--ВЕРСИЯ-->14.10.2026 · a12404<!--/ВЕРСИЯ--></span></footer>
+  <footer class="app-foot"><svg width="14" height="14" viewBox="0 0 28 28" aria-hidden="true"><ellipse cx="14" cy="14" rx="5.2" ry="11" fill="none" stroke="currentColor" stroke-width="2" transform="rotate(28 14 14)"/><path d="M10.2 6.8c3 4.6 4.6 9.4 7.6 14.4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>Сверка рейсов · версия <span id="app-ver"><!--ВЕРСИЯ-->14.10.2026 · 322472<!--/ВЕРСИЯ--></span></footer>
 </main>
 
 <div class="modal" id="report" role="dialog" aria-modal="true" aria-labelledby="report-title">
   <div class="modal-card">
     <div class="modal-head">
       <h2 id="report-title">Сообщить об ошибке</h2>
-      <button class="icon-btn" id="rep-close" aria-label="Закрыть">✕</button>
+      <button class="icon-btn" id="rep-close" aria-label="Закрыть"><svg class="bi" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6.5 6.5l11 11M17.5 6.5l-11 11"/></svg></button>
     </div>
     <div class="tools">
       <div class="seg" id="rep-tools">
@@ -599,7 +599,7 @@ tr.just .n-ok { display: inline-block; animation: popIn .45s cubic-bezier(.3, 1.
       <button class="swatch" data-color="#f0a000" style="background:#f0a000" aria-pressed="false" aria-label="Жёлтый"></button>
       <button class="swatch" data-color="#2e5e8c" style="background:#2e5e8c" aria-pressed="false" aria-label="Синий"></button>
       <label class="check"><input type="checkbox" id="rep-snap" checked> по ячейкам</label>
-      <button class="btn btn-sm" id="rep-undo">↶ Отменить</button>
+      <button class="btn btn-sm" id="rep-undo"><svg class="bi" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 14 4.5 9.5 9 5M4.5 9.5H14a5.5 5.5 0 0 1 0 11h-3"/></svg>Отменить</button>
       <button class="btn btn-sm btn-quiet" id="rep-wipe">Стереть всё</button>
     </div>
     <div class="canvas-wrap" id="rep-wrap"><canvas id="rep-canvas"></canvas></div>
@@ -625,7 +625,7 @@ tr.just .n-ok { display: inline-block; animation: popIn .45s cubic-bezier(.3, 1.
   <div class="modal-card" style="width:min(860px,100%)">
     <div class="modal-head">
       <h2 id="help-title">Как это работает</h2>
-      <button class="icon-btn" id="help-close" aria-label="Закрыть">✕</button>
+      <button class="icon-btn" id="help-close" aria-label="Закрыть"><svg class="bi" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6.5 6.5l11 11M17.5 6.5l-11 11"/></svg></button>
     </div>
     <div class="help-grid">
       <div>
@@ -684,7 +684,7 @@ tr.just .n-ok { display: inline-block; animation: popIn .45s cubic-bezier(.3, 1.
   <div class="modal-card" style="width:min(760px,100%)">
     <div class="modal-head">
       <h2 id="ns-title">Подключить Numbers — один раз</h2>
-      <button class="icon-btn" id="ns-close" aria-label="Закрыть">✕</button>
+      <button class="icon-btn" id="ns-close" aria-label="Закрыть"><svg class="bi" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6.5 6.5l11 11M17.5 6.5l-11 11"/></svg></button>
     </div>
     <p class="ns-lead">Кнопка «Вписать» кладёт правки в буфер обмена и запускает на Маке быструю команду «Сверка в Numbers». Команда вписывает их в открытую таблицу: меняет ячейку, только если в ней сейчас то же, что было при сверке, и не трогает ячейки с формулой. Создать команду нужно один раз — это пара минут.</p>
     <ol class="ns-steps">
@@ -2513,6 +2513,20 @@ html.fx-io #out.fresh .tally:not(.fx-seen) button::after { animation-play-state:
 :is(.check, .fill-toggle, .mb-chk) input[type="checkbox"]:active::before { width: 18px; }
 :is(.check, .fill-toggle, .mb-chk) input[type="checkbox"]:checked:active::before { transform: translateX(10px); }
 :is(.check, .fill-toggle, .mb-chk) input[type="checkbox"]:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+/* значки в кнопках — свои (как в шапке), вместо символов шрифта ⇄ ↶ ✕ */
+.btn > svg.bi { flex: none; margin: 0 7px 0 -2px; vertical-align: -3px; }
+.btn-sm > svg.bi { margin-right: 5px; }
+.icon-btn > svg.bi { display: block; }
+/* подвал: тонкая черта, знак-зерно, номер версии — моноширинной капсулой */
+.app-foot { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 40px; padding-top: 16px; border-top: 1px solid var(--rule); color: var(--ink-3); font-size: 12px; }
+.app-foot > svg { flex: none; color: var(--ink-3); }
+.app-foot #app-ver { font: 500 11px/1 var(--mono); letter-spacing: .02em; padding: 4px 9px; border-radius: 999px; background: color-mix(in srgb, var(--ink) 6%, transparent); color: var(--ink-2); }
+/* легенда под окнами вставки — те же значки статусов на подложках, что в справке, вместо квадратиков */
+.legend > span { display: inline-flex; align-items: center; }
+.legend i { position: relative; width: 17px; height: 17px; border-radius: 5px; margin-right: 7px; vertical-align: -4px; }
+.legend i::after { content: ""; position: absolute; inset: 2.5px; background: var(--lg-ink, var(--ink-2)); -webkit-mask: var(--lg-i) center / contain no-repeat; mask: var(--lg-i) center / contain no-repeat; }
+.legend > span:nth-child(1) i { --lg-i: var(--i-ok); --lg-ink: var(--ok-ink); } .legend > span:nth-child(2) i { --lg-i: var(--i-diff); --lg-ink: var(--warn-ink); }
+.legend > span:nth-child(3) i { --lg-i: var(--i-miss); --lg-ink: var(--bad-ink); } .legend > span:nth-child(4) i { --lg-i: var(--i-fill); --lg-ink: var(--fill-ink); }
 </style>
 <script>
 // Движок пружин дизайн-слоя. Одни и те же кривые для CSS и для анимаций из кода.
