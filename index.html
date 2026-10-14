@@ -580,7 +580,7 @@ tr.just .n-ok { display: inline-block; animation: popIn .45s cubic-bezier(.3, 1.
   </section>
 
   <div id="out"></div>
-  <footer class="app-foot"><svg width="14" height="14" viewBox="0 0 28 28" aria-hidden="true"><ellipse cx="14" cy="14" rx="5.2" ry="11" fill="none" stroke="currentColor" stroke-width="2" transform="rotate(28 14 14)"/><path d="M10.2 6.8c3 4.6 4.6 9.4 7.6 14.4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>Сверка рейсов · версия <span id="app-ver"><!--ВЕРСИЯ-->15.10.2026 · 8c07e1<!--/ВЕРСИЯ--></span></footer>
+  <footer class="app-foot"><svg width="14" height="14" viewBox="0 0 28 28" aria-hidden="true"><ellipse cx="14" cy="14" rx="5.2" ry="11" fill="none" stroke="currentColor" stroke-width="2" transform="rotate(28 14 14)"/><path d="M10.2 6.8c3 4.6 4.6 9.4 7.6 14.4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>Сверка рейсов · версия <span id="app-ver"><!--ВЕРСИЯ-->15.10.2026 · 30a207<!--/ВЕРСИЯ--></span></footer>
 </main>
 
 <div class="modal" id="report" role="dialog" aria-modal="true" aria-labelledby="report-title">
@@ -3835,7 +3835,8 @@ SverkaFx.changed('.btn', el => {
   const FIELD = { plate: 'номер машины', trailer: 'прицеп', ttn: 'ТТН', date: 'дата', weight: 'вес', price: 'цена', sum: 'сумма', crop: 'культура' };
   const store = {
     get(k) { try { return JSON.parse(localStorage.getItem(k)); } catch (e) { return null; } },
-    set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* без памяти — не страшно */ } },
+    // true — записано; false — нет памяти (Safari: ~5 МБ на сайт, по 2 байта на знак) — вызывающий решает, что сказать
+    set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch (e) { return false; } },
   };
   const S = {
     text: { port: '', mine: '' }, overrides: { port: null, mine: null }, confirmedNoSwap: false,
@@ -3887,13 +3888,16 @@ SverkaFx.changed('.btn', el => {
     if (fresh) { const fd = $('#found-' + which); fd.classList.remove('just'); void fd.offsetWidth; fd.classList.add('just'); setTimeout(() => fd.classList.remove('just'), 1500); Field.fill(which); staggerRows($('#pane-' + which + ' .sheet-body')); Snd.play('rustle', 1.1); }
     else if (!S.text[which].trim()) Field.clear(which);
   }
+  const IMG_IN_CLIPBOARD = 'В буфере картинка (скрин), а не ячейки таблицы. Скрин реестра сверяет бот — отправьте его боту с подписью «реестр». Сюда — выделите ячейки в Excel или Numbers и ⌘C.';
   for (const which of ['port', 'mine']) {
     const ta = $('#ta-' + which);
     const wrap = document.querySelector(`.sheet-wrap[data-which="${which}"]`);
     wrap.addEventListener('click', e => { if (!e.target.closest('select, button, input')) ta.focus({ preventScroll: true }); });
     ta.addEventListener('paste', e => {
       const t = e.clipboardData && e.clipboardData.getData('text/plain');
-      if (t) { e.preventDefault(); if (selfPaste(t)) return; setText(which, t); toast('Вставлено. Колонки определены — проверьте шапку.'); }
+      if (t) { e.preventDefault(); if (selfPaste(t)) return; setText(which, t); toast('Вставлено. Колонки определены — проверьте шапку.'); return; }
+      const img = e.clipboardData && [...(e.clipboardData.items || [])].some(i => /^image\//.test(i.type));
+      if (img) { e.preventDefault(); toast(IMG_IN_CLIPBOARD, 9000); }
     });
     ta.addEventListener('input', () => { if (ta.value) { setText(which, ta.value); ta.value = ''; } });
     $('#start-' + which).addEventListener('change', () => { renderPane(which); if (S.res) run(); });
@@ -3905,7 +3909,14 @@ SverkaFx.changed('.btn', el => {
     if (b.dataset.act === 'clear') setText(which, '');
     if (b.dataset.act === 'paste') {
       if (navigator.clipboard && navigator.clipboard.readText) {
-        navigator.clipboard.readText().then(t => { if (t && selfPaste(t)) return; if (t) setText(which, t); else toast('Буфер пуст — скопируйте строки в таблице.'); },
+        navigator.clipboard.readText().then(t => {
+          if (t && selfPaste(t)) return;
+          if (t) { setText(which, t); return; }
+          // текста нет — может, в буфере скрин: тогда так и сказать, а не «буфер пуст» (владелец, 15.10.2026)
+          const empty = () => toast('Буфер пуст — скопируйте строки в таблице.');
+          if (!navigator.clipboard.read) { empty(); return; }
+          navigator.clipboard.read().then(items => (items.some(i => i.types.some(x => /^image\//.test(x))) ? toast(IMG_IN_CLIPBOARD, 9000) : empty()), empty);
+        },
           () => { $('#ta-' + which).focus(); toast('Нажмите ⌘V — браузер не дал прочитать буфер сам.'); });
       } else { $('#ta-' + which).focus(); toast('Нажмите ⌘V'); }
     }
@@ -4069,7 +4080,7 @@ SverkaFx.changed('.btn', el => {
     }
     S.res = res; S.nsent = new Set(); S.nlast = null;
     setTimeout(() => Events.emit('reconciled', { rows: res.summary.mine.read, ok: res.summary.mine.ok, issues: res.issues.length, allOk: !res.issues.length }), 0);
-    try { const past = store.get(HKEY) || []; S.hist = Sverka.historyCheck(res, past, undefined, { client: clientName() }); store.set(HKEY, Sverka.historySave(past, S.hist)); fillClients(); } catch (e) { S.hist = null; }
+    try { const past = store.get(HKEY) || []; S.hist = Sverka.historyCheck(res, past, undefined, { client: clientName() }); saveHistory(Sverka.historySave(past, S.hist)); fillClients(); } catch (e) { S.hist = null; }
     // один раз на пару таблиц: вставка сама пересверяет, потом «Сверить» — второй прогон уже «та же сверка»
     const regKey = S.text.port + '\n\u0001\n' + S.text.mine;
     if (S.regKey !== regKey) { S.regKey = regKey; try { S.reg = portRegistryCheck(); } catch (e) { S.reg = null; } }
@@ -5502,6 +5513,19 @@ SverkaFx.changed('.btn', el => {
 
   // ================= история сверок на этом компьютере (13.10.2026) =================
   const HKEY = 'sverka.history.v1';
+  // История — по весу, а не по числу: одна большая сверка (1000 × 2000 строк) весит ~450 тыс. знаков, а у Safari на всё
+  // ~2,5 млн знаков. Держим историю ≤ 1,2 млн знаков (место сессии и справочникам), лишнее — самые старые сверки. Не
+  // влезло и так — срезаем ещё, пока не запишется; убрали — говорим Паше, сколько и как сохранить копию (Качество, Н10).
+  const HIST_CHARS = 1200000;
+  function saveHistory(list) {
+    let cut = 0;
+    while (list.length > 1 && JSON.stringify(list).length > HIST_CHARS) { list.shift(); cut++; }
+    let ok = store.set(HKEY, list);
+    while (!ok && list.length > 1) { list.splice(0, Math.max(1, Math.ceil(list.length / 10))); cut = cut || 0; cut++; ok = store.set(HKEY, list); }
+    if (!ok) toast('Память браузера заполнена — эта сверка не сохранилась в истории (предупреждение о повторной оплате её не увидит). Сохраните историю в файл и очистите её.', 9000);
+    else if (cut) toast(`Память браузера заполнена — убрал самые старые сверки из истории. Копию всей истории можно сохранить: «Сохранить всё в файл».`, 8000);
+    return ok;
+  }
   const hDate = iso => { const x = new Date(iso); return isNaN(x) ? '' : x.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' }) + ' в ' + x.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }); };
   const hTons = w => (w != null ? ', ' + Sverka.fmtNum(w) + ' т' : '');
   function historyHtml() {
@@ -6001,14 +6025,17 @@ SverkaFx.changed('.btn', el => {
   // передано в Numbers хранятся в этом браузере (как история сверок) и возвращаются после обновления или перезапуска.
   // «Очистить всё» стирает и сохранённое. В резервную копию попадает тоже (ключ sverka.*).
   const SKEY = 'sverka.session.v1';
+  let sessionWarned = false;
   function sessionSave() {
     if (!S.text.port.trim() && !S.text.mine.trim()) { try { localStorage.removeItem(SKEY); } catch (e) { /* нет памяти */ } return; }
-    store.set(SKEY, {
+    const ok = store.set(SKEY, {
       v: 1, at: new Date().toISOString(), text: S.text, overrides: S.overrides,
       start: { port: $('#start-port').value, mine: $('#start-mine').value }, client: $('#client').value,
       ran: !!S.res, tab: S.tab, fillOn: S.fillOn, noSwap: S.confirmedNoSwap, zedits: S.zedits || {},
       marked: { port: [...S.marked.port], mine: [...S.marked.mine] }, nsent: S.nsent ? [...S.nsent] : [], todo: S.todo || {},
     });
+    if (!ok && !sessionWarned) { sessionWarned = true; toast('Память браузера заполнена — после обновления страницы вставленные таблицы не вернутся. Освободить место: «Сохранить всё в файл», потом очистить историю.', 9000); }
+    if (ok) sessionWarned = false;
   }
   let saveTimer = null;
   const saveSoon = () => { clearTimeout(saveTimer); saveTimer = setTimeout(sessionSave, 400); };
