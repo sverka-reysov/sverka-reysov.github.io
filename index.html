@@ -580,7 +580,7 @@ tr.just .n-ok { display: inline-block; animation: popIn .45s cubic-bezier(.3, 1.
   </section>
 
   <div id="out"></div>
-  <footer class="app-foot"><svg width="14" height="14" viewBox="0 0 28 28" aria-hidden="true"><ellipse cx="14" cy="14" rx="5.2" ry="11" fill="none" stroke="currentColor" stroke-width="2" transform="rotate(28 14 14)"/><path d="M10.2 6.8c3 4.6 4.6 9.4 7.6 14.4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>Сверка рейсов · версия <span id="app-ver"><!--ВЕРСИЯ-->14.10.2026 · e3274d<!--/ВЕРСИЯ--></span></footer>
+  <footer class="app-foot"><svg width="14" height="14" viewBox="0 0 28 28" aria-hidden="true"><ellipse cx="14" cy="14" rx="5.2" ry="11" fill="none" stroke="currentColor" stroke-width="2" transform="rotate(28 14 14)"/><path d="M10.2 6.8c3 4.6 4.6 9.4 7.6 14.4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>Сверка рейсов · версия <span id="app-ver"><!--ВЕРСИЯ-->15.10.2026 · 1b5ce9<!--/ВЕРСИЯ--></span></footer>
 </main>
 
 <div class="modal" id="report" role="dialog" aria-modal="true" aria-labelledby="report-title">
@@ -1138,6 +1138,8 @@ const Sverka = (() => {
       if (rec.date && dateOrder === 'md' && /^\d{1,2}\/\d{1,2}\//.test(rec.raw.date) && rec.date.d <= 12) rec.date = mkDate(rec.date.m, rec.date.d, rec.date.y);
       if (cells.every(c => !normText(c))) { rec.status = 'skip'; rec.skip = 'пустая строка'; }
       else if (!rec.plate || !/\d/.test(rec.plate)) { rec.status = 'skip'; rec.skip = 'нет номера машины — итоговая или служебная строка'; }
+      // слово вместо номера («КОЛОНКА2», «ИТОГО1») — подпись или шапка, а не рейс: в номере машины 5+ букв подряд не бывает
+      else if (/[A-ZА-ЯЁІЇЄ]{5,}/i.test(rec.plate)) { rec.status = 'skip'; rec.skip = 'вместо номера машины — слово (подпись или шапка)'; }
       return rec;
     });
     return { rows, loose: rows.loose || null, hasHeader, headerLine, weightUnit, dateOrder, autoRoles, roles, col, recs, sig: signature(rows, headerLine, autoRoles), live: recs.filter(r => !r.status) };
@@ -1199,6 +1201,30 @@ const Sverka = (() => {
         roles[best] = 'ttn';
         port = prepare(portText, roles);
         ttnSwitched = { col: best, hits: bestHits, was: cur, wasHits: curHits };
+      }
+    }
+    // Машина порта — по значениям (идея владельца, 14.10.2026): таблица Паши неизменна, её номера машин надёжны. В реестре
+    // колонкой «Машина» берём ту, где больше всего тех же номеров (тягач, а не прицеп, когда шапка не помогает). Своя
+    // разметка колонок (portRoles) — всегда главнее.
+    let plateSwitched = null;
+    if (!opts.portRoles && mine.col.plate >= 0) {
+      const minePl = new Set(mine.live.map(r => r.plate).filter(Boolean));
+      const hits = c => port.live.filter(r => minePl.has(normPlate(splitPlate(normText(r.cells[c]))[0]))).length;
+      const cur = port.col.plate, curHits = cur >= 0 ? hits(cur) : -1;
+      let best = cur, bestHits = curHits;
+      port.roles.forEach((r, c) => {
+        if (c === cur || !(r === 'none' || r === 'trailer')) return;
+        const vals = port.live.map(x => normPlate(splitPlate(normText(x.cells[c]))[0])).filter(Boolean);
+        if (vals.length < 0.6 * port.live.length || vals.filter(v => PLATE_RE.test(v)).length < 0.6 * vals.length) return;
+        const h = hits(c);
+        if (h > bestHits) { best = c; bestHits = h; }
+      });
+      if (best !== cur && bestHits >= 2 && bestHits > Math.max(0, curHits) * 1.5) {
+        const roles = port.roles.slice();
+        roles[best] = 'plate';
+        if (cur >= 0) roles[cur] = 'trailer';   // прежняя «машина» — это прицеп
+        port = prepare(portText, roles);
+        plateSwitched = { col: best, hits: bestHits, was: cur, wasHits: curHits };
       }
     }
     const startPort = opts.startPort || 1, startMine = opts.startMine || 1;
@@ -1456,7 +1482,7 @@ const Sverka = (() => {
     const lp = mineLikeness(port), lm = mineLikeness(mine);
     const swap = { suspect: port.live.length > 0 && mine.live.length > 0 && lp.score - lm.score >= 2, portLooksMine: lp.reasons, mineScore: lm.score, portScore: lp.score };
 
-    return { port, mine, issues, summary, swap, problems, rowNo, ttnSwitched, sameTable };
+    return { port, mine, issues, summary, swap, problems, rowNo, ttnSwitched, plateSwitched, sameTable };
   }
 
   // Цвет ячейки для показа и копирования: ok — зелёный, diff — жёлтый, miss — красный, '' — без цвета.
