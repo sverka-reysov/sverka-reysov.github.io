@@ -580,7 +580,7 @@ tr.just .n-ok { display: inline-block; animation: popIn .45s cubic-bezier(.3, 1.
   </section>
 
   <div id="out"></div>
-  <footer class="app-foot"><svg width="14" height="14" viewBox="0 0 28 28" aria-hidden="true"><ellipse cx="14" cy="14" rx="5.2" ry="11" fill="none" stroke="currentColor" stroke-width="2" transform="rotate(28 14 14)"/><path d="M10.2 6.8c3 4.6 4.6 9.4 7.6 14.4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>Сверка рейсов · версия <span id="app-ver"><!--ВЕРСИЯ-->14.10.2026 · 7932cb<!--/ВЕРСИЯ--></span></footer>
+  <footer class="app-foot"><svg width="14" height="14" viewBox="0 0 28 28" aria-hidden="true"><ellipse cx="14" cy="14" rx="5.2" ry="11" fill="none" stroke="currentColor" stroke-width="2" transform="rotate(28 14 14)"/><path d="M10.2 6.8c3 4.6 4.6 9.4 7.6 14.4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>Сверка рейсов · версия <span id="app-ver"><!--ВЕРСИЯ-->14.10.2026 · 25f808<!--/ВЕРСИЯ--></span></footer>
 </main>
 
 <div class="modal" id="report" role="dialog" aria-modal="true" aria-labelledby="report-title">
@@ -3737,14 +3737,14 @@ SverkaFx.changed('.btn', el => {
     }
     wrap.classList.add('has-data');
     const t = Sverka.prepare(S.text[which], rolesFor(which));
-    const start = startOf(which);
-    const head = '<th class="gut"></th>' + t.roles.map((role, c) => {
+    const start = startOf(which), nc = usedCols(t);   // пустой хвост колонок справа — не показываем
+    const head = '<th class="gut"></th>' + t.roles.slice(0, nc).map((role, c) => {
       const opts = Sverka.ROLE_LIST.map(r => `<option value="${r}"${r === role ? ' selected' : ''}>${r === 'none' ? 'не сверять' : Sverka.ROLE_NAMES[r]}</option>`).join('');
       return `<th><span class="letter">${letter(c)}</span><select data-which="${which}" data-col="${c}" class="${role === 'none' ? 'off' : ''}" aria-label="Колонка ${letter(c)}">${opts}</select></th>`;
     }).join('');
     const rows = t.recs.map(rec => {
       const cls = rec.status === 'header' ? 'is-head' : rec.status === 'skip' ? 'is-skip' : '';
-      return `<tr class="${cls}"><td class="gut"${rec.skip ? ` title="${esc(rec.skip)}"` : ''}>${start + rec.line}</td>${rec.cells.map(v => `<td>${esc(v)}</td>`).join('')}</tr>`;
+      return `<tr class="${cls}"><td class="gut"${rec.skip ? ` title="${esc(rec.skip)}"` : ''}>${start + rec.line}</td>${rec.cells.slice(0, nc).map(v => `<td>${esc(v)}</td>`).join('')}</tr>`;
     }).join('');
     body.innerHTML = `<div class="scroll"><table class="grid"><thead><tr>${head}</tr></thead><tbody>${rows}</tbody></table></div>`;
     const skipped = t.recs.filter(r => r.status === 'skip').length;
@@ -3924,6 +3924,14 @@ SverkaFx.changed('.btn', el => {
       <div class="r-ctas todo" id="todo" aria-label="Что осталось по этой сверке"></div>
       ${historyHtml()}
       <div class="tally">${tally}</div>
+      <div class="result-bar">
+        <div class="tabs" role="tablist">${tabBtn('issues', 'Итог', issuesN)}${tabBtn('numbers', 'В Numbers', numbersList().length)}${tabBtn('mine', 'Моя таблица', M.read)}${tabBtn('port', 'Порт', P.read)}${tabBtn('pairs', 'Пары', s.pairs)}</div>
+        <div class="result-tools">
+          <button class="btn" id="btn-copy">${S.tab === 'issues' ? 'Скопировать итог' : 'Скопировать с цветом'}</button>
+          <button class="btn" id="btn-report">Сообщить об ошибке</button>
+        </div>
+      </div>
+      <div class="result-sheet">${renderTab()}</div>
       ${totalsHtml}
       <details class="how"><summary>Как считалось</summary><dl>
         <dt>Порт</dt><dd>вставлено строк ${P.pasted}, рейсов ${P.read}, пропущено: ${esc(skipped(P))}</dd>
@@ -3932,21 +3940,15 @@ SverkaFx.changed('.btn', el => {
         <dt>Расхождения</dt><dd>${esc(byField)}</dd>
         <dt>Вес × цена ≠ сумма</dt><dd>у вас ${M.arith}, в порту ${P.arith}</dd>
         <dt>Сверялось</dt><dd>${s.shared.map(f => FIELD[f]).join(', ')}; даты — допуск 5 рабочих дней</dd>
-      </dl></details>
-      <div class="result-bar">
-        <div class="tabs" role="tablist">${tabBtn('issues', 'Итог', issuesN)}${tabBtn('numbers', 'В Numbers', numbersList().length)}${tabBtn('mine', 'Моя таблица', M.read)}${tabBtn('port', 'Порт', P.read)}${tabBtn('pairs', 'Пары', s.pairs)}</div>
-        <div class="result-tools">
-          <button class="btn" id="btn-copy">${S.tab === 'issues' ? 'Скопировать итог' : 'Скопировать с цветом'}</button>
-          <button class="btn" id="btn-report">Сообщить об ошибке</button>
-        </div>
-      </div>
-      <div class="result-sheet">${renderTab()}</div>`;
+      </dl></details>`;
     out.querySelectorAll('[data-filter]').forEach(b => b.onclick = () => {
       Snd.play('pop');
       const t = counts(res)[+b.dataset.filter];
       S.filter = (S.filter && S.filter.key === t.key && S.filter.tab === t.tab) ? null : { key: t.key, tab: t.tab, label: t.key === 'noprice' ? 'строки без цены (синие — проставлено из порта, красные — в порту не найдено)' : t.label };
       if (S.filter) S.tab = t.tab;
       renderResults();
+      const bar = out.querySelector('.result-bar'), r = bar && bar.getBoundingClientRect();
+      if (r && (r.top < 0 || r.top > innerHeight - 120)) bar.scrollIntoView({ block: 'nearest', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
     });
     out.querySelectorAll('[data-tab]').forEach(b => b.onclick = () => { Snd.play('pop'); S.tab = b.dataset.tab; Events.emit('tab', { tab: S.tab }); if (S.filter && S.filter.tab !== S.tab) S.filter = null; renderResults(); });
     out.querySelectorAll('[data-unfilter]').forEach(b => b.onclick = () => { S.filter = null; renderResults(); });
@@ -3976,6 +3978,13 @@ SverkaFx.changed('.btn', el => {
   // Подставленные из порта цены и суммы видны и копируются, пока включено «Проставлять цены из порта».
   const cellClass = (rec, c) => { const k = Sverka.cellClass(rec, c); return k === 'fill' && !S.fillOn ? 'diff' : k; };
   const cellText = (rec, c) => (S.fillOn && rec.fillCols && rec.fillCols[c] != null ? rec.fillCols[c] : rec.cells[c]);
+  // сколько колонок показывать: до последней, где хоть в одной строке что-то есть (своё или цена из порта)
+  function usedCols(t) {
+    let n = 0;
+    const has = v => v != null && String(v).trim() !== '';
+    for (const rec of t.recs) for (let c = t.roles.length - 1; c >= n; c--) if (has(rec.cells[c]) || (rec.fillCols && has(rec.fillCols[c]))) { n = c + 1; break; }
+    return Math.max(1, n);
+  }
   function rowTitle(which, rec) {
     const res = S.res, t = res[which], other = which === 'mine' ? res.port : res.mine;
     const parts = [];
@@ -4019,19 +4028,19 @@ SverkaFx.changed('.btn', el => {
       }).join('');
       return `<div class="result-note">${tip}</div><div class="scroll tall"><table class="grid cells" id="res-grid"><thead><tr><th class="gut"></th>${head.map((h, c) => `<th data-hc="${c}">${h}</th>`).join('')}</tr></thead><tbody>${rows}</tbody></table></div>`;
     }
-    const which = S.tab, t = res[which];
-    const head = '<th class="gut">№</th><th>Статус</th>' + t.roles.map((r, c) => `<th data-hc="${c}"><span class="letter">${letter(c)}</span>${r === 'none' ? '' : esc(Sverka.ROLE_NAMES[r])}</th>`).join('');
-    S.model = { head: t.roles.map((r, c) => letter(c)), rows: [] };
+    const which = S.tab, t = res[which], nc = usedCols(t);
+    const head = '<th class="gut">№</th><th>Статус</th>' + t.roles.slice(0, nc).map((r, c) => `<th data-hc="${c}"><span class="letter">${letter(c)}</span>${r === 'none' ? '' : esc(Sverka.ROLE_NAMES[r])}</th>`).join('');
+    S.model = { head: t.roles.slice(0, nc).map((r, c) => letter(c)), rows: [] };
     const rows = visibleRecs(which).map((rec, r) => {
-      S.model.rows.push(rec.cells.map((v, c) => ({ t: String(cellText(rec, c) ?? ''), bg: COPY[cellClass(rec, c)] || '' })));
+      S.model.rows.push(rec.cells.slice(0, nc).map((v, c) => ({ t: String(cellText(rec, c) ?? ''), bg: COPY[cellClass(rec, c)] || '' })));
       const [label, lc] = STATUS[rec.status] || ['', ''];
       const title = rowTitle(which, rec);
       const marked = S.marked[which].has(rec.line);
       const rowCls = rec.status === 'header' ? 'is-head' : rec.status === 'skip' ? 'is-skip' : 's-' + rec.status;
-      const cells = rec.cells.map((v, c) => {
+      const cells = rec.cells.slice(0, nc).map((v, c) => {
         const cl = cellClass(rec, c);
         const f = cl === 'fill' ? { text: 'из порта, строка ' + rec.fill.from } : rec.flags[c];
-        return `<td data-r="${r}" data-c="${c}" class="${cl ? 'c-' + cl : ''}${f ? ' has-note' : ''}"${f ? ` title="${esc(f.text)}"` : ''}>${esc(cellText(rec, c))}${f ? `<span class="note">${esc(f.text)}</span>` : ''}</td>`;
+        return `<td data-r="${r}" data-c="${c}" class="${cl ? 'c-' + cl : ''}${f ? ' has-note' : ''}"${f ? ` title="${esc(f.text)}"` : ''}>${t.roles[c] === 'plate' || t.roles[c] === 'trailer' ? plateHtml(cellText(rec, c)) : esc(cellText(rec, c))}${f ? `<span class="note">${esc(f.text)}</span>` : ''}</td>`;
       }).join('');
       return `<tr class="${rowCls}${marked ? ' marked' : ''}"><td class="gut pick" data-w="${which}" data-line="${rec.line}">${res.rowNo(t, rec)}</td><td class="st ${lc}"${title ? ` title="${esc(title)}"` : ''}>${label}</td>${cells}</tr>`;
     }).join('');
@@ -4686,7 +4695,7 @@ SverkaFx.changed('.btn', el => {
   // только через SverkaEvents. Прячется кнопкой в шапке — запоминается. V — отпечаток файлов голубя (сборка):
   // новая версия голубя — новый адрес, сервис-воркер не подсунет старую.
   const Pigeon = (() => {
-    const V = /*АРКАДИЙ-V*/'d976927c'/*АРКАДИЙ-V-КОНЕЦ*/;
+    const V = /*АРКАДИЙ-V*/'fd9a6c13'/*АРКАДИЙ-V-КОНЕЦ*/;
     const KEY = 'sverka.arkadiy', btn = $('#arkadiy-toggle');
     let want = true; try { want = localStorage.getItem(KEY) !== 'off'; } catch (e) {}
     let inst = null, busy = false;
@@ -4832,10 +4841,26 @@ SverkaFx.changed('.btn', el => {
   // ================= новый вид: шаги, знакомство, справка, кольцо итога (13.10.2026) =================
   const plural = (n, a, b, c) => { const m = n % 100, d = n % 10; return m > 10 && m < 20 ? c : d === 1 ? a : d >= 2 && d <= 4 ? b : c; };
   // номер машины пластиной: части — строчные <i>, значок UA — в CSS, поэтому выделенный текст копируется как был набран
+  // Номер машины — номерным знаком (одна функция на все таблицы: window.SverkaPlate). Понимает одиночный номер
+  // «АА1234ВВ» (с пробелами и в любом регистре) и «тягач / прицеп» через / \ | , или «+» — каждый знаком, прицеп с
+  // классом trailer. Текст ячейки не меняется: буквы и цифры те же, только разложены по знаку; не номер — как есть.
+  const PLATE_ONE_RE = /^([A-ZА-ЯІЇЄ]{2})(\d{4})([A-ZА-ЯІЇЄ]{2})$/i;
+  const onePlate = (s, cls) => { const m = s.replace(/\s+/g, '').match(PLATE_ONE_RE); return m ? `<span class="plate${cls}"><i>${esc(m[1])}</i><i>${esc(m[2])}</i><i>${esc(m[3])}</i></span>` : null; };
   function plateHtml(v) {
-    const s = String(v == null ? '' : v), m = s.replace(/\s+/g, '').match(/^([A-ZА-ЯІЇЄ]{2})(\d{4})([A-ZА-ЯІЇЄ]{2})$/i);
-    return m ? `<span class="plate"><i>${esc(m[1])}</i><i>${esc(m[2])}</i><i>${esc(m[3])}</i></span>` : esc(s);
+    const s = String(v == null ? '' : v);
+    const one = onePlate(s, ''); if (one) return one;
+    const two = s.match(/^([^\/\\|,+]+?)\s*([\/\\|,+])\s*([^\/\\|,+]+)$/);
+    if (two) {
+      const a = onePlate(two[1], ''), b = onePlate(two[3], ' trailer');
+      if (a && b) return `<span class="plates">${a}<span class="plate-sep">${esc(two[2])}</span>${b}</span>`;
+    }
+    return esc(s);
   }
+  window.SverkaPlate = plateHtml;
+  // Для украшений, которые рисуют свою таблицу (вкладка «Пары»): таблица id="res-grid" class="grid cells",
+  // ячейки td[data-r][data-c], заголовки th[data-hc] — и модель тех же ячеек: { head: [названия], rows: [[{ t, bg }]] }.
+  // Тогда выделение, стрелки и копирование с цветом работают, как в остальных вкладках.
+  window.SverkaGrid = { setModel(m) { if (S.tab !== 'pairs' || !m || !Array.isArray(m.head) || !Array.isArray(m.rows)) return false; S.model = m; S.sel = null; return true; } };
 
   // шаги вверху: что сделано и что дальше
   function updateSteps() {

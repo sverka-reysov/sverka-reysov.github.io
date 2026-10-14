@@ -244,8 +244,17 @@ export async function start(opts = {}) {
       try { if (events && events.sound) return !!events.sound().muted; } catch (e) { /* ниже — по режиму */ }
       const h = new Date().getHours(); return modeNow === 'off' || (modeNow === 'night' && (h >= 22 || h < 7));
     };
+    // Покой (15 с без действий Паши): клюёт, ест, воркует молча; звучат только стук и храп — одной серией (≤ 5 с)
+    // не чаще раза в 2,5 мин. Ответы на действия Паши (вставил, сверил, вписал) звучат как обычно.
+    const QUIET_OK = { knock: 1, btn: 1, snore: 1 }, QUIET_GAP = 150000, SERIES = 5000;
+    let seriesAt = -1e9;
     function sfx(kind) {
       if (!acted || muted() || document.hidden || !B.shown || !SOUNDS[kind]) return;   // спрятан — молчит
+      const c = nowClock();
+      if (c - poked > 15000) {
+        if (!QUIET_OK[kind]) return;
+        if (c - seriesAt > SERIES) { if (c - seriesAt < QUIET_GAP) return; seriesAt = c; }
+      }
       try {
         if (!AC) AC = new (window.AudioContext || window.webkitAudioContext)();
         if (!sndLoading) sndLoading = Promise.all([...new Set(Object.values(SOUNDS).flat())].map(n =>
