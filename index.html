@@ -580,7 +580,7 @@ tr.just .n-ok { display: inline-block; animation: popIn .45s cubic-bezier(.3, 1.
   </section>
 
   <div id="out"></div>
-  <footer class="app-foot"><svg width="14" height="14" viewBox="0 0 28 28" aria-hidden="true"><ellipse cx="14" cy="14" rx="5.2" ry="11" fill="none" stroke="currentColor" stroke-width="2" transform="rotate(28 14 14)"/><path d="M10.2 6.8c3 4.6 4.6 9.4 7.6 14.4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>Сверка рейсов · версия <span id="app-ver"><!--ВЕРСИЯ-->14.10.2026 · 25f808<!--/ВЕРСИЯ--></span></footer>
+  <footer class="app-foot"><svg width="14" height="14" viewBox="0 0 28 28" aria-hidden="true"><ellipse cx="14" cy="14" rx="5.2" ry="11" fill="none" stroke="currentColor" stroke-width="2" transform="rotate(28 14 14)"/><path d="M10.2 6.8c3 4.6 4.6 9.4 7.6 14.4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>Сверка рейсов · версия <span id="app-ver"><!--ВЕРСИЯ-->14.10.2026 · 803ee6<!--/ВЕРСИЯ--></span></footer>
 </main>
 
 <div class="modal" id="report" role="dialog" aria-modal="true" aria-labelledby="report-title">
@@ -2703,7 +2703,7 @@ const SverkaFx = window.SverkaFx = (() => {
   // светового пятна. Признак — ядер ≤ 4 или памяти ≤ 4 ГБ (где браузер это сообщает), ?lite в адресе — или медленные
   // первые кадры после загрузки (медиана > 24 мс): тогда класс html.fx-lite ставится позже, зёрна уже не уменьшить —
   // но покачивание и стекло выключаются сразу. Сверка, цены и копирование от этого не зависят.
-  let lite = (navigator.hardwareConcurrency || 8) <= 4 || (navigator.deviceMemory || 8) <= 4 || /[?&]lite\b/.test(location.search);
+  let lite = /[?&]lite\b/.test(location.search);   // по ядрам и памяти — нет: у владельца 4 ядра, и страница стала «мёртвой» (14.10.2026)
   const liteOn = () => { if (lite && document.documentElement.classList.contains('fx-lite')) return; lite = true; document.documentElement.classList.add('fx-lite'); document.dispatchEvent(new Event('fx-lite')); };
   if (lite) liteOn();
   else if (!reduce) addEventListener('load', () => { const ts = []; let last = 0;
@@ -4672,7 +4672,12 @@ SverkaFx.changed('.btn', el => {
       plop: () => tone(700, 160, .14, .08),
       wipe: () => hiss(.3, 2000, .6, .04, 0, 'highpass', 6000)
     };
-    function play(name, arg) { if (muted()) return; ensure(); if (!ctx) return; try { lib[name](arg); } catch (e) {} }
+    // звук — только в ответ на действие человека (замечание владельца 14.10.2026: «ничего не делаю — слышно зерно и „пик“»).
+    // Восстановление после перезагрузки, кольцо, показавшееся при прокрутке, пробуждение от наведения — тишина.
+    // Действие — щелчок, касание или клавиша не дальше 5 с назад (шорох + «пик» итога укладываются: 0,6 + 2,2 с).
+    let lastAct = -1e9;
+    ['pointerdown', 'keydown'].forEach(t => addEventListener(t, e => { if (e.isTrusted) lastAct = performance.now(); }, { capture: true, passive: true }));
+    function play(name, arg) { if (muted() || performance.now() - lastAct > 5000) return; ensure(); if (!ctx) return; try { lib[name](arg); } catch (e) {} }
     const ICON = {
       on: '<path d="M4 10v4h4l5 4V6L8 10H4Z"/><path d="M16.5 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12"/>',
       night: '<path d="M4 10v4h4l5 4V6L8 10H4Z"/><path d="M21 13.5A5 5 0 1 1 16.5 7a4 4 0 0 0 4.5 6.5Z"/>',
@@ -5032,8 +5037,8 @@ SverkaFx.changed('.btn', el => {
       orbEl.addEventListener('pointerdown', e => { if (e.pointerType === 'mouse') return; show(hit(e)); clearTimeout(timer); timer = setTimeout(() => show(null), 2600); });
     }
     // в покое засыпает (С3): зерно оседает (~3,5 с), потом вращение ещё IDLE секунд и стоп — последний кадр остаётся
-    let live = 0; const IDLE = () => (typeof SverkaFx !== 'undefined' && SverkaFx.lite ? 1.5 : 10);
-    function frame() { raf = 0; if (!host || !host.isConnected || pend) return; draw(clock() - t0); if (!reduce && vis && !document.hidden && clock() < live) raf = requestAnimationFrame(frame); }
+    let live = 0; const IDLE = () => 4, CALM_FPS = () => (typeof SverkaFx !== 'undefined' && SverkaFx.lite ? 6 : 10);
+    function frame() { raf = 0; if (!host || !host.isConnected || pend) return; draw(clock() - t0); if (reduce || !vis || document.hidden) return; raf = clock() < live ? requestAnimationFrame(frame) : setTimeout(() => { raf = requestAnimationFrame(frame); }, 1000 / CALM_FPS()); }
     const kick = sec => { live = Math.max(live, clock() + (sec ?? IDLE())); if (!raf) raf = requestAnimationFrame(frame); };
     // новая сверка: зерно летит в кольцо, когда кольцо показалось на экране (pend), а не пока страница едет к итогу
     let pend = false, onStart = null;
@@ -5352,7 +5357,7 @@ SverkaFx.changed('.btn', el => {
   const Field = (() => {
     const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
     const stage = $('#stage'), cv = $('#field'), ctx = cv.getContext('2d');
-    const LITE = typeof SverkaFx !== 'undefined' && SverkaFx.lite, IDLE = () => (typeof SverkaFx !== 'undefined' && SverkaFx.lite ? 1.5 : 10);
+    const LITE = typeof SverkaFx !== 'undefined' && SverkaFx.lite, IDLE = () => 4, CALM_FPS = () => (typeof SverkaFx !== 'undefined' && SverkaFx.lite ? 6 : 10);
     const N = LITE ? 180 : innerWidth < 640 ? 260 : 560, rnd = (a, b) => a + Math.random() * (b - a), clock = () => performance.now() / 1000;
     let W = 0, H = 0, DPR = 1, raf = 0, vis = true, col = {}, refill = 0;
     const rects = { port: null, mine: null }, grains = [];
@@ -5400,7 +5405,8 @@ SverkaFx.changed('.btn', el => {
     }
     let liveUntil = 0;
     // в покое засыпает (С3): живёт, пока идёт движение, и ещё IDLE секунд покачивания; потом стоит последний кадр
-    function frame() { raf = 0; draw(clock()); if (vis && !document.hidden && clock() < liveUntil) raf = requestAnimationFrame(frame); }
+    // в покое не замирает (замечание владельца): после движения ещё IDLE с полных кадров, дальше — тихое покачивание реже
+    function frame() { raf = 0; if (!vis || document.hidden) return; draw(clock()); if (clock() < liveUntil) raf = requestAnimationFrame(frame); else if (!reduce) raf = setTimeout(() => { raf = requestAnimationFrame(frame); }, 1000 / CALM_FPS()); }
     const kick = (sec) => { liveUntil = Math.max(liveUntil, clock() + (sec || .2) + (reduce ? 0 : IDLE())); if (!raf) raf = requestAnimationFrame(frame); };
     if (!reduce) stage.addEventListener('pointermove', () => { if (clock() > liveUntil - 1) kick(); }, { passive: true });
     const ro = new ResizeObserver(() => { measure(); kick(); });
