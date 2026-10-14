@@ -580,7 +580,7 @@ tr.just .n-ok { display: inline-block; animation: popIn .45s cubic-bezier(.3, 1.
   </section>
 
   <div id="out"></div>
-  <footer class="app-foot"><svg width="14" height="14" viewBox="0 0 28 28" aria-hidden="true"><ellipse cx="14" cy="14" rx="5.2" ry="11" fill="none" stroke="currentColor" stroke-width="2" transform="rotate(28 14 14)"/><path d="M10.2 6.8c3 4.6 4.6 9.4 7.6 14.4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>Сверка рейсов · версия <span id="app-ver"><!--ВЕРСИЯ-->14.10.2026 · c2b7fa<!--/ВЕРСИЯ--></span></footer>
+  <footer class="app-foot"><svg width="14" height="14" viewBox="0 0 28 28" aria-hidden="true"><ellipse cx="14" cy="14" rx="5.2" ry="11" fill="none" stroke="currentColor" stroke-width="2" transform="rotate(28 14 14)"/><path d="M10.2 6.8c3 4.6 4.6 9.4 7.6 14.4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>Сверка рейсов · версия <span id="app-ver"><!--ВЕРСИЯ-->14.10.2026 · b95967<!--/ВЕРСИЯ--></span></footer>
 </main>
 
 <div class="modal" id="report" role="dialog" aria-modal="true" aria-labelledby="report-title">
@@ -614,10 +614,11 @@ tr.just .n-ok { display: inline-block; animation: popIn .45s cubic-bezier(.3, 1.
       <div class="send-box">
         <label class="t" for="rep-to">Кому в Телеграм</label>
         <input id="rep-to" placeholder="zerno_sverka_bot" autocomplete="off">
-        <button class="btn btn-primary" id="rep-share">Отправить в Телеграм</button>
+        <button class="btn btn-primary" id="rep-send">Отправить разработчику</button>
+        <button class="btn" id="rep-share">Отправить в Телеграм</button>
         <div class="row2"><button class="btn btn-sm" id="rep-copy">Копировать картинку</button><button class="btn btn-sm" id="rep-png">Скачать картинку</button></div>
         <button class="btn btn-sm" id="rep-txt">Скачать данные для проверки</button>
-        <p class="hint">Уйдут картинка с пометками и файл с вставленными строками — по нему ошибку можно повторить и исправить.</p>
+        <p class="hint">«Отправить разработчику» — сразу, одной кнопкой: уйдут картинка с пометками, ваш текст и файл со вставленными строками — по нему ошибку можно повторить и исправить.</p>
       </div>
     </div>
   </div>
@@ -4767,6 +4768,44 @@ SverkaFx.changed('.btn', el => {
     }
     fallbackSend(to);
   };
+  // Прямо в бота (14.10.2026): страница шлёт отчёт на веб-приложение бота, бот — администратору, в лист «Ошибки» и на
+  // Диск. Только с настоящего сайта или из файла программы: проверки на машине разработки ничего не шлют (для них —
+  // window.SverkaReportSink: подменяет отправку и показывает, что ушло бы). Ответа нет (no-cors) — «ушло» = запрос ушёл.
+  const REPORT_URL = 'https://script.google.com/macros/s/AKfycbyk5EH_q4X9dfb1eQzju2cnrvB4kfKzFZ7gAW6kRGvyCLk-cqdHBovDF9VP2MaPKjiz3A/exec?r=report';
+  const REPORT_ON = location.hostname === 'sverka-reysov.github.io' || location.protocol === 'file:';
+  const appVer = () => (($('#app-ver') || {}).textContent || '').trim();
+  function sendReport(p) {
+    const body = Object.assign({ ver: appVer(), ua: navigator.userAgent, url: location.protocol === 'file:' ? 'файл программы' : location.origin + location.pathname }, p);
+    if (typeof window.SverkaReportSink === 'function') { try { return Promise.resolve(window.SverkaReportSink(body)); } catch (e) { return Promise.reject(e); } }
+    if (!REPORT_ON) return Promise.resolve(false);
+    return fetch(REPORT_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify(body) }).then(() => true);
+  }
+  const b64 = blob => new Promise((ok, no) => { const r = new FileReader(); r.onload = () => ok(String(r.result).split(',')[1] || ''); r.onerror = no; r.readAsDataURL(blob); });
+  $('#rep-send').onclick = async () => {
+    if (!R.png || !R.txt) { toast('Картинка ещё готовится — нажмите через секунду'); return; }
+    const b = $('#rep-send'); b.disabled = true;
+    try {
+      const [png, txt] = await Promise.all([b64(R.png), R.txt.text()]);
+      const sent = await sendReport({ kind: 'report', text: $('#rep-text').value.trim() || 'Ошибка сверки (без описания)', txt, png });
+      if (sent === false) toast('Отправка работает только на сайте sverka-reysov.github.io или в файле программы');
+      else { toast('Отправлено разработчику — разберёмся', 4000); closeReport(); }
+    } catch (e) { toast('Не отправилось — нет интернета? Попробуйте «Отправить в Телеграм»', 6000); }
+    b.disabled = false;
+  };
+  // Сбой программы — сам, без таблиц: что и где упало. Не больше 3 за открытие страницы, одинаковые — один раз.
+  (() => {
+    const seen = new Set(); let n = 0;
+    const own = f => !f || /sverka-reysov\.github\.io|^file:|^https?:\/\/(localhost|127\.0\.0\.1)/.test(f);
+    const send = (text, stack, file) => {
+      if (!own(file) || /ResizeObserver loop/.test(text)) return;
+      const k = String(text);   // одинаковый текст (с местом в коде) — один раз; стек у повторов отличается колонкой
+      if (seen.has(k) || n >= 3) return; seen.add(k); n++;
+      sendReport({ kind: 'error', text: String(text).slice(0, 2000), stack: String(stack || '').slice(0, 3000) }).catch(() => {});
+    };
+    addEventListener('error', e => { if (e && e.message) send(e.message + (e.lineno ? ' · строка ' + e.lineno + ':' + e.colno : ''), e.error && e.error.stack, e.filename); });
+    addEventListener('unhandledrejection', e => { const r = e && e.reason; send('Необработанное: ' + (r && r.message || String(r)), r && r.stack, ''); });
+  })();
+
   // Без меню «Поделиться»: чат открывается сразу (в самом щелчке — иначе Safari блокирует окно), картинка в буфер,
   // данные файлом. Кому — бот по умолчанию: файл «ошибка-сверки-…» он пересылает администратору.
   function fallbackSend(to) {
@@ -4863,7 +4902,7 @@ SverkaFx.changed('.btn', el => {
   // только через SverkaEvents. Прячется кнопкой в шапке — запоминается. V — отпечаток файлов голубя (сборка):
   // новая версия голубя — новый адрес, сервис-воркер не подсунет старую.
   const Pigeon = (() => {
-    const V = /*АРКАДИЙ-V*/'a6ab3465'/*АРКАДИЙ-V-КОНЕЦ*/;
+    const V = /*АРКАДИЙ-V*/'4f22744c'/*АРКАДИЙ-V-КОНЕЦ*/;
     const KEY = 'sverka.arkadiy', btn = $('#arkadiy-toggle');
     let want = true; try { want = localStorage.getItem(KEY) !== 'off'; } catch (e) {}
     let inst = null, busy = false;
