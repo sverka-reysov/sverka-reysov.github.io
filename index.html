@@ -580,7 +580,7 @@ tr.just .n-ok { display: inline-block; animation: popIn .45s cubic-bezier(.3, 1.
   </section>
 
   <div id="out"></div>
-  <footer class="app-foot"><svg width="14" height="14" viewBox="0 0 28 28" aria-hidden="true"><ellipse cx="14" cy="14" rx="5.2" ry="11" fill="none" stroke="currentColor" stroke-width="2" transform="rotate(28 14 14)"/><path d="M10.2 6.8c3 4.6 4.6 9.4 7.6 14.4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>Сверка рейсов · версия <span id="app-ver"><!--ВЕРСИЯ-->14.10.2026 · 3648d2<!--/ВЕРСИЯ--></span></footer>
+  <footer class="app-foot"><svg width="14" height="14" viewBox="0 0 28 28" aria-hidden="true"><ellipse cx="14" cy="14" rx="5.2" ry="11" fill="none" stroke="currentColor" stroke-width="2" transform="rotate(28 14 14)"/><path d="M10.2 6.8c3 4.6 4.6 9.4 7.6 14.4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>Сверка рейсов · версия <span id="app-ver"><!--ВЕРСИЯ-->14.10.2026 · c2b7fa<!--/ВЕРСИЯ--></span></footer>
 </main>
 
 <div class="modal" id="report" role="dialog" aria-modal="true" aria-labelledby="report-title">
@@ -3276,6 +3276,17 @@ SverkaFx.each('#out .r-hero', hero => {
   addEventListener('scroll', hide, { passive: true });
 })();
 
+// ---------- первый «Сверить» без холодного старта: обе таблицы вставлены — в простое прогреть сцену и объёмное кольцо ----------
+addEventListener('DOMContentLoaded', () => setTimeout(() => {
+  if (!window.SverkaEvents || SverkaFx.reduce) return;
+  let done = false;
+  window.SverkaEvents.on('pasted', () => {
+    if (done || document.querySelectorAll('#stage .sheet-wrap.has-data').length < 2) return; done = true;
+    const go = () => { try { if (SverkaFx.scene && SverkaFx.scene.warm) SverkaFx.scene.warm(); if (window.SverkaOrb) window.SverkaOrb.warm(); } catch (e) { /* прогрев — украшение */ } };
+    window.requestIdleCallback ? requestIdleCallback(go, { timeout: 1500 }) : setTimeout(go, 300);
+  });
+}, 0));
+
 // ---------- Н3 «Пользователя»: обе таблицы вставлены, а «Сверить» ниже края окна — плавно подвезти кнопку ----------
 addEventListener('DOMContentLoaded', () => setTimeout(() => {
   if (!window.SverkaEvents) return;
@@ -3505,7 +3516,13 @@ SverkaFx.scene = (() => {
     const left = Math.max(r.left, c.left), right = Math.min(r.right, c.right);
     return { x: left, y: top, w: right - left, h: bot - top, cy: (top + bot) / 2, clip: sc || tr, ct: c.top, ch: c.height };
   }
-  return function play(data, done) {
+  const warm = () => {
+    if (!cv) { cv = document.createElement('canvas'); cv.className = 'fx-scene'; cv.setAttribute('aria-hidden', 'true'); document.body.appendChild(cv); ctx = cv.getContext('2d'); }
+    cv.width = Math.round(innerWidth * Math.min(2, devicePixelRatio || 1)); cv.height = Math.round(innerHeight * Math.min(2, devicePixelRatio || 1));
+    const g = ctx.createLinearGradient(0, 0, 0, 40); g.addColorStop(0, 'rgba(124,196,255,0)'); g.addColorStop(1, 'rgba(190,226,255,.65)');
+    ctx.fillStyle = g; ctx.fillRect(0, 0, 4, 4); ctx.beginPath(); ctx.ellipse(2, 2, 2, 1, 0, 0, 6.283); ctx.fill(); ctx.clearRect(0, 0, cv.width, cv.height);
+  };
+  const play = function play(data, done) {
     if (SverkaFx.reduce || !data) { done(); return; }
     const css = getComputedStyle(document.documentElement), C = {}; for (const k in VAR) C[k] = css.getPropertyValue(VAR[k]).trim();
     const col = k => C[k];
@@ -3599,11 +3616,13 @@ SverkaFx.scene = (() => {
         ctx.globalAlpha = 1 - s / TAIL; ctx.fillStyle = g.c; ctx.beginPath(); ctx.ellipse(x, y, 2.6, 1.15, g.r + g.vr * s, 0, 6.283); ctx.fill();
       }
       ctx.globalAlpha = 1;
-      if (t >= END - .12) finish();   // прокрутка к итогу начинается вместе с рассыпанием
+      if (t >= END - .3) finish();   // прокрутка к итогу — с 0,6 с: дуги ещё видны и гаснут на ходу (первый прогон ≤ 2 с)
       if (t < END + TAIL) raf = requestAnimationFrame(frame); else { ctx.clearRect(0, 0, W, H); cv.style.display = 'none'; raf = 0; }
     }
     raf = requestAnimationFrame(frame);
   };
+  play.warm = warm;
+  return play;
 })();
 
 // ---------- кнопка сменила текст — отклик (не чаще раза в 0,35 с: стрелками выделение меняется на каждый шаг) ----------
@@ -5226,10 +5245,13 @@ SverkaFx.changed('.btn', el => {
         kick(); if (reduce) draw(99);
       },
       onStart(f) { if (pend) onStart = f; else f(); },
+      warm() { if (!glc && typeof SverkaFx !== 'undefined' && SverkaFx.grainGL) { glc = document.createElement('canvas'); glc.className = 'orb-cv orb-gl'; glc.setAttribute('aria-hidden', 'true'); G = SverkaFx.grainGL(glc); } },
       focus(k) { focus = k; kick(); if (reduce) draw(99); },
       recolor() { colors(); kick(); if (reduce) draw(99); }
     };
   })();
+
+  window.SverkaOrb = { warm: () => Orb.warm() };   // прогрев объёмного кольца до первого «Сверить» (дизайн-слой)
 
   // ================= вписывание в Numbers (13.10.2026) =================
   // Страница не может писать в Numbers сама: она кладёт правки в буфер и запускает быструю команду на Маке
