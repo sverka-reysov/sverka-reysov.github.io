@@ -580,7 +580,7 @@ tr.just .n-ok { display: inline-block; animation: popIn .45s cubic-bezier(.3, 1.
   </section>
 
   <div id="out"></div>
-  <footer class="app-foot"><svg width="14" height="14" viewBox="0 0 28 28" aria-hidden="true"><ellipse cx="14" cy="14" rx="5.2" ry="11" fill="none" stroke="currentColor" stroke-width="2" transform="rotate(28 14 14)"/><path d="M10.2 6.8c3 4.6 4.6 9.4 7.6 14.4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>Сверка рейсов · версия <span id="app-ver"><!--ВЕРСИЯ-->15.10.2026 · f1b125<!--/ВЕРСИЯ--></span></footer>
+  <footer class="app-foot"><svg width="14" height="14" viewBox="0 0 28 28" aria-hidden="true"><ellipse cx="14" cy="14" rx="5.2" ry="11" fill="none" stroke="currentColor" stroke-width="2" transform="rotate(28 14 14)"/><path d="M10.2 6.8c3 4.6 4.6 9.4 7.6 14.4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>Сверка рейсов · версия <span id="app-ver"><!--ВЕРСИЯ-->15.10.2026 · 8c07e1<!--/ВЕРСИЯ--></span></footer>
 </main>
 
 <div class="modal" id="report" role="dialog" aria-modal="true" aria-labelledby="report-title">
@@ -741,7 +741,8 @@ const Sverka = (() => {
   const isPlate = s => PLATE_RE.test(normPlate(splitPlate(s)[0]));
 
   // ---------- числа ----------
-  const NUM_RE = /^[-+]?(\d[\d ']*)?([.,]\d+)?\s*(₽|₴|грн\.?|руб\.?|р\.|uah|usd|\$|€|кг\.?|тн?\.?)?$/i;
+  // «6,850.00», «293,802.00» (Excel с английской настройкой) — тоже число: группы по три через запятую или точку
+  const NUM_RE = /^[-+]?(\d[\d ']*(?:[.,]\d{3})*)?([.,]\d+)?\s*(₽|₴|грн\.?|руб\.?|р\.|uah|usd|\$|€|кг\.?|тн?\.?)?$/i;
   // единица в конце («6 700,00 грн.», «43,41 т.») снимается до разбора: точка сокращения — не десятичная
   // (Качество, Н3, 14.10.2026: «грн.» давало число в 100 раз больше)
   const UNIT_RE = /\s*(₽|₴|грн\.?|руб\.?|р\.|uah|usd|\$|€|кг\.?|тн?\.?)$/i;
@@ -766,7 +767,9 @@ const Sverka = (() => {
 
   // ---------- даты ----------
   const MONTHS = { 'янв': 1, 'фев': 2, 'мар': 3, 'апр': 4, 'май': 5, 'мая': 5, 'июн': 6, 'июл': 7, 'авг': 8, 'сен': 9, 'окт': 10, 'ноя': 11, 'дек': 12,
-    'січ': 1, 'лют': 2, 'бер': 3, 'кві': 4, 'тра': 5, 'чер': 6, 'лип': 7, 'сер': 8, 'вер': 9, 'жов': 10, 'лис': 11, 'гру': 12 };
+    'січ': 1, 'лют': 2, 'бер': 3, 'кві': 4, 'тра': 5, 'чер': 6, 'лип': 7, 'сер': 8, 'вер': 9, 'жов': 10, 'лис': 11, 'гру': 12,
+    // английская настройка Excel/Numbers: «27 August», «Sep 30, 2026»
+    'jan': 1, 'feb': 2, 'mar': 3, 'apr': 4, 'may': 5, 'jun': 6, 'jul': 7, 'aug': 8, 'sep': 9, 'oct': 10, 'nov': 11, 'dec': 12 };
   function mkDate(d, m, y, words) {
     if (m < 1 || m > 12 || d < 1 || d > 31) return null;
     if (y != null && y < 100) y += 2000;
@@ -783,8 +786,10 @@ const Sverka = (() => {
     if (m) return mkDate(+m[1], +m[2], null);
     m = t.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
     if (m) return mkDate(+m[3], +m[2], +m[1]);
-    m = t.match(/^(\d{1,2})\s+([а-яёіїєґ]{3,})\.?(?:\s+(\d{4}))?/);
-    if (m && MONTHS[m[2].slice(0, 3)]) return mkDate(+m[1], MONTHS[m[2].slice(0, 3)], m[3] ? +m[3] : null, true);
+    m = t.match(/^(\d{1,2})\s+([а-яёіїєґa-z]{3,})\.?(?:,?\s+(\d{4}))?/i);
+    if (m && MONTHS[m[2].slice(0, 3).toLowerCase()]) return mkDate(+m[1], MONTHS[m[2].slice(0, 3).toLowerCase()], m[3] ? +m[3] : null, true);
+    m = t.match(/^([a-z]{3,})\.?\s+(\d{1,2})(?:,?\s+(\d{4}))?/i);   // «September 28, 2026»
+    if (m && MONTHS[m[1].slice(0, 3).toLowerCase()]) return mkDate(+m[2], MONTHS[m[1].slice(0, 3).toLowerCase()], m[3] ? +m[3] : null, true);
     return null;
   }
   const dayNo = (y, m, d) => Math.round(Date.UTC(y, m - 1, d) / 86400000);
@@ -942,7 +947,7 @@ const Sverka = (() => {
   // «не сверять» — раньше остальных: «база цена» не цена, «дата выгрузки» не та дата (сверяем дату накладной),
   // показатели качества и служебные колонки — не сверяем (владелец, 12.10.2026).
   const HEADER_RULES = [
-    ['none', /(дат\S*|место)\s+(выгруз|разгруз|прибыт|выдач)|(выгруз|разгруз|прибыт)\S*\s+дат|баз\S*\s+цен|цен\S*\s+баз/],
+    ['none', /(дат\S*|место)\s+(выгруз|разгруз|прибыт|выдач|вивантаж|розвантаж|прибутт|видач)|(выгруз|разгруз|прибыт|вивантаж|розвантаж)\S*\s+дат|баз\S*\s+цен|цен\S*\s+баз/],
     ['none', /^(брутто|тара|влаг|влажн|сор$|сор\s|соры|сорн|натур|протеин|протеїн|белок|клейк|сыр|сир|клоп|черепаш|амброз|зараж|зернов|різниц|разниц|знятт|снятие|масл|кислот|контракт|экспорт|водител|дисконт|примеч|кто$|печать|порт$|место)/],
     ['none', /^№\s*п\/?п|^п\/п/],   // «№ п/п» — номер по порядку, не ТТН (Качество, Н4)
     ['date', /^дата\s/],             // «Дата накладной», «Дата ТТН» — дата, а не ТТН (Качество, Н2); «дата выгрузки» — выше, не сверять
@@ -1232,6 +1237,89 @@ const Sverka = (() => {
         plateSwitched = { col: best, hits: bestHits, was: cur, wasHits: curHits };
       }
     }
+    // Остальные колонки порта — тоже по значениям, но с привязкой к машине (идея владельца, 15.10.2026): для каждой машины
+    // порта, которая есть у Паши, смотрим, в какой колонке ТТН / дата / вес / сумма / цена совпадают с ТОЙ ЖЕ машиной у
+    // Паши. Так «№ п/п» не обманет ТТН, а брутто и тара — нетто. Колонку с ясной шапкой (роль по заголовку) не трогаем;
+    // берём колонку, только если совпадений заметно больше (≥ 3 и в 1,25 раза + 1 больше, чем у нынешней).
+    const fieldSwitched = [];
+    if (!opts.portRoles && port.col.plate >= 0 && mine.col.plate >= 0) {
+      const byPlate = new Map();
+      for (const m of mine.live) if (m.plate) (byPlate.get(m.plate) || byPlate.set(m.plate, []).get(m.plate)).push(m);
+      const data = port.rows.slice(port.headerLine + 1).filter(r => r.some(x => normText(x)))
+        .map(r => ({ r, mine: byPlate.get(normPlate(splitPlate(normText(r[port.col.plate]))[0])) })).filter(x => x.mine);
+      const headOf = c => (port.headerLine >= 0 ? headerRole(port.rows[port.headerLine][c]) : null);
+      const width = port.roles.length;
+      const kg = c => median(data.map(x => parseNum(x.r[c])).filter(v => v > 0)) > 500;
+      const ord = c => slashOrder(data.map(x => x.r[c]));
+      const val = (f, c, cell, o, k) => {
+        const t = normText(cell); if (!t) return null;
+        if (f === 'ttn') return normTtn(t) || null;
+        if (f === 'date') { let d = parseDate(t); if (d && o === 'md' && /^\d{1,2}\/\d{1,2}\//.test(t) && d.d <= 12) d = mkDate(d.m, d.d, d.y); return d; }
+        const n = parseNum(t); return n == null ? null : (f === 'weight' && k ? n / 1000 : n);
+      };
+      const same = (f, v, m) => {
+        if (f === 'ttn') return !!m.ttn && v === m.ttn;
+        if (f === 'date') return !!m.date && v.d === m.date.d && v.m === m.date.m;
+        return v !== 0 && m[f] != null && numEq(v, m[f]);   // нули не в счёт: «0 = 0» (нет цены у Паши ↔ «Амброзия 0» в порту) — не совпадение
+      };
+      const score = (f, c) => {
+        const o = f === 'date' ? ord(c) : null, k = f === 'weight' && kg(c);
+        let n = 0;
+        for (const x of data) { const v = val(f, c, x.r[c], o, k); if (v != null && x.mine.some(m => same(f, v, m))) n++; }
+        return n;
+      };
+      let roles = port.roles.slice(), changed = false;
+      // Дата: в реестре их бывает две (накладная и выгрузка), по значениям почти одинаковые. Сверяем дату накладной
+      // (владелец, 12.10.2026), а она не позже выгрузки — без ясной шапки берём колонку с более ранними датами.
+      {
+        const cur = roles.indexOf('date');
+        if (!(cur >= 0 && headOf(cur) === 'date')) {
+          const dayNo = d => d.y * 400 + d.m * 32 + d.d;
+          // все строки реестра, а не только машины Паши: различаются даты обычно в 2–3 строках из полусотни
+          const all = port.rows.slice(port.headerLine + 1).filter(r => r.some(x => normText(x)));
+          const ordAll = c => slashOrder(all.map(r => r[c]));
+          const dateCols = [];
+          for (let c = 0; c < width; c++) {
+            if (roles[c] === 'plate' || roles[c] === 'trailer') continue;
+            const h = headOf(c); if (h && h !== 'date') continue;
+            const o = ordAll(c), day = all.map(r => { const d = val('date', c, r[c], o); return d && d.y ? dayNo(d) : null; });
+            if (day.filter(v => v != null).length >= 0.6 * all.length) dateCols.push({ c, day });
+          }
+          if (dateCols.length > 1) {
+            // построчно: где даты двух колонок различаются, накладная — раньше. Даже 3 различия из 56 решают
+            const earlier = (a, b) => { let n = 0; a.day.forEach((v, i) => { const w = b.day[i]; if (v != null && w != null && v !== w) n += v < w ? 1 : -1; }); return n; };
+            const early = dateCols.reduce((best, x) => (earlier(x, best) > 0 ? x : best)).c;
+            if (early !== cur) {
+              if (cur >= 0) roles[cur] = 'none';
+              fieldSwitched.push({ f: 'date', col: early, was: cur, took: roles[early], why: 'раньше' });
+              roles[early] = 'date'; changed = true;
+            }
+          }
+        }
+      }
+      for (const f of ['ttn', 'weight', 'sum', 'price']) {
+        if (mine.col[f] < 0) continue;
+        const cur = roles.indexOf(f);
+        if (cur >= 0 && headOf(cur) === f) continue;   // шапка прямо назвала эту колонку — ей верим
+        const curScore = cur >= 0 ? score(f, cur) : 0;
+        let best = -1, bestScore = -1;
+        for (let c = 0; c < width; c++) {
+          if (c === cur || roles[c] === 'plate' || roles[c] === 'trailer') continue;
+          const h = headOf(c);
+          if (h && h !== f) continue;                    // у колонки своя ясная шапка (в т. ч. «не сверять»)
+          if (roles[c] !== 'none' && headOf(c) === roles[c]) continue;
+          const s = score(f, c);
+          if (s > bestScore) { best = c; bestScore = s; }
+        }
+        if (best >= 0 && bestScore >= 3 && bestScore > curScore * 1.25 + 1) {
+          if (cur >= 0) roles[cur] = 'none';
+          const took = roles[best];
+          roles[best] = f; changed = true;
+          fieldSwitched.push({ f, col: best, hits: bestScore, was: cur, wasHits: curScore, took });
+        }
+      }
+      if (changed) port = prepare(portText, roles);
+    }
     const startPort = opts.startPort || 1, startMine = opts.startMine || 1;
     const rowNo = (t, rec) => (t === port ? startPort : startMine) + rec.line;
 
@@ -1487,7 +1575,7 @@ const Sverka = (() => {
     const lp = mineLikeness(port), lm = mineLikeness(mine);
     const swap = { suspect: port.live.length > 0 && mine.live.length > 0 && lp.score - lm.score >= 2, portLooksMine: lp.reasons, mineScore: lm.score, portScore: lp.score };
 
-    return { port, mine, issues, summary, swap, problems, rowNo, ttnSwitched, plateSwitched, sameTable };
+    return { port, mine, issues, summary, swap, problems, rowNo, ttnSwitched, plateSwitched, fieldSwitched, sameTable };
   }
 
   // Цвет ячейки для показа и копирования: ok — зелёный, diff — жёлтый, miss — красный, '' — без цвета.
@@ -1808,6 +1896,7 @@ const Zap = (() => {
     // «прав» — только отдельным словом: в «Отправитель» тоже есть «прав»
     ['licenceOrPassport', /((^|[^а-яіїєґ])прав|посвідч|посвидет|в\/у).*паспорт|паспорт.*((^|[^а-яіїєґ])прав|посвідч)/],
     ['birth', /народж|рожден/],
+    ['type', /^тип/],   // «ТИП ПРИЧІПА» — тип, а не номер прицепа (Качество, Н9); раньше правила прицепа
     ['trailer', /причіп|причеп|прицеп|напівприч|полуприц/],
     ['phone', /телефон|^тел|^моб/],   // не «моб» где угодно: в «автомобіля» тоже есть «моб»
     ['licence', /(^|[^а-яіїєґ])прав|посвідч|посвидет|в\/у|водійськ|водительск/],
@@ -1817,7 +1906,7 @@ const Zap = (() => {
     ['type', /тип/],
     ['date', /дата|прибут|прибыт|завантаж|загруз/],
     ['product', /номенклат|культур|товар|продук/],
-    ['fio', /піб|фио|ф\.\s*и\.\s*о|прізвищ|фамил|водій|водитель|водія|водителя/],
+    ['fio', /піб|фио|фіо|ф\.\s*и\.\s*о|ф\.\s*і\.\s*о|прізвищ|фамил|водій|водитель|водія|водителя/],
   ];
   const norm = s => String(s == null ? '' : s).replace(/[  ]/g, ' ').replace(/\s+/g, ' ').trim();
   function headerField(h) {
@@ -4932,7 +5021,7 @@ SverkaFx.changed('.btn', el => {
   // только через SverkaEvents. Прячется кнопкой в шапке — запоминается. V — отпечаток файлов голубя (сборка):
   // новая версия голубя — новый адрес, сервис-воркер не подсунет старую.
   const Pigeon = (() => {
-    const V = /*АРКАДИЙ-V*/'3eab984d'/*АРКАДИЙ-V-КОНЕЦ*/;
+    const V = /*АРКАДИЙ-V*/'464ba39e'/*АРКАДИЙ-V-КОНЕЦ*/;
     const KEY = 'sverka.arkadiy', btn = $('#arkadiy-toggle');
     let want = true; try { want = localStorage.getItem(KEY) !== 'off'; } catch (e) {}
     let inst = null, busy = false;

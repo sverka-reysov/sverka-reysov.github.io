@@ -543,8 +543,8 @@ export async function start(opts = {}) {
     const setState = s => {
       if (s === now_) return;
       now_ = s; const at = stateAt = nowClock();
-      // сторож: «стоит» дольше IDLE_MAX + 2 с — что бы ни случилось, клюнет (таймер ничем не сбрасывается)
-      if (s === 'idle') wait(IDLE_MAX + 2000).then(() => { if (alive && !reduced && now_ === 'idle' && stateAt === at) interrupt('peck'); });
+      // сторож: любое состояние, кроме сна, дольше IDLE_MAX + 2 с — что бы ни случилось, клюнет (таймер ничем не сбрасывается)
+      if (s !== 'sleep') wait(IDLE_MAX + 2000).then(() => { if (alive && !reduced && now_ === s && stateAt === at) interrupt(s === 'peck' ? 'shake' : 'peck'); });
     };
     async function turnTo(yaw, my) {                           // разворот на месте — через взгляд на вас
       B.yawTo = yaw;
@@ -637,24 +637,30 @@ export async function start(opts = {}) {
       best.sort((a, b) => a.d - b.d);
       return best[0] || null;
     }
+    function land() { const f = B.fly; if (f) { B.x = f.x1; B.g = f.g1; B.k = f.k1; B.lost = false; B.fly = null; } }   // сел туда, куда летел
+    let flights = 0;
     async function flyTo(p, my, via) {                         // перелёт по дуге (или через точку via): присел — взлёт — полёт — посадка
-      B.moving = true;
+      land();                                                  // прошлый перелёт прервали — уже сел
+      const id = ++flights; B.moving = true;
+      let F = null;                                            // свой перелёт: прерванный старый не трогает новый
       try {
         if (B.walk) { const w = B.walk; B.walk = null; w.r(false); }
         const x0 = B.x, y0 = B.g && !B.lost ? B.g.y : B.g ? B.g.y : innerHeight - 6;
         B.side = B.yawTo = p.x >= x0 ? YAW_RIGHT : YAW_LEFT;     // разворачивается на взлёте
         setState('fly');
-        B.fly = { x: x0, y: y0, gy: y0, x0, y0, x1: p.x, g1: p.g, t0: 0, T: 1, arc: 0, go: false, k0: B.k, k1: p.g.k || 1, via };
+        B.fly = F = { x: x0, y: y0, gy: y0, x0, y0, x1: p.x, g1: p.g, t0: 0, T: 1, arc: 0, go: false, k0: B.k, k1: p.g.k || 1, via };
         if (!await play('fly', FLY.up[0], FLY.up[1], { ev: { [FLY.flap]: () => sfx('flap') } }) || busy(my)) return false;
         const dist = via ? Math.hypot(via.x - x0, via.y - y0) + Math.hypot(p.x - via.x, p.g.y - via.y) : Math.hypot(p.x - x0, p.g.y - y0);
         const T = Math.max(.7, Math.min(via ? 3.6 : 2.4, dist / 520));
-        Object.assign(B.fly, { t0: clock, T: T * 1000, arc: Math.min(140, 30 + dist * .2), go: true });
+        if (B.fly !== F) return false;
+        Object.assign(F, { t0: clock, T: T * 1000, arc: Math.min(140, 30 + dist * .2), go: true });
         if (!await play('fly', FLY.air[0], FLY.air[1], { fps: (FLY.air[1] - FLY.air[0]) / T, blend: false }) || busy(my)) return false;
-        B.x = B.fly.x1; B.g = B.fly.g1; B.k = B.fly.k1; B.lost = false; B.fly = null;
+        if (B.fly !== F) return false;
+        land();
         return await play('fly', FLY.down, ACT.fly.frames - 1, { blend: false, ev: { [FLY.down + 10]: () => sfx('land') } }) && !busy(my);
       } finally {
-        if (B.fly) { B.x = B.fly.x1; B.g = B.fly.g1; B.k = B.fly.k1; B.lost = false; B.fly = null; }   // прервали в воздухе — уже сел
-        B.moving = false;
+        if (F && B.fly === F) land();                          // прервали в воздухе — уже сел
+        if (flights === id) B.moving = false;
       }
     }
     function flyStep() {
@@ -773,7 +779,7 @@ export async function start(opts = {}) {
       },
     };
     async function run(name, my, arg) { try { await SCENES[name](my, arg); } catch (e) { fail(e); } }
-    function calm() { rouse(); snoring = false; snore(false); if (B.walk) { B.walk.r(false); B.walk = null; } B.yawTo = B.side; }   // прервали — снова боком
+    function calm() { land(); rouse(); snoring = false; snore(false); if (B.walk) { B.walk.r(false); B.walk = null; } B.yawTo = B.side; }   // прервали — снова боком
     function interrupt(name, arg) {                            // прервать текущее, сыграть сцену, потом — обычная жизнь
       const my = ++gen; calm();
       return run(name, my, arg).then(() => { if (my === gen && alive) life(); });
