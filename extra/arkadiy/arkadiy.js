@@ -429,7 +429,14 @@ export async function start(opts = {}) {
     const nap = ms => Promise.race([wait(ms), new Promise(r => { rouseR = r; })]);   // спит, пока не разбудят или не выйдет срок
     function rouse() { asleep = false; if (rouseR) { const r = rouseR; rouseR = null; r(); } }
     const busy = my => my !== gen;
-    const setState = s => { now_ = s; };
+    let stateAt = 0;                                           // с какого момента — текущее состояние
+    const IDLE_MAX = 24000;                                    // «стоит» подряд — не дольше 24 с, потом обязательно движение
+    const setState = s => {
+      if (s === now_) return;
+      now_ = s; const at = stateAt = nowClock();
+      // сторож: «стоит» дольше IDLE_MAX + 2 с — что бы ни случилось, клюнет (таймер ничем не сбрасывается)
+      if (s === 'idle') wait(IDLE_MAX + 2000).then(() => { if (alive && !reduced && now_ === 'idle' && stateAt === at) interrupt('peck'); });
+    };
     async function turnTo(yaw, my) {                           // разворот на месте — через взгляд на вас
       B.yawTo = yaw;
       if (Math.abs(B.yaw - yaw) < .02) return true;
@@ -599,11 +606,16 @@ export async function start(opts = {}) {
         const r = Math.random();
         let name = r < .38 ? 'idle' : r < .7 ? 'walk' : r < .8 ? 'peck' : r < .87 ? 'look' : r < .93 ? 'eat' : r < .97 ? 'shake' : 'coo';
         if (name === 'peck' && Math.random() < .3 && buttonSpot()) name = 'button';   // кнопка под ногами — клюнуть её
+        // стоит уже 10 с — дальше только то, что точно сменит состояние (ходьба без места и «стоять» — не меняют)
+        if (now_ === 'idle' && nowClock() - stateAt > 10000 && (name === 'idle' || name === 'walk')) name = Math.random() < .6 ? 'peck' : 'shake';
         await run(name, my);
         if (busy(my)) return;
         if (P.name !== 'idle') play('idle', 0, ACT.idle.frames - 1, { loop: true });
         setState('idle');
-        if (nowClock() - poked > 15000 && !await idleFor(15000 + Math.random() * 12000, my)) return;   // тишина — отдыхает (кадров нет; idle ≤ 30 с)
+        if (nowClock() - poked > 15000) {                     // тишина — отдыхает (кадров нет), но «стоит» подряд не дольше IDLE_MAX
+          const rest = Math.min(15000 + Math.random() * 12000, IDLE_MAX - (nowClock() - stateAt));
+          if (rest > 500 && !await idleFor(rest, my)) return;
+        }
       }
     }
 
