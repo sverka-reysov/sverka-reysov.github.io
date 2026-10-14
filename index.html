@@ -580,7 +580,7 @@ tr.just .n-ok { display: inline-block; animation: popIn .45s cubic-bezier(.3, 1.
   </section>
 
   <div id="out"></div>
-  <footer class="app-foot"><svg width="14" height="14" viewBox="0 0 28 28" aria-hidden="true"><ellipse cx="14" cy="14" rx="5.2" ry="11" fill="none" stroke="currentColor" stroke-width="2" transform="rotate(28 14 14)"/><path d="M10.2 6.8c3 4.6 4.6 9.4 7.6 14.4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>Сверка рейсов · версия <span id="app-ver"><!--ВЕРСИЯ-->14.10.2026 · 803ee6<!--/ВЕРСИЯ--></span></footer>
+  <footer class="app-foot"><svg width="14" height="14" viewBox="0 0 28 28" aria-hidden="true"><ellipse cx="14" cy="14" rx="5.2" ry="11" fill="none" stroke="currentColor" stroke-width="2" transform="rotate(28 14 14)"/><path d="M10.2 6.8c3 4.6 4.6 9.4 7.6 14.4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>Сверка рейсов · версия <span id="app-ver"><!--ВЕРСИЯ-->14.10.2026 · 04f345<!--/ВЕРСИЯ--></span></footer>
 </main>
 
 <div class="modal" id="report" role="dialog" aria-modal="true" aria-labelledby="report-title">
@@ -613,7 +613,7 @@ tr.just .n-ok { display: inline-block; animation: popIn .45s cubic-bezier(.3, 1.
       </div>
       <div class="send-box">
         <label class="t" for="rep-to">Кому в Телеграм</label>
-        <input id="rep-to" placeholder="ник, например pasha" autocomplete="off">
+        <input id="rep-to" placeholder="zerno_sverka_bot" autocomplete="off">
         <button class="btn btn-primary" id="rep-share">Отправить в Телеграм</button>
         <div class="row2"><button class="btn btn-sm" id="rep-copy">Копировать картинку</button><button class="btn btn-sm" id="rep-png">Скачать картинку</button></div>
         <button class="btn btn-sm" id="rep-txt">Скачать данные для проверки</button>
@@ -1338,6 +1338,8 @@ const Sverka = (() => {
         m.diffs.push({ f, port: p.raw[f], mine: m.raw[f], note, missingMine });
         flag(mine, m, f, 'diff', 'в порту: ' + (p.raw[f] || 'пусто') + (note ? ' (' + note + ')' : ''));
         flag(port, p, f, 'diff', 'у вас: ' + (m.raw[f] || 'пусто') + (note ? ' (' + note + ')' : ''));
+        // нет цены/суммы у вас — пометка остаётся (подсказка), но расхождением строку не делает (14.10.2026)
+        if (missingMine) for (const [t, r] of [[mine, m], [port, p]]) { const c = t.col[f]; if (c >= 0) (r.fillOnly = r.fillOnly || {})[c] = true; }
       }
       if (shared.includes('crop') && !fieldEq(p, m, 'crop')) {
         m.diffs.push({ f: 'crop', port: p.raw.crop, mine: m.raw.crop, note: '' });
@@ -1356,7 +1358,7 @@ const Sverka = (() => {
           r.arith = { calc, text: fmtNum(r.weight) + ' × ' + fmtNum(r.price) + ' = ' + fmtNum(Math.round(calc * 100) / 100) + ', а стоит ' + fmtNum(r.sum) };
           const c = t.col.sum;
           if (!r.flags[c]) r.flags[c] = { kind: 'arith', text: 'вес × цена ≠ сумма: ' + r.arith.text };
-          else r.flags[c].text += '; вес × цена ≠ сумма: ' + r.arith.text;
+          else { r.flags[c].text += '; вес × цена ≠ сумма: ' + r.arith.text; if (r.fillOnly) delete r.fillOnly[c]; }
         }
       }
     }
@@ -1364,7 +1366,7 @@ const Sverka = (() => {
     // --- статусы
     for (const t of [port, mine]) {
       for (const r of t.live) {
-        if (r.pair) r.status = (Object.keys(r.flags).length ? 'diff' : 'ok');
+        if (r.pair) r.status = (Object.keys(r.flags).some(c => !(r.fillOnly && r.fillOnly[c])) ? 'diff' : 'ok');
         else if (r.dupOf) r.status = 'dup';
         else if (r.splitGroup || r.splitTarget) r.status = 'split';
         else r.status = 'missing';
@@ -2564,8 +2566,6 @@ html.fx-lite #stage #stage-h1 em { animation-name: fxIntro; }   /* лёгкий 
 #stage .pane.port:is(:hover, :focus-within) .empty > div::before { animation-duration: 2.6s; }
 /* кнопка «Аркадий»: подсказка как у звука (из aria-label); скрыт — значок бледнее и перечёркнут, черта прорисовывается */
 #arkadiy-toggle { position: relative; }
-#arkadiy-toggle::after { content: attr(aria-label); position: absolute; top: calc(100% + 8px); right: 0; white-space: nowrap; font: 500 12px/1.2 -apple-system, BlinkMacSystemFont, sans-serif; background: var(--ink); color: var(--paper); padding: 5px 9px; border-radius: 8px; opacity: 0; transform: translateY(-4px); transition: opacity .2s, transform .2s; pointer-events: none; z-index: 5; }
-#arkadiy-toggle:hover::after, #arkadiy-toggle:focus-visible::after { opacity: 1; transform: none; }
 #arkadiy-toggle svg { transition: opacity var(--t) var(--ease-out); }
 #arkadiy-toggle::before { content: ""; position: absolute; left: 50%; top: 50%; width: 22px; height: 1.8px; margin: -.9px 0 0 -11px; border-radius: 1px; background: currentColor; transform: rotate(-45deg) scaleX(0); transition: transform var(--t-spring) var(--spring); pointer-events: none; }
 #arkadiy-toggle[aria-pressed="false"] svg { opacity: .42; }
@@ -2617,6 +2617,10 @@ html.fx-lite #stage #stage-h1 em { animation-name: fxIntro; }   /* лёгкий 
 .how dl { margin: 8px 0 0; padding: 14px 18px; border-radius: var(--r-l); background: color-mix(in srgb, var(--head) 70%, transparent); border: 1px solid var(--rule); gap: 7px 22px; font-size: 13px; }
 .how dt { font-weight: 600; }
 .how[open] dl { animation: fxRise var(--t-spring) var(--spring) both; }
+/* подсказки кнопок шапки — одна плашка: тёмная, скругление как у кнопок поменьше, появляется пружиной снизу вверх */
+.fx-htip { position: fixed; left: 0; top: 0; z-index: 72; pointer-events: none; white-space: nowrap; max-width: calc(100vw - 16px); overflow: hidden; text-overflow: ellipsis; font: 500 12px/1.2 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; padding: 6px 10px; border-radius: var(--r-s); background: var(--ink); color: var(--paper); box-shadow: var(--shadow-2); opacity: 0; transform: translateY(-4px) scale(.96); transform-origin: 50% 0; transition: opacity .15s var(--ease-out), transform .15s var(--ease-out); }
+.fx-htip.on { opacity: 1; transform: none; transition: opacity var(--t) var(--ease-out), transform var(--t-pop) var(--spring-pop); }
+.snd-btn .tip { display: none !important; }
 </style>
 <script>
 // Движок пружин дизайн-слоя. Одни и те же кривые для CSS и для анимаций из кода.
@@ -3185,6 +3189,34 @@ SverkaFx.each('#out .r-hero', hero => {
   const t = document.getElementById('toast'); if (!t) return;
   const tone = () => { const s = t.textContent.trim(); t.dataset.tone = WARN.test(s) ? 'warn' : OK.test(s) ? 'ok' : ''; };
   new MutationObserver(tone).observe(t, { attributes: true, attributeFilter: ['data-tick'] });
+})();
+
+// ---------- подсказки кнопок шапки: одна форма на всех (Бот, звук, Аркадий, справка, тема) ----------
+// Текст — из title (он снимается, чтобы не всплывала вторая, системная), у звука — из его .tip, у Аркадия — из
+// aria-label (его код меняет подпись сам). Одна плашка на странице, ставится под кнопкой, не выходит за край окна.
+(() => {
+  const tip = document.createElement('div'); tip.className = 'fx-htip'; tip.setAttribute('aria-hidden', 'true'); document.body.appendChild(tip);
+  let cur = null, tmr = 0;
+  const text = b => b.dataset.tip || (b.querySelector('.tip') || {}).textContent || b.getAttribute('aria-label') || '';
+  const show = b => {
+    const t = text(b).trim(); if (!t) return;
+    cur = b; tip.textContent = t; tip.classList.remove('on'); tip.style.left = '0px';
+    const r = b.getBoundingClientRect(), w = tip.offsetWidth;
+    tip.style.left = Math.max(8, Math.min(innerWidth - w - 8, r.left + r.width / 2 - w / 2)) + 'px'; tip.style.top = (r.bottom + 8) + 'px';
+    void tip.offsetWidth; tip.classList.add('on');
+  };
+  const hide = () => { cur = null; tip.classList.remove('on'); };
+  const prep = b => { if (b.title) { b.dataset.tip = b.title; if (!b.getAttribute('aria-label')) b.setAttribute('aria-label', b.title); b.removeAttribute('title'); } };
+  SverkaFx.each('.top :is(.icon-btn, .bot-btn)', b => {
+    prep(b);
+    new MutationObserver(() => { prep(b); if (cur === b) show(b); }).observe(b, { attributes: true, attributeFilter: ['title', 'aria-label'], childList: true, subtree: true, characterData: true });
+    b.addEventListener('pointerenter', e => { if (e.pointerType === 'mouse') { clearTimeout(tmr); tmr = setTimeout(() => show(b), cur ? 0 : 350); } });
+    b.addEventListener('pointerleave', () => { clearTimeout(tmr); hide(); });
+    b.addEventListener('focus', () => { if (b.matches(':focus-visible')) show(b); });
+    b.addEventListener('blur', hide);
+    b.addEventListener('click', () => { if (cur === b) setTimeout(() => cur === b && show(b), 30); });   // подпись могла смениться (звук, Аркадий)
+  });
+  addEventListener('scroll', hide, { passive: true });
 })();
 
 // ---------- колонка «Статус» в таблицах итога: «✓ совпало» → ярлык со значком; текст ячейки не меняется ----------
@@ -4429,7 +4461,7 @@ SverkaFx.changed('.btn', el => {
     redraw();
     const marked = S.marked.mine.size + S.marked.port.size;
     $('#rep-auto').textContent = (marked ? `Отмечено строк: ${marked}. На снимке они и по две соседние.` : 'Строки не отмечены — на снимке то, что сейчас видно на вкладке' + (R.view.cut ? ` (первые 40, ещё ${R.view.cut} не вошли)` : '') + '.') + ' Отметить строку — щелчок по её номеру в таблице.';
-    $('#rep-to').value = store.get('sverka.tgTo') || '';
+    $('#rep-to').value = store.get('sverka.tgTo') || REPORT_BOT;   // по умолчанию — бот: он перешлёт отчёт администратору
     $('#report').classList.add('open');
     document.body.style.overflow = 'hidden';
     prepareFiles();
@@ -4610,18 +4642,21 @@ SverkaFx.changed('.btn', el => {
     }
     fallbackSend(to);
   };
-  // Без меню «Поделиться»: картинка в буфер, данные файлом, чат открывается по нику.
+  // Без меню «Поделиться»: чат открывается сразу (в самом щелчке — иначе Safari блокирует окно), картинка в буфер,
+  // данные файлом. Кому — бот по умолчанию: файл «ошибка-сверки-…» он пересылает администратору.
   function fallbackSend(to) {
+    to = to || REPORT_BOT;
+    const chat = to === REPORT_BOT ? 'бота' : '@' + to;
+    const win = window.open('https://t.me/' + encodeURIComponent(to), '_blank');
     copyImage().then(() => {
       download(R.txt, R.name + '.txt');
-      toast('Картинка в буфере, файл данных скачан. В чате нажмите ⌘V и перетащите файл.', 6000);
-      if (to) window.open('https://t.me/' + encodeURIComponent(to), '_blank');
+      toast(`Картинка в буфере, файл данных скачан. В чате ${chat} нажмите ⌘V и перетащите файл.` + (win ? '' : ' Чат не открылся — откройте Телеграм сами.'), 7000);
     }, () => {
       download(R.png, R.name + '.png'); download(R.txt, R.name + '.txt');
-      toast('Скачаны картинка и файл данных — перетащите их в чат Телеграма.', 6000);
-      if (to) window.open('https://t.me/' + encodeURIComponent(to), '_blank');
+      toast(`Скачаны картинка и файл данных — перетащите их в чат ${chat}.` + (win ? '' : ' Чат не открылся — откройте Телеграм сами.'), 7000);
     });
   }
+  const REPORT_BOT = 'zerno_sverka_bot';
 
   /* ---------- звук: синтез в браузере, без файлов ---------- */
   const Snd = (() => {
@@ -4676,7 +4711,9 @@ SverkaFx.changed('.btn', el => {
     // Восстановление после перезагрузки, кольцо, показавшееся при прокрутке, пробуждение от наведения — тишина.
     // Действие — щелчок, касание или клавиша не дальше 5 с назад (шорох + «пик» итога укладываются: 0,6 + 2,2 с).
     let lastAct = -1e9;
-    ['pointerdown', 'keydown'].forEach(t => addEventListener(t, e => { if (e.isTrusted) lastAct = performance.now(); }, { capture: true, passive: true }));
+    let lastRun = -1e9;   // нажали «Сверить» сами (щелчок по кнопке или ⌘↵) — только тогда кольцо рассыпает зерно со звуком
+    ['pointerdown', 'keydown'].forEach(t => addEventListener(t, e => { if (!e.isTrusted) return; lastAct = performance.now(); if (t === 'pointerdown' ? e.target.closest && e.target.closest('#btn-run') : e.key === 'Enter' && (e.metaKey || e.ctrlKey)) lastRun = lastAct; }, { capture: true, passive: true }));
+    const ranByHand = () => performance.now() - lastRun < 2500;
     function play(name, arg) { if (muted() || performance.now() - lastAct > 5000) return; ensure(); if (!ctx) return; try { lib[name](arg); } catch (e) {} }
     const ICON = {
       on: '<path d="M4 10v4h4l5 4V6L8 10H4Z"/><path d="M16.5 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12"/>',
@@ -4691,7 +4728,7 @@ SverkaFx.changed('.btn', el => {
     }
     const state = () => ({ mode, muted: muted() });
     function cycle() { mode = MODES[(MODES.indexOf(mode) + 1) % 3]; try { localStorage.setItem('sverka.sound', mode); } catch (e) {} paintBtn(); Events.emit('soundMode', state()); toast(TEXT[mode] + (mode === 'night' && night() ? ' — сейчас тихо' : '')); play('pop'); }
-    return { play, cycle, paintBtn, state };
+    return { ranByHand, play, cycle, paintBtn, state };
   })();
   $('#sndBtn').addEventListener('click', () => Snd.cycle());
 
@@ -4700,7 +4737,7 @@ SverkaFx.changed('.btn', el => {
   // только через SverkaEvents. Прячется кнопкой в шапке — запоминается. V — отпечаток файлов голубя (сборка):
   // новая версия голубя — новый адрес, сервис-воркер не подсунет старую.
   const Pigeon = (() => {
-    const V = /*АРКАДИЙ-V*/'fd9a6c13'/*АРКАДИЙ-V-КОНЕЦ*/;
+    const V = /*АРКАДИЙ-V*/'6505b5c5'/*АРКАДИЙ-V-КОНЕЦ*/;
     const KEY = 'sverka.arkadiy', btn = $('#arkadiy-toggle');
     let want = true; try { want = localStorage.getItem(KEY) !== 'off'; } catch (e) {}
     let inst = null, busy = false;
@@ -4839,7 +4876,8 @@ SverkaFx.changed('.btn', el => {
     const num = el => +String(el.textContent).replace(/[^\d]/g, '');
     document.querySelectorAll('#out .tally .n, #out .r-lede h2 .n, #out .r-orb .core b, #out [data-fx~="odometer"]').forEach(el => Motion.countUp(el, num(el), v => String(v)));
     const big = $('#out .s-big b'); if (big && /^[\d\s ]+$/.test(big.textContent)) Motion.countUp(big, num(big), v => Sverka.fmtNum(v));
-    Orb.onStart(() => { Snd.play('rustle', 1.6); setTimeout(() => Snd.play('chime'), 2200); });
+    // шорох и «пик» — только если итог построен по нажатию «Сверить» (не пересверка от смены колонки, не восстановление)
+    if (Snd.ranByHand()) Orb.onStart(() => { Snd.play('rustle', 1.6); setTimeout(() => Snd.play('chime'), 2200); });
   }
   Snd.paintBtn();
 

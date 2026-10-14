@@ -14,13 +14,15 @@ const FPS = 30;                                         // движения сн
 const WALK_FPS = 36, WALK_U = 0.165 / 14 * WALK_FPS;    // ходьба: шаг 0,165 ед. сцены за 14 кадров — ноги не скользят
 const DEG = Math.PI / 180;
 const YAW_LEFT = 0, YAW_FACE = 55 * DEG, YAW_RIGHT = 110 * DEG;   // смотрит влево / на вас / вправо
-const PECK = { bend: [0, 8], peck: [8, 16], hit: 12, up: [16, 39] };   // кадры клевка: наклон, удар (повтор), выпрямиться
+const PECK = { bend: [0, 8], peck: [8, 16], hit: 11, up: [16, 39], dx: 63 };   // клевок: наклон, удар (повтор), выпрямиться; клюв на ударе — 63 px перед лапами, на их уровне
+// зёрна, семечки, крошки — одна полоса props.webp (13 клеток); размер на экране при голубе 250
+const PROPS = { grain: [0, 5, 16], seed: [5, 4, 17], crumb: [9, 4, 12] }, PROP_CELLS = 13, GRAV = 1500;
 // кнопка под кромкой окна: «перегнулся» (reach) — удары на кадрах 20, 30, 40, кончик клюва на ударе — 44 px вперёд и
 // 26 px ниже лап (при размере 250); «тянет» (yank) — схватил на 12, рывки 26/44/62, отпустил на 76
 const REACH = { hits: [20, 30, 40], dx: 44, dy: 26 }, YANK = { grab: 12, pulls: [26, 44, 62], let: 76 };
 const STATES = ['idle', 'walk', 'look', 'peck', 'eat', 'coo', 'hop', 'shake', 'knock', 'sleep', 'button'];
-const SOUNDS = { coo: ['coo-1', 'coo-2', 'coo-3'], flap: ['flap'], knock: ['tap-1', 'tap-2', 'tap-3'], peck: ['peck-1', 'peck-2'], snore: ['snore'], btn: ['tap-1', 'tap-2', 'tap-3'] };
-const VOL = { coo: .35, flap: .3, knock: .55, peck: .3, snore: .22, btn: .3 };
+const SOUNDS = { coo: ['coo-1', 'coo-2', 'coo-3'], flap: ['flap'], knock: ['tap-1', 'tap-2', 'tap-3'], peck: ['peck-1', 'peck-2'], btn: ['tap-1', 'tap-2', 'tap-3'] };
+const VOL = { coo: .35, flap: .3, knock: .55, peck: .3, btn: .3 };
 
 export async function start(opts = {}) {
   const host = opts.host || document.body;
@@ -106,6 +108,17 @@ export async function start(opts = {}) {
     }
     for (const n of ['idle', 'walk', 'peck', 'look', 'nibble', 'coo', 'hop', 'shake', 'knock', 'sleep', 'stretch', 'reach', 'yank'])
       if (!ACT[n]) throw new Error('в модели нет движения ' + n);
+    // клюв на ударе: насколько (в долях размера) он впереди лап — влево и вправо; по этому встаёт к зерну
+    const PDX = { [YAW_LEFT]: -PECK.dx / 250, [YAW_RIGHT]: PECK.dx / 250 };
+    if (beakObj) {
+      for (const n in ACT) ACT[n].a.setEffectiveWeight(0);
+      ACT.peck.a.setEffectiveWeight(1); ACT.peck.a.time = PECK.hit / FPS; mixer.update(0);
+      for (const yaw of [YAW_LEFT, YAW_RIGHT]) {
+        root.rotation.y = yaw; root.updateMatrixWorld(true);
+        PDX[yaw] = (tipLocal.clone().applyMatrix4(beakObj.matrixWorld).project(cam).x + 1) / 2 - AX;
+      }
+      root.rotation.y = 0;
+    }
     st.loadMs = Math.round(performance.now() - t0);
     host.appendChild(layer);
 
@@ -230,35 +243,37 @@ export async function start(opts = {}) {
     function restful() {                                       // следующий кадр был бы таким же — можно не рисовать
       if (!S || scrolling) return true;
       if (!B.shown) return clock < B.reseat;                   // ждёт пересадки — проснётся к сроку
-      if (B.walk || fade.length || snoreEl || Math.abs(B.yawTo - B.yaw) > .01 || !free(B.x, B.g)) return false;
+      if (B.walk || fade.length || snoreEl || Math.abs(B.yawTo - B.yaw) > .01 || !free(B.x, B.g) || bits.some(b => !b.rest)) return false;
       return P.loop ? P.name === 'idle' && clock - P.since > REST() : P.f === P.b;
     }
     offs.push(() => { if (doze) clearTimeout(doze.t); });
 
     // ---------- звук: только после первого действия Паши и если страница не велит молчать ----------
     let acted = false, AC = null, sndLoading = null; const BUF = {};
-    on(window, 'pointerdown', () => { acted = true; poked = nowClock(); }, { passive: true, capture: true });
-    on(window, 'keydown', () => { acted = true; poked = nowClock(); }, { passive: true, capture: true });
+    const touched = () => { acted = true; poked = nowClock(); preload(); };   // первое действие — звуки грузятся заранее
+    on(window, 'pointerdown', touched, { passive: true, capture: true });
+    on(window, 'keydown', touched, { passive: true, capture: true });
     let modeNow = opts.soundMode || 'night';
     const muted = () => {
       try { if (events && events.sound) return !!events.sound().muted; } catch (e) { /* ниже — по режиму */ }
       const h = new Date().getHours(); return modeNow === 'off' || (modeNow === 'night' && (h >= 22 || h < 7));
     };
-    // Покой (15 с без действий Паши): клюёт, ест, воркует молча; звучат только стук и храп — одной серией (≤ 5 с)
-    // не чаще раза в 2,5 мин. Ответы на действия Паши (вставил, сверил, вписал) звучат как обычно.
-    const QUIET_OK = { knock: 1, btn: 1, snore: 1 }, QUIET_GAP = 150000, SERIES = 5000;
-    let seriesAt = -1e9;
-    function sfx(kind) {
-      if (!acted || muted() || document.hidden || !B.shown || !SOUNDS[kind]) return;   // спрятан — молчит
-      const c = nowClock();
-      if (c - poked > 15000) {
-        if (!QUIET_OK[kind]) return;
-        if (c - seriesAt > SERIES) { if (c - seriesAt < QUIET_GAP) return; seriesAt = c; }
-      }
+    // Звук — только прямой отклик на действие Паши: 2,5 с после вставил / скопировал / сверил / вписал. Всё, что голубь
+    // делает сам (простой, стук в стекло и по кнопке, сон, клёв, еда и воркование по своей воле), — только движения.
+    const HEARD = 2500, HEARD_ON = { pasted: 1, copied: 1, reconciled: 1, numbersSent: 1 };
+    let heardUntil = -1e9;
+    function preload() {
       try {
+        if (muted()) return;                                   // «выкл» и ночью — ничего не грузит
         if (!AC) AC = new (window.AudioContext || window.webkitAudioContext)();
         if (!sndLoading) sndLoading = Promise.all([...new Set(Object.values(SOUNDS).flat())].map(n =>
           fetch(BASE + 'sounds/' + n + '.mp3' + V).then(r => r.arrayBuffer()).then(b => AC.decodeAudioData(b)).then(d => { BUF[n] = d; }).catch(() => {})));
+      } catch (e) { /* без звука — не беда */ }
+    }
+    function sfx(kind) {
+      if (!acted || muted() || document.hidden || !B.shown || !SOUNDS[kind] || nowClock() > heardUntil) return;   // спрятан — молчит
+      try {
+        preload();
         const list = SOUNDS[kind], buf = BUF[list[Math.random() * list.length | 0]];
         if (!buf) return;                                      // первый раз — только загрузка, звук со следующего
         if (AC.state === 'suspended') AC.resume();
@@ -303,6 +318,87 @@ export async function start(opts = {}) {
           { duration: 520 + Math.random() * 300, easing: 'cubic-bezier(.2,.6,.4,1)', fill: 'forwards' }).onfinish = () => d.remove();
       }
     }
+    // ---------- зёрна и крошки на кромке, где стоит голубь ----------
+    const bits = [];                                           // { el, sh, x, y, vx, vy, r, vr, size, rest, gy, g }
+    function drop(kind, x0, y0, tx, vy) {                      // летит из (x0, y0) и ложится на кромку голубя около tx
+      const g = B.g; if (!g || !B.shown || reduced || bits.length > 40) return;
+      const [i0, n, px] = PROPS[kind], size = px * S / 250 * (.85 + Math.random() * .3), idx = i0 + (Math.random() * n | 0);
+      const el = document.createElement('div'), sh = document.createElement('div');
+      el.style.cssText = `position:absolute;left:0;top:0;width:${size}px;height:${size}px;pointer-events:none;will-change:transform;` +
+        `background:url("${BASE}props.webp${V}") ${-idx * size}px 0/${PROP_CELLS * size}px ${size}px no-repeat;filter:drop-shadow(0 1px 1px rgba(0,0,0,.35))`;
+      sh.style.cssText = `position:absolute;left:0;top:0;width:${size}px;height:${size * .32}px;border-radius:50%;pointer-events:none;` +
+        'background:radial-gradient(closest-side,rgba(0,0,0,.38),transparent);opacity:0';
+      layer.append(sh, el);
+      const gy = g.y - 1 - Math.random() * 2;
+      tx = Math.max(Math.max(g.l, 0) + 8, Math.min(Math.min(g.r, innerWidth) - 8, tx));
+      const [lo, hi] = reachSpan(), dx = Math.min(-PDX[YAW_LEFT], PDX[YAW_RIGHT]) * S;   // ложится только туда, куда он дотянется клювом
+      tx = Math.max(lo - dx + 14, Math.min(hi + dx - 14, tx));
+      if (vy == null) vy = -(160 + Math.random() * 120);
+      if (y0 > gy - 30) vy = Math.min(vy, -Math.sqrt(2 * GRAV * (y0 - gy + 40)));   // снизу — подбрасывает выше кромки
+      const T = (-vy + Math.sqrt(Math.max(0, vy * vy + 2 * GRAV * (gy - y0)))) / GRAV;
+      bits.push({ tries: 0, el, sh, x: x0, y: y0, vx: (tx - x0) / Math.max(.15, T), vy, r: Math.random() * 360, vr: (Math.random() - .5) * 900, size, rest: false, gy, g });
+      wake();
+    }
+    const onMine = b => !!B.g && Math.abs(b.g.y - B.g.y) < 3 && b.x > B.g.l - 4 && b.x < B.g.r + 4;   // на той же кромке (объект кромки пересоздаётся)
+    function reachSpan() {                                     // где он может стоять на своей кромке, не обходя помех
+      let lo = B.x, hi = B.x;
+      if (!free(B.x, B.g)) return [lo, hi];
+      while (free(lo - 6, B.g)) lo -= 6;
+      while (free(hi + 6, B.g)) hi += 6;
+      return [lo, hi];
+    }
+    function stepBits(dt) {
+      for (const b of bits) {
+        if (!b.rest) {
+          b.vy += GRAV * dt; b.x += b.vx * dt; b.y += b.vy * dt; b.r += b.vr * dt;
+          if (b.y >= b.gy && b.vy > 0) {
+            b.y = b.gy;
+            if (b.vy > 140) { b.vy *= -.3; b.vx *= .5; b.vr *= .6; }   // отскок
+            else { b.vy = 0; b.vx *= Math.pow(.02, dt); b.vr = b.vx * 3; if (Math.abs(b.vx) < 6) settleBit(b); }
+          }
+          const lo = Math.max(b.g.l, 0) + 4, hi = Math.min(b.g.r, innerWidth) - 4;
+          if (b.y >= b.gy - 2 && (b.x < lo || b.x > hi)) { b.x = Math.max(lo, Math.min(hi, b.x)); b.vx = 0; }   // с кромки не скатывается
+        }
+        const lift = Math.max(0, b.gy - b.y);
+        b.el.style.transform = `translate3d(${b.x - b.size / 2}px,${b.y - b.size * .75}px,0) rotate(${b.r.toFixed(1)}deg)`;
+        b.sh.style.transform = `translate3d(${b.x - b.size / 2}px,${b.gy - b.size * .16}px,0) scale(${Math.max(.3, 1 - lift / 220).toFixed(3)})`;
+        b.sh.style.opacity = Math.max(.1, .9 - lift / 150).toFixed(3);
+      }
+    }
+    function settleBit(b) {                                    // легло; не склевал за 90 с — тает
+      b.rest = true; b.vx = b.vy = b.vr = 0;
+      b.el.animate([{ opacity: 1 }, { opacity: 0 }], { delay: 90000, duration: 1500, fill: 'forwards' }).onfinish = () => removeBit(b);
+    }
+    function removeBit(b, fast) {
+      const i = bits.indexOf(b); if (i >= 0) bits.splice(i, 1);
+      if (!fast) { b.el.remove(); b.sh.remove(); return; }
+      for (const e of [b.el, b.sh]) e.animate([{ opacity: getComputedStyle(e).opacity }, { opacity: 0 }], { duration: 300, fill: 'forwards' }).onfinish = () => e.remove();
+    }
+    const clearBits = () => bits.slice().forEach(b => removeBit(b, true));   // страница сдвинулась — зёрна не на своих местах
+    function spark(x, y) {                                     // склевал: искорка
+      const sp = document.createElement('div'), R = 9 * S / 250;
+      sp.style.cssText = `position:absolute;left:${x - R}px;top:${y - R}px;width:${R * 2}px;height:${R * 2}px;pointer-events:none`;
+      for (let i = 0; i < 6; i++) {
+        const r = document.createElement('i');
+        r.style.cssText = `position:absolute;left:${R - 1}px;top:0;width:2px;height:${R * .6}px;border-radius:2px;background:#fff6d8;` +
+          `transform-origin:1px ${R}px;transform:rotate(${i * 60}deg);box-shadow:0 0 5px rgba(255,230,160,.9)`;
+        sp.appendChild(r);
+      }
+      layer.appendChild(sp);
+      sp.animate([{ transform: 'scale(.3) rotate(0deg)', opacity: 1 }, { transform: 'scale(1.3) rotate(30deg)', opacity: 0 }], { duration: 480, easing: 'ease-out', fill: 'forwards' }).onfinish = () => sp.remove();
+    }
+    function gulp() {                                          // удар клювом: зёрнышко под клювом исчезает
+      const p = { x: B.x + PDX[B.side] * S }, r = 14 * S / 250;   // кончик клюва на ударе — по замеру модели
+      const b = bits.filter(b => b.rest && onMine(b) && Math.abs(b.x - p.x) < r).sort((a, c) => Math.abs(a.x - p.x) - Math.abs(c.x - p.x))[0];
+      if (!b) return;
+      spark(b.x, b.y - b.size * .3);
+      const i = bits.indexOf(b); if (i >= 0) bits.splice(i, 1);
+      b.el.getAnimations().forEach(a => a.cancel());
+      b.el.animate([{ opacity: 1 }, { opacity: 0, transform: b.el.style.transform + ' scale(.1)' }], { duration: 160, fill: 'forwards' }).onfinish = () => b.el.remove();
+      b.sh.remove();
+    }
+    offs.push(() => bits.length = 0);
+
     let snoreEl = null, snoreHalf = -1;
     function snore(v) {
       if (v && !snoreEl && B.shown) {
@@ -325,7 +421,7 @@ export async function start(opts = {}) {
       snoreEl.style.width = snoreEl.style.height = R * 2 + 'px';
       snoreEl.style.transform = `translate3d(${b.x - R * 1.7}px,${b.y - R * 1.2}px,0)`;
       const half = ph < .5 ? 0 : 1;
-      if (half !== snoreHalf) { snoreHalf = half; if (!half && P.name === 'sleep' && P.f >= 30) sfx('snore'); }
+      snoreHalf = half;                                        // храп — только пузырь, без звука
     }
 
     // ---------- поведение: сцены (одна за раз; новая прерывает старую) ----------
@@ -359,8 +455,39 @@ export async function start(opts = {}) {
     async function pecks(n, my) {
       setState('peck'); B.yawTo = B.side;
       if (!await play('peck', PECK.bend[0], PECK.bend[1]) || busy(my)) return false;
-      for (let i = 0; i < n; i++) if (!await play('peck', PECK.peck[0], PECK.peck[1], { blend: false, ev: { [PECK.hit]: () => sfx('peck') } }) || busy(my)) return false;
+      for (let i = 0; i < n; i++) if (!await play('peck', PECK.peck[0], PECK.peck[1], { blend: false, ev: { [PECK.hit]: () => { sfx('peck'); gulp(); } } }) || busy(my)) return false;
       return await play('peck', PECK.up[0], PECK.up[1], { blend: false }) && !busy(my);
+    }
+    function pathFree(x) {                                     // по своей кромке до x — без помех
+      for (let xx = B.x; Math.abs(xx - x) > 6; xx += Math.sign(x - xx) * 6) if (!free(xx, B.g)) return false;
+      return free(x, B.g);
+    }
+    async function pickBits(my, max = 14) {                    // подбирает зёрна со своей кромки: ближние и те, что по ходу, — первыми
+      for (let w = 0; w < 20 && bits.some(b => !b.rest); w++) await wait(150);   // ждёт, пока долетят
+      const r = 14 * S / 250;
+      for (let n = 0; n < max && !busy(my); n++) {
+        const ahead = b => (B.side === YAW_RIGHT ? b.x > B.x : b.x < B.x);
+        const list = bits.filter(b => b.rest && onMine(b) && !b.skip)
+          .sort((a, c) => (Math.abs(a.x - B.x) + (ahead(a) ? 0 : 120)) - (Math.abs(c.x - B.x) + (ahead(c) ? 0 : 120)));
+        const t = list[0]; if (!t) return true;
+        const opts = [YAW_LEFT, YAW_RIGHT].map(y => [y, t.x - PDX[y] * S]).filter(o => pathFree(o[1])).sort((a, c) => Math.abs(a[1] - B.x) - Math.abs(c[1] - B.x));
+        if (!opts.length) { t.skip = true; continue; }           // не подойти — оставит
+        if (!await walkTo(opts[0][1], my)) return false;
+        B.side = opts[0][0];
+        if (!await turnTo(B.side, my)) return false;
+        const near = list.filter(b => Math.abs(b.x - t.x) < r).length;
+        if (!await pecks(Math.min(3, near), my)) return false;
+        if (bits.includes(t) && ++t.tries >= 2) t.skip = true;  // дважды мимо — оставит
+        if (Math.random() < .4 && !await idleFor(250 + Math.random() * 400, my)) return false;
+      }
+      return !busy(my);
+    }
+    function grainSource() {                                   // откуда сыплется: из строки, вписанной последней, или сверху
+      let r = null; try { const t = events && events.rects && events.rects().targets; r = t && t.lastRow; } catch (e) { r = null; }
+      const gy = B.g ? B.g.y : innerHeight;
+      if (r && r.bottom > 0 && r.top < innerHeight && Math.abs(r.bottom - gy) < innerHeight * .7)
+        return () => ({ x: r.left + 30 + Math.random() * Math.max(10, r.right - r.left - 60), y: r.bottom - 4, vy: undefined });
+      return () => ({ x: B.x + (Math.random() - .5) * 120, y: gy - 240 - Math.random() * 60, vy: -Math.random() * 40 });
     }
     function buttonSpot() {                                    // кнопка, до которой клюв достаёт с этой же кромки
       if (!B.g) return null;
@@ -372,9 +499,7 @@ export async function start(opts = {}) {
         const cx = b.left + (b.right - b.left) * (.3 + Math.random() * .4);
         for (const [side, x] of [[YAW_LEFT, cx + REACH.dx * k], [YAW_RIGHT, cx - REACH.dx * k]]) {
           if (!free(x, B.g)) continue;
-          let ok = true;                                       // путь по кромке свободен
-          for (let xx = B.x; Math.abs(xx - x) > 6; xx += Math.sign(x - xx) * 6) if (!free(xx, B.g)) { ok = false; break; }
-          if (ok) best.push({ x, side, d: Math.abs(x - B.x) + (side === (x > B.x ? YAW_RIGHT : YAW_LEFT) ? 0 : 40) });
+          if (pathFree(x)) best.push({ x, side, d: Math.abs(x - B.x) + (side === (x > B.x ? YAW_RIGHT : YAW_LEFT) ? 0 : 40) });
         }
       }
       best.sort((a, b) => a.d - b.d);
@@ -399,7 +524,21 @@ export async function start(opts = {}) {
         if (!busy(my)) await turnTo(back, my);
       },
       peck: my => pecks(1 + (Math.random() * 3 | 0), my),
-      eat: () => once('nibble', 'eat', { 16: () => sfx('peck'), 26: () => sfx('peck') }),
+      eat: async my => {                                       // откусывает свой хлеб — крошки падают, потом подбирает
+        const crumb = () => { const b = beak(true); drop('crumb', b.x, b.y + 4, b.x + (B.side === YAW_RIGHT ? 1 : -1) * (10 + Math.random() * 40), -40 - Math.random() * 60); };
+        if (!await once('nibble', 'eat', { 16: () => { sfx('peck'); crumb(); }, 26: () => { sfx('peck'); crumb(); }, 36: () => { crumb(); crumb(); } }) || busy(my)) return;
+        await pickBits(my);
+      },
+      feed: async (my, d) => {                                 // вписали в Numbers: из строки сыплется зерно — радуется и подбирает
+        const src = grainSource(), n = Math.min(12, 5 + ((d && d.n) || 0));
+        for (let i = 0; i < n; i++) {
+          const o = src(), kind = Math.random() < .7 ? 'grain' : Math.random() < .6 ? 'seed' : 'crumb';
+          drop(kind, o.x, o.y, B.x + (Math.random() - .5) * 260, o.vy);
+          if (i % 3 === 2) await wait(60);
+        }
+        if (!await once('hop', 'hop', { 8: () => sfx('flap') }) || busy(my)) return;
+        setState('peck'); await pickBits(my);
+      },
       coo: () => once('coo', 'coo', { 18: () => sfx('coo'), 62: () => sfx('coo') }),
       hop: () => once('hop', 'hop', { 8: () => sfx('flap') }),
       shake: () => once('shake', 'shake'),
@@ -464,7 +603,7 @@ export async function start(opts = {}) {
         if (busy(my)) return;
         if (P.name !== 'idle') play('idle', 0, ACT.idle.frames - 1, { loop: true });
         setState('idle');
-        if (nowClock() - poked > 15000 && !await idleFor((lite ? 40000 : 20000) + Math.random() * 30000, my)) return;   // тишина — отдыхает
+        if (nowClock() - poked > 15000 && !await idleFor(15000 + Math.random() * 12000, my)) return;   // тишина — отдыхает (кадров нет; idle ≤ 30 с)
       }
     }
 
@@ -503,6 +642,7 @@ export async function start(opts = {}) {
         if (S) {
           step(dt);
           stepPlayer(dt);
+          stepBits(dt);
           tickTimers();
           place(); snoreStep();
           renderer.render(scene, cam);
@@ -525,7 +665,7 @@ export async function start(opts = {}) {
     }
     const resume = () => { if (alive && !raf && !reduced && !document.hidden) { last = performance.now(); raf = requestAnimationFrame(frame); } };
     let scrollT = 0;
-    const settle = () => { refreshRects(); B.g = null; if (B.walk) { const w = B.walk; B.walk = null; w.r(false); } if (reduced) still(); else wake(); };
+    const settle = () => { refreshRects(); clearBits(); B.g = null; if (B.walk) { const w = B.walk; B.walk = null; w.r(false); } if (reduced) still(); else wake(); };
     function freeze(v) {                                       // фон и «уменьшить движение»: слой не меняется ни на пиксель
       try {
         const cs = [cv, shadow];
@@ -553,7 +693,7 @@ export async function start(opts = {}) {
     const react = {
       pasted: () => interrupt('look'),
       reconciled: d => interrupt(d && d.allOk ? 'coo' : 'look'),
-      numbersSent: () => interrupt('hop'),
+      numbersSent: d => interrupt(d && d.undo ? 'hop' : 'feed', d),   // отмена — просто подскок
       copied: () => interrupt('eat'),
       tab: () => refreshRects(),
       cleared: () => interrupt('shake'),
@@ -568,7 +708,7 @@ export async function start(opts = {}) {
     if (events && events.on) {
       for (const [name, fn] of Object.entries(react)) {
         try {
-          const off = events.on(name, d => { setTimeout(() => { if (alive && !reduced) { try { if (name !== 'idle') poked = nowClock(); refreshRects(); fn(d); wake(); } catch (e) { fail(e); } } else if (alive && reduced && name === 'soundMode') fn(d); }, 60); });
+          const off = events.on(name, d => { setTimeout(() => { if (alive && !reduced) { try { if (name !== 'idle') poked = nowClock(); if (HEARD_ON[name]) heardUntil = nowClock() + HEARD; refreshRects(); fn(d); wake(); } catch (e) { fail(e); } } else if (alive && reduced && name === 'soundMode') fn(d); }, 60); });
           if (typeof off === 'function') offs.push(off);
         } catch (e) { /* ничего */ }
       }
@@ -578,6 +718,7 @@ export async function start(opts = {}) {
     window.SverkaArkadiy = {
       states: STATES.slice(),
       state: () => now_,
+      feed: n => { if (reduced || !alive) return false; interrupt('feed', { n: n || 6 }); return true; },   // как после «Вписать»
       rest: () => ({ frames: st.frames, dozes: st.dozes, dozing: !!doze, lite }),   // покой: сколько кадров нарисовано, дремлет ли
       go: name => {                                            // перевести в состояние; выход — сам, потом обычная жизнь
         if (!STATES.includes(name) || reduced || !alive) return false;
