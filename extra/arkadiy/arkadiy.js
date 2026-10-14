@@ -49,8 +49,9 @@ export async function start(opts = {}) {
     layer = document.createElement('div');
     layer.setAttribute('data-arkadiy', '');
     layer.setAttribute('aria-hidden', 'true');
-    // корень нулевого размера в левом верхнем углу: всё своё — внутри (absolute от него), страницу собой не накрывает
-    layer.style.cssText = 'position:fixed;left:0;top:0;width:0;height:0;overflow:visible;z-index:47;pointer-events:none';
+    // корень нулевого размера в левом верхнем углу: всё своё — внутри (absolute от него), страницу собой не накрывает;
+    // z 38 — над шапкой (30), под окнами (39–40): открыли окно — голубь под затемнением, как всё остальное
+    layer.style.cssText = 'position:fixed;left:0;top:0;width:0;height:0;overflow:visible;z-index:38;pointer-events:none';
     const shadow = document.createElement('div');
     shadow.style.cssText = 'position:absolute;left:0;top:0;border-radius:50%;pointer-events:none;' +
       'background:radial-gradient(closest-side,rgba(0,0,0,.42),rgba(0,0,0,.14) 60%,transparent);will-change:transform';

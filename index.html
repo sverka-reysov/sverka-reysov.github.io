@@ -580,7 +580,7 @@ tr.just .n-ok { display: inline-block; animation: popIn .45s cubic-bezier(.3, 1.
   </section>
 
   <div id="out"></div>
-  <footer class="app-foot"><svg width="14" height="14" viewBox="0 0 28 28" aria-hidden="true"><ellipse cx="14" cy="14" rx="5.2" ry="11" fill="none" stroke="currentColor" stroke-width="2" transform="rotate(28 14 14)"/><path d="M10.2 6.8c3 4.6 4.6 9.4 7.6 14.4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>Сверка рейсов · версия <span id="app-ver"><!--ВЕРСИЯ-->14.10.2026 · 5fa808<!--/ВЕРСИЯ--></span></footer>
+  <footer class="app-foot"><svg width="14" height="14" viewBox="0 0 28 28" aria-hidden="true"><ellipse cx="14" cy="14" rx="5.2" ry="11" fill="none" stroke="currentColor" stroke-width="2" transform="rotate(28 14 14)"/><path d="M10.2 6.8c3 4.6 4.6 9.4 7.6 14.4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>Сверка рейсов · версия <span id="app-ver"><!--ВЕРСИЯ-->14.10.2026 · f5c993<!--/ВЕРСИЯ--></span></footer>
 </main>
 
 <div class="modal" id="report" role="dialog" aria-modal="true" aria-labelledby="report-title">
@@ -2589,6 +2589,8 @@ html.fx-lite #stage #stage-h1 em { animation-name: fxIntro; }   /* лёгкий 
 .consts :is(input, select) { box-sizing: border-box; width: 100%; min-width: 0 !important; height: 38px !important; border-radius: var(--r-s) !important; }
 .consts label > span { height: 38px !important; }
 .consts label > span > b { font: 600 15px/1 var(--display) !important; font-variant-numeric: lining-nums tabular-nums; }
+/* фокус с клавиатуры на плашках итога: внутренняя рамка — блок плашек обрезает края, внешняя срезалась сверху и снизу */
+.tally button:focus-visible { outline: 2px solid var(--focus); outline-offset: -4px; border-radius: var(--r-l); }
 </style>
 <script>
 // Движок пружин дизайн-слоя. Одни и те же кривые для CSS и для анимаций из кода.
@@ -4646,7 +4648,7 @@ SverkaFx.changed('.btn', el => {
   // только через SverkaEvents. Прячется кнопкой в шапке — запоминается. V — отпечаток файлов голубя (сборка):
   // новая версия голубя — новый адрес, сервис-воркер не подсунет старую.
   const Pigeon = (() => {
-    const V = /*АРКАДИЙ-V*/'283c180c'/*АРКАДИЙ-V-КОНЕЦ*/;
+    const V = /*АРКАДИЙ-V*/'6ef8fe35'/*АРКАДИЙ-V-КОНЕЦ*/;
     const KEY = 'sverka.arkadiy', btn = $('#arkadiy-toggle');
     let want = true; try { want = localStorage.getItem(KEY) !== 'off'; } catch (e) {}
     let inst = null, busy = false;
