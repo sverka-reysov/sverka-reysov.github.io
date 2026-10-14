@@ -579,7 +579,7 @@ tr.just .n-ok { display: inline-block; animation: popIn .45s cubic-bezier(.3, 1.
   </section>
 
   <div id="out"></div>
-  <footer style="margin-top:40px;color:var(--ink-3);font-size:12px">Сверка рейсов · версия <span id="app-ver"><!--ВЕРСИЯ-->14.10.2026 · 32e7b7<!--/ВЕРСИЯ--></span></footer>
+  <footer style="margin-top:40px;color:var(--ink-3);font-size:12px">Сверка рейсов · версия <span id="app-ver"><!--ВЕРСИЯ-->14.10.2026 · 95297a<!--/ВЕРСИЯ--></span></footer>
 </main>
 
 <div class="modal" id="report" role="dialog" aria-modal="true" aria-labelledby="report-title">
@@ -2464,6 +2464,15 @@ html.fx-io #out.fresh .tally:not(.fx-seen) button::after { animation-play-state:
 .fx-tip ul { list-style: none; margin: 7px 0 0; padding: 7px 0 0; border-top: 1px solid var(--rule); display: grid; gap: 4px; }
 .fx-tip li { display: flex; align-items: center; gap: 7px; } .fx-tip li i { width: 8px; height: 8px; border-radius: 50%; flex: none; } .fx-tip li b { margin-left: auto; padding-left: 12px; color: var(--ink); font-weight: 600; font-variant-numeric: tabular-nums; }
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) { .fx-tip { background: var(--sheet); } }
+/* блик на номерах: при наведении на строку (или на сам номер) по табличке один раз пробегает свет — как по светоотражающему знаку; на белом фоне не виден, высветляет буквы и полосу UA */
+.plate::after { content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; mix-blend-mode: screen; opacity: 0; background: linear-gradient(105deg, transparent 44%, rgba(255, 255, 255, .3) 47.5%, rgba(255, 255, 255, .78) 50%, rgba(255, 255, 255, .3) 52.5%, transparent 56%) 0 0 / 260% 100% no-repeat; }
+:is(tr:hover, .hs-i:hover) .plate::after, .plate:hover::after { animation: fxGlint 1s cubic-bezier(.45, .05, .35, 1) both; }
+@keyframes fxGlint { from { opacity: 1; background-position: 100% 0; } 90% { opacity: 1; } to { opacity: 0; background-position: 0 0; } }
+/* глубина при прокрутке: уходящий вверх итог чуть уменьшается и тускнеет, как карточка в стопке iOS (прокрутка браузера; где не умеют — как раньше) */
+@supports (animation-timeline: view()) {
+  #out .r-hero { animation: fxRecede linear both; animation-timeline: view(); animation-range: exit 5% exit 95%; transform-origin: 50% 100%; }
+  @keyframes fxRecede { to { transform: scale(.94); opacity: .45; } }
+}
 </style>
 <script>
 // Движок пружин дизайн-слоя. Одни и те же кривые для CSS и для анимаций из кода.
