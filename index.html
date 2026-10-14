@@ -579,7 +579,7 @@ tr.just .n-ok { display: inline-block; animation: popIn .45s cubic-bezier(.3, 1.
   </section>
 
   <div id="out"></div>
-  <footer style="margin-top:40px;color:var(--ink-3);font-size:12px">Сверка рейсов · версия <span id="app-ver"><!--ВЕРСИЯ-->14.10.2026 · 9e1912<!--/ВЕРСИЯ--></span></footer>
+  <footer style="margin-top:40px;color:var(--ink-3);font-size:12px">Сверка рейсов · версия <span id="app-ver"><!--ВЕРСИЯ-->14.10.2026 · 64a161<!--/ВЕРСИЯ--></span></footer>
 </main>
 
 <div class="modal" id="report" role="dialog" aria-modal="true" aria-labelledby="report-title">
@@ -2335,6 +2335,9 @@ kbd { display: inline-grid; place-items: center; min-width: 22px; height: 22px; 
 .tabs button { position: relative; z-index: 1; transition: color var(--t) var(--ease-out); }
 .tabs.fx-sliding button[aria-selected="true"] { background: transparent; box-shadow: none; }
 .fx-pill { position: absolute; z-index: 0; border-radius: 9px; background: var(--sheet); box-shadow: 0 1px 2px rgba(0, 0, 0, .12), 0 6px 16px rgba(0, 0, 0, .1); pointer-events: none; }
+/* смена вкладки итога: таблица въезжает пружиной со стороны выбранной вкладки (--tab-dx/--tab-dy ставит код вкладок ниже) */
+#out.viewchg .result-sheet { animation: fxTabIn .5s var(--spring) both; }
+@keyframes fxTabIn { from { opacity: .001; transform: translate(var(--tab-dx, 0px), var(--tab-dy, 6px)); } 40% { opacity: 1; } }
 
 /* переходы прокруткой (к итогу после «Сверить», к таблице, к делам, стрелками по ячейкам) не прячут верх под
    прилипшей шапкой: отступ прокрутки на её высоту. Шапка прилипает только шире 700 px. */
@@ -2956,6 +2959,8 @@ addEventListener('DOMContentLoaded', () => { if (window.SverkaExtra) SverkaExtra
     if (i < 0) return;
     const prev = last, slide = prev && prev.i !== i && prev.n === btns.length;
     if (slide) tabs.classList.add('fx-sliding');
+    // содержимое итога въезжает со стороны новой вкладки (стили: fxTabIn); тот же таб (фильтр) — проявляется снизу, как раньше
+    const out = tabs.closest('#out'); if (out) { const dir = slide ? Math.sign(i - prev.i) : 0; out.style.setProperty('--tab-dx', dir * 28 + 'px'); out.style.setProperty('--tab-dy', dir ? '0px' : '6px'); }
     // мерить — в начале кадра: сейчас программа ещё дописывает итог, и ранний замер раскладывал бы страницу дважды
     requestAnimationFrame(() => {
       if (!tabs.isConnected) return;
