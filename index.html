@@ -579,7 +579,7 @@ tr.just .n-ok { display: inline-block; animation: popIn .45s cubic-bezier(.3, 1.
   </section>
 
   <div id="out"></div>
-  <footer style="margin-top:40px;color:var(--ink-3);font-size:12px">Сверка рейсов · версия <span id="app-ver"><!--ВЕРСИЯ-->14.10.2026 · c30f9f<!--/ВЕРСИЯ--></span></footer>
+  <footer style="margin-top:40px;color:var(--ink-3);font-size:12px">Сверка рейсов · версия <span id="app-ver"><!--ВЕРСИЯ-->14.10.2026 · 3da0df<!--/ВЕРСИЯ--></span></footer>
 </main>
 
 <div class="modal" id="report" role="dialog" aria-modal="true" aria-labelledby="report-title">
@@ -2385,6 +2385,18 @@ fx-s::before { content: attr(data-d); }
 .tally button:not([disabled]):hover .n { transform: translateY(-3px); }
 .tally button:not([disabled]):hover .l i { transform: scale(1.35); }
 .tally button:not([disabled]):active .n { transform: translateY(-1px) scale(.97); transition-duration: .09s; transition-timing-function: var(--ease-out); }
+/* шкала плашки: тонкая дорожка внизу, заливка цветом статуса до доли (--p и --c ставит разметка плашки); при новой сверке набегает пружиной, когда итог видно */
+.tally button { position: relative; padding-bottom: 24px; display: flex; flex-direction: column; justify-content: flex-start; }   /* содержимое у верха: у плашки с подстрокой число не съезжает вверх */
+.tally button::before, .tally button::after { content: ""; position: absolute; left: 18px; bottom: 11px; height: 3px; border-radius: 3px; pointer-events: none; }
+.tally button::before { right: 18px; background: color-mix(in srgb, var(--ink) 8%, transparent); }
+.tally button::after { width: calc((100% - 36px) * var(--p, 0)); background: var(--c, var(--ink-3)); transform-origin: 0 50%; transition: height var(--t-fast) var(--ease-out), bottom var(--t-fast) var(--ease-out); }
+.tally button:not([disabled]):hover::after, .tally button[aria-pressed="true"]::after { height: 5px; bottom: 10px; }
+.tally button[aria-pressed="true"] { box-shadow: none; } .tally button[aria-pressed="true"]::before { background: color-mix(in srgb, var(--ink) 16%, transparent); height: 5px; bottom: 10px; }
+#out.fresh .tally button::after { animation: fxGauge .8s var(--spring-soft) both; animation-delay: calc(.32s + var(--k, 0) * .06s); }
+.tally button:nth-child(2) { --k: 1; } .tally button:nth-child(3) { --k: 2; } .tally button:nth-child(4) { --k: 3; } .tally button:nth-child(5) { --k: 4; } .tally button:nth-child(6) { --k: 5; } .tally button:nth-child(7) { --k: 6; }
+html.fx-io #out.fresh .tally:not(.fx-seen) button::after { animation-play-state: paused; }
+@keyframes fxGauge { from { transform: scaleX(0); } }
+@media (max-width: 700px) { .tally button::before, .tally button::after { left: 16px; } .tally button::before { right: 16px; } .tally button::after { width: calc((100% - 32px) * var(--p, 0)); } }
 /* метки найденных колонок и столбики дней — на пружине */
 .fchip { transition: background-color var(--t-fast) var(--ease-out), transform var(--t-spring) var(--spring); }
 .bar span { transition: transform var(--t-pop) var(--spring-pop); }
@@ -3568,7 +3580,8 @@ SverkaFx.changed('.btn', el => {
     const s = res.summary, M = s.mine, P = s.port;
     const tally = counts(res).map((t, k) => {
       const on = S.filter && S.filter.key === t.key && S.filter.tab === t.tab;
-      return `<button data-filter="${k}" aria-pressed="${on}"${(t.on ?? t.n) ? '' : ' disabled'}><span class="n">${t.n}</span><span class="l"><i style="background:${t.c}"></i>${t.label}</span>${t.sub ? `<span class="l2">${t.sub}</span>` : ''}</button>`;
+      const of = t.key === 'noprice' ? t.on : t.tab === 'port' ? P.read : M.read;   // шкала плашки (вид): доля от рейсов своей стороны, у цен — сколько из недостающих подставит порт
+      return `<button data-filter="${k}" aria-pressed="${on}" style="--p:${of ? Math.min(1, t.n / of).toFixed(3) : 0};--c:${t.c}"${(t.on ?? t.n) ? '' : ' disabled'}><span class="n">${t.n}</span><span class="l"><i style="background:${t.c}"></i>${t.label}</span>${t.sub ? `<span class="l2">${t.sub}</span>` : ''}</button>`;
     }).join('');
     const byField = Object.entries(s.diffByField).map(([f, n]) => `${FIELD[f]} — ${n}`).join(', ') || 'нет';
     const skipped = t => t.skipped.length ? t.skipped.map(x => `строка ${x.row}: ${x.why}`).join('; ') : 'нет';
