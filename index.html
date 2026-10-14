@@ -580,7 +580,7 @@ tr.just .n-ok { display: inline-block; animation: popIn .45s cubic-bezier(.3, 1.
   </section>
 
   <div id="out"></div>
-  <footer class="app-foot"><svg width="14" height="14" viewBox="0 0 28 28" aria-hidden="true"><ellipse cx="14" cy="14" rx="5.2" ry="11" fill="none" stroke="currentColor" stroke-width="2" transform="rotate(28 14 14)"/><path d="M10.2 6.8c3 4.6 4.6 9.4 7.6 14.4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>Сверка рейсов · версия <span id="app-ver"><!--ВЕРСИЯ-->14.10.2026 · 8d6ab6<!--/ВЕРСИЯ--></span></footer>
+  <footer class="app-foot"><svg width="14" height="14" viewBox="0 0 28 28" aria-hidden="true"><ellipse cx="14" cy="14" rx="5.2" ry="11" fill="none" stroke="currentColor" stroke-width="2" transform="rotate(28 14 14)"/><path d="M10.2 6.8c3 4.6 4.6 9.4 7.6 14.4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>Сверка рейсов · версия <span id="app-ver"><!--ВЕРСИЯ-->14.10.2026 · 7932cb<!--/ВЕРСИЯ--></span></footer>
 </main>
 
 <div class="modal" id="report" role="dialog" aria-modal="true" aria-labelledby="report-title">
@@ -2608,6 +2608,15 @@ html.fx-lite #stage #stage-h1 em { animation-name: fxIntro; }   /* лёгкий 
   .notice.hist:not(.tails) li:has(> .plate):hover { background: color-mix(in srgb, currentColor 6%, transparent); }
   .notice.hist:not(.tails) li:has(> .plate) > .plate { margin: 0; }
 }
+/* «Как считалось»: свой шеврон (поворачивается пружиной) вместо браузерного треугольника; раскрытое — мягкой карточкой */
+.how summary { list-style: none; display: inline-flex; align-items: center; gap: 7px; padding: 4px 10px 4px 6px; margin-left: -6px; border-radius: var(--r-s); transition: background-color var(--t-fast) var(--ease-out), color var(--t-fast) var(--ease-out); }
+.how summary::-webkit-details-marker { display: none; }
+.how summary::before { content: ""; width: 7px; height: 7px; flex: none; border: solid currentColor; border-width: 0 1.6px 1.6px 0; transform: translateY(-1px) rotate(-45deg); transition: transform var(--t-spring) var(--spring); }
+.how[open] summary::before { transform: translateY(-3px) rotate(45deg); }
+.how summary:hover { background: color-mix(in srgb, var(--ink) 6%, transparent); color: var(--ink); }
+.how dl { margin: 8px 0 0; padding: 14px 18px; border-radius: var(--r-l); background: color-mix(in srgb, var(--head) 70%, transparent); border: 1px solid var(--rule); gap: 7px 22px; font-size: 13px; }
+.how dt { font-weight: 600; }
+.how[open] dl { animation: fxRise var(--t-spring) var(--spring) both; }
 </style>
 <script>
 // Движок пружин дизайн-слоя. Одни и те же кривые для CSS и для анимаций из кода.
