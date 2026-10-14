@@ -580,7 +580,7 @@ tr.just .n-ok { display: inline-block; animation: popIn .45s cubic-bezier(.3, 1.
   </section>
 
   <div id="out"></div>
-  <footer class="app-foot"><svg width="14" height="14" viewBox="0 0 28 28" aria-hidden="true"><ellipse cx="14" cy="14" rx="5.2" ry="11" fill="none" stroke="currentColor" stroke-width="2" transform="rotate(28 14 14)"/><path d="M10.2 6.8c3 4.6 4.6 9.4 7.6 14.4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>Сверка рейсов · версия <span id="app-ver"><!--ВЕРСИЯ-->14.10.2026 · a13567<!--/ВЕРСИЯ--></span></footer>
+  <footer class="app-foot"><svg width="14" height="14" viewBox="0 0 28 28" aria-hidden="true"><ellipse cx="14" cy="14" rx="5.2" ry="11" fill="none" stroke="currentColor" stroke-width="2" transform="rotate(28 14 14)"/><path d="M10.2 6.8c3 4.6 4.6 9.4 7.6 14.4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>Сверка рейсов · версия <span id="app-ver"><!--ВЕРСИЯ-->14.10.2026 · 7aaafe<!--/ВЕРСИЯ--></span></footer>
 </main>
 
 <div class="modal" id="report" role="dialog" aria-modal="true" aria-labelledby="report-title">
@@ -2640,6 +2640,9 @@ html.fx-lite #stage #stage-h1 em { animation-name: fxIntro; }   /* лёгкий 
 #out:has(.tabs [data-tab="issues"][aria-selected="true"]) #res-grid td:nth-child(8) { white-space: normal; min-width: 9em; }
 /* Н9: зерно за окнами вставки не проступает поверх цифр — у ячеек с данными почти непрозрачная подложка */
 .stage .sheet-wrap.has-data .grid tbody tr { background-color: color-mix(in srgb, var(--sheet) 90%, transparent); }   /* на строке: свои цвета ячеек (шапка, пропуски, заполнение) остаются поверх */
+/* порядок С7: плашки — фильтр таблицы, поэтому вплотную к ней (одна группа); от остальных блоков — просторнее */
+#out > .tally + .result-bar { margin-top: 14px; }
+#out > .result-sheet + :is(.duo, .card2, .notice) { margin-top: 28px; }
 </style>
 <script>
 // Движок пружин дизайн-слоя. Одни и те же кривые для CSS и для анимаций из кода.
@@ -3471,7 +3474,7 @@ SverkaFx.scene = (() => {
       a.onfinish = back; setTimeout(back, 1800);
     });
   }
-  const SCAN = .55, DRAW = .32, END = .95, TAIL = 1.0;   // секунды: луч, нить, рассыпание, хвост зерна — на глаз
+  const SCAN = .42, DRAW = .26, END = .72, TAIL = .9;   // секунды: луч, нить, рассыпание, хвост зерна (14.10: короче — итог на экране ≤ 2 с)
   let cv = null, ctx = null, raf = 0;
   const ease = p => 1 - Math.pow(1 - p, 3);
   function box(tr) {
@@ -3512,7 +3515,7 @@ SverkaFx.scene = (() => {
     const grains = [], t0 = performance.now() / 1000;
     let ticks = 0, lastTick = 0, scrolled = false;
     const finish = () => { if (!scrolled) { scrolled = true; fly(data); done(); } };
-    setTimeout(finish, (END + .4) * 1000);   // вкладка в фоне — кадров нет, а к итогу всё равно перейти
+    setTimeout(finish, (END + .3) * 1000);   // вкладка в фоне — кадров нет, а к итогу всё равно перейти
     links.forEach(L => { L.ticked = false; });
     cancelAnimationFrame(raf);
     function frame() {
@@ -3562,7 +3565,7 @@ SverkaFx.scene = (() => {
         ctx.globalAlpha = 1 - s / TAIL; ctx.fillStyle = g.c; ctx.beginPath(); ctx.ellipse(x, y, 2.6, 1.15, g.r + g.vr * s, 0, 6.283); ctx.fill();
       }
       ctx.globalAlpha = 1;
-      if (t >= END + .05) finish();
+      if (t >= END - .12) finish();   // прокрутка к итогу начинается вместе с рассыпанием
       if (t < END + TAIL) raf = requestAnimationFrame(frame); else { ctx.clearRect(0, 0, W, H); cv.style.display = 'none'; raf = 0; }
     }
     raf = requestAnimationFrame(frame);
@@ -3844,11 +3847,27 @@ SverkaFx.changed('.btn', el => {
     if (S.res) run();
   };
   $('#btn-clear').onclick = () => {
+    // «Вернуть» на 10 с: что было вставлено, отмечено и выбрано (находка «Пользователя» Н5)
+    const had = S.text.port.trim() || S.text.mine.trim();
+    const snap = had ? { text: { ...S.text }, overrides: { ...S.overrides }, marked: { port: new Set(S.marked.port), mine: new Set(S.marked.mine) }, tab: S.tab, filter: S.filter, res: !!S.res } : null;
+    $('#toast').classList.remove('show');   // «Вернул то, что было…» после очистки не висит
     Events.emit('cleared');
     S.text.port = S.text.mine = ''; S.overrides.port = S.overrides.mine = null; S.res = null; S.filter = null;
     S.marked.port.clear(); S.marked.mine.clear(); S.confirmedNoSwap = false;
     S.zedits = {}; S.todo = {};
     renderPane('port'); renderPane('mine'); $('#out').innerHTML = ''; Field.clear('port'); Field.clear('mine');
+    updateSteps();
+    if (!snap) return;
+    $('#out').innerHTML = '<div class="notice" id="undo-clear">Всё очищено. <button class="btn btn-sm" id="undo-clear-btn">Вернуть</button></div>';
+    const gone = setTimeout(() => { const n = $('#undo-clear'); if (n) n.remove(); }, 10000);
+    $('#undo-clear-btn').onclick = () => {
+      clearTimeout(gone);
+      S.text = snap.text; S.overrides = snap.overrides; S.marked = snap.marked; S.tab = snap.tab; S.filter = snap.filter;
+      $('#out').innerHTML = '';
+      renderPane('port'); renderPane('mine');
+      if (snap.res) run(); else updateSteps();
+      toast('Вернул, как было до «Очистить всё»');
+    };
   };
 
   // ---------- сверка ----------
@@ -4025,14 +4044,20 @@ SverkaFx.changed('.btn', el => {
       if (S.filter) S.tab = t.tab;
       renderResults();
       const bar = out.querySelector('.result-bar'), r = bar && bar.getBoundingClientRect();
-      if (r && (r.top < 0 || r.top > innerHeight - 120)) bar.scrollIntoView({ block: 'nearest', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+      // таблицу видно меньше чем наполовину — довести: вкладки под шапку страницы
+      const sh = out.querySelector('.result-sheet'), q = sh && sh.getBoundingClientRect();
+      const seen = q ? Math.max(0, Math.min(q.bottom, innerHeight) - Math.max(q.top, 0)) : 0;
+      if (r && q && seen < Math.min(q.height, innerHeight) / 2) {
+        const head = document.querySelector('header'), hb = head ? head.getBoundingClientRect().bottom : 0;
+        scrollTo({ top: Math.max(0, scrollY + r.top - Math.max(0, hb) - 12), behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+      }
     });
     out.querySelectorAll('[data-tab]').forEach(b => b.onclick = () => { Snd.play('pop'); S.tab = b.dataset.tab; Events.emit('tab', { tab: S.tab }); if (S.filter && S.filter.tab !== S.tab) S.filter = null; renderResults(); });
     out.querySelectorAll('[data-unfilter]').forEach(b => b.onclick = () => { S.filter = null; renderResults(); });
     out.querySelectorAll('td.pick').forEach(td => td.onclick = () => { if (td.dataset.line !== '') toggleMark(td.dataset.w, +td.dataset.line); });
     $('#btn-copy').onclick = () => (S.sel ? copySelection() : copyTab());
     $('#btn-msg').onclick = () => copyMsg(S.clientMsg, $('#btn-msg'), 'Сообщение клиенту');
-    const ft = $('#fill-on'); if (ft) ft.onchange = () => { S.fillOn = ft.checked; renderResults(); };
+    ['#fill-on', '#fill-on-hero'].forEach(id => { const ft = $(id); if (ft) ft.onchange = () => { S.fillOn = ft.checked; renderResults(); }; });
     S.sel = null;
     initSelection();
     $('#btn-report').onclick = () => openReport();
@@ -4252,8 +4277,9 @@ SverkaFx.changed('.btn', el => {
       S.done3 = true; updateSteps();
       const btn = $('#btn-copy'); if (btn) btn.textContent = 'В буфере: ' + what;
       const cells = document.querySelectorAll('#res-grid td.sel'), lastCell = cells[cells.length - 1];
-      if (lastCell && auto !== 'key') Motion.ghost(lastCell, 'Скопировано');
+      // одно сообщение об одном: первый раз — уведомление с объяснением, дальше — короткое «Скопировано» у ячейки
       if (!autoTold) { autoTold = true; toast('Выделенное сразу скопировано — вставляйте ⌘V куда нужно'); }
+      else if (lastCell && auto !== 'key') Motion.ghost(lastCell, 'Скопировано');
       if (auto !== 'key') Snd.play('tick', 0.6);
       return;
     }
@@ -4984,7 +5010,10 @@ SverkaFx.changed('.btn', el => {
     const M = res.summary.mine, P = res.summary.port;
     const attention = M.diff + M.dup + M.split + M.missing;
     let h, p;
-    if (M.fillable) {
+    if (!res.summary.pairs && M.read && P.read) {   // ни одной пары — скорее всего, не тот реестр (порог ровно 0, Продукт)
+      h = `Ни одна машина <em>не нашлась</em>`;
+      p = `Тот ли реестр? Из ${M.read} ${plural(M.read, 'вашей машины', 'ваших машин', 'ваших машин')} ни одной нет среди ${P.read} в порту — проверьте, что вставлен реестр того же порта и за те же дни.`;
+    } else if (M.fillable) {
       h = `<span class="n">${M.fillable}</span> ${plural(M.fillable, 'цена', 'цены', 'цен')}<em>взяли из порта</em>`;
       const lost = M.noPrice - M.fillable;
       p = `Без цены было <b>${M.noPrice} ${plural(M.noPrice, 'машина', 'машины', 'машин')}</b>, в порту нашлось ${M.fillable}${lost ? `, ещё ${lost} — нет в порту или у пары нет цены` : ''}.`;
@@ -4998,7 +5027,7 @@ SverkaFx.changed('.btn', el => {
     p += ` Расхождений ${M.diff}, у вас и нет в порту ${M.missing}, в порту и нет у вас ${P.missing}. Ваши значения и порядок строк не тронуты.`;
     const nl = numbersList().length;
     const ctas = (nl ? `<button class="btn btn-primary btn-blue" id="h-numbers">Вписать в Numbers · ${nl}</button>` : '') + `<button class="btn${nl ? '' : ' btn-primary'}" id="h-copy">Скопировать мою таблицу с цветом</button>` +
-      (M.fillable ? `<button class="btn" id="h-noprice">Показать строки без цены</button>` : '') +
+      (M.fillable ? `<button class="btn" id="h-noprice">Показать строки без цены</button><label class="fill-toggle"><input type="checkbox" id="fill-on-hero"${S.fillOn ? ' checked' : ''}> Проставлять цены из порта</label>` : '') +
       (res.issues.length ? `<button class="btn" id="h-issues">Итог по строкам · ${res.issues.length}</button>` : '') +
       (res.issues.length ? `<button class="btn" id="h-triage" data-fx="triage">Разобрать по одной · ${res.issues.length}</button>` : '');   // окно — дизайн-слой (SverkaTriage)
     return `<section class="r-hero" aria-label="Итог сверки"><canvas class="orb-cv" aria-hidden="true"></canvas>
@@ -5047,10 +5076,12 @@ SverkaFx.changed('.btn', el => {
     }
     function measure() {
       if (!host || !host.isConnected) return;
-      const hr = host.getBoundingClientRect(), or = orbEl.getBoundingClientRect();
-      DPR = Math.min(2, devicePixelRatio || 1); W = hr.width; H = hr.height;
+      // размеры раскладки (offset*), а не экранные: блок итога при прокрутке уменьшается (глубина), и экранный замер
+      // умножал масштаб дважды — кольцо уезжало от числа. Холст масштабируется вместе с блоком сам.
+      DPR = Math.min(2, devicePixelRatio || 1); W = host.clientWidth; H = host.clientHeight;   /* холст inset: 0 — это область внутри рамки */
       cv.width = Math.round(W * DPR); cv.height = Math.round(H * DPR); cv.style.width = W + 'px'; cv.style.height = H + 'px';
-      cx = or.left - hr.left + or.width / 2; cy = or.top - hr.top + or.height / 2; R = Math.min(or.width, or.height) * .4;
+      const ow = orbEl.offsetWidth, oh = orbEl.offsetHeight;
+      cx = orbEl.offsetLeft + ow / 2; cy = orbEl.offsetTop + oh / 2; R = Math.min(ow, oh) * .4;
       if (G && G.ok) G.size(W, H, DPR);
     }
     function pos(o, t, th, rad, delay, dur, top, side) {
@@ -5123,7 +5154,11 @@ SverkaFx.changed('.btn', el => {
     }
     // в покое засыпает (С3): зерно оседает (~3,5 с), потом вращение ещё IDLE секунд и стоп — последний кадр остаётся
     let live = 0; const IDLE = () => 4, CALM_FPS = () => (typeof SverkaFx !== 'undefined' && SverkaFx.lite ? 6 : 10);
-    function frame() { raf = 0; if (!host || !host.isConnected || pend) return; draw(clock() - t0); if (reduce || !vis || document.hidden) return; raf = clock() < live ? requestAnimationFrame(frame) : setTimeout(() => { raf = requestAnimationFrame(frame); }, 1000 / CALM_FPS()); }
+    // кольцо — на месте числа: блок итога может не менять размер, а число внутри сдвинуться (догрузился шрифт, перестроился
+    // текст слева, другой порядок блоков) — ResizeObserver этого не видит. Сверяем место каждый кадр (дёшево: offset*)
+    let spot = '';
+    const moved = () => { const k = orbEl.offsetLeft + ',' + orbEl.offsetTop + ',' + orbEl.offsetWidth + ',' + orbEl.offsetHeight + ',' + host.offsetWidth + ',' + host.offsetHeight; if (k === spot) return false; spot = k; return true; };
+    function frame() { raf = 0; if (!host || !host.isConnected || pend) return; if (moved()) measure(); draw(clock() - t0); if (reduce || !vis || document.hidden) return; raf = clock() < live ? requestAnimationFrame(frame) : setTimeout(() => { raf = requestAnimationFrame(frame); }, 1000 / CALM_FPS()); }
     const kick = sec => { live = Math.max(live, clock() + (sec ?? IDLE())); if (!raf) raf = requestAnimationFrame(frame); };
     // новая сверка: зерно летит в кольцо, когда кольцо показалось на экране (pend), а не пока страница едет к итогу
     let pend = false, onStart = null;
@@ -5657,8 +5692,8 @@ SverkaFx.changed('.btn', el => {
     const html = '<html><head><meta charset="utf-8"></head><body><table>' + data.map(l => '<tr>' + l.map(v => `<td>${esc(v)}</td>`).join('') + '</tr>').join('') + '</table></body></html>';
     if (!copyRich(html, text)) return;
     const cells = PS.grid.querySelectorAll('td.sel'), lastCell = cells[cells.length - 1];
-    if (lastCell && !quiet) Motion.ghost(lastCell, 'Скопировано');
-    if (!autoTold) { autoTold = true; toast('Выделенное сразу скопировано — вставляйте ⌘V куда нужно'); }
+    if (!autoTold) { autoTold = true; toast('Выделенное сразу скопировано — вставляйте ⌘V куда нужно'); }   /* одно сообщение: первый раз — уведомление, дальше «Скопировано» у ячейки */
+    else if (lastCell && !quiet) Motion.ghost(lastCell, 'Скопировано');
     if (!quiet) Snd.play('tick', 0.6);
   }
   document.addEventListener('mousedown', e => {
