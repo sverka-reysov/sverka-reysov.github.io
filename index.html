@@ -580,7 +580,7 @@ tr.just .n-ok { display: inline-block; animation: popIn .45s cubic-bezier(.3, 1.
   </section>
 
   <div id="out"></div>
-  <footer class="app-foot"><svg width="14" height="14" viewBox="0 0 28 28" aria-hidden="true"><ellipse cx="14" cy="14" rx="5.2" ry="11" fill="none" stroke="currentColor" stroke-width="2" transform="rotate(28 14 14)"/><path d="M10.2 6.8c3 4.6 4.6 9.4 7.6 14.4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>Сверка рейсов · версия <span id="app-ver"><!--ВЕРСИЯ-->14.10.2026 · 04f345<!--/ВЕРСИЯ--></span></footer>
+  <footer class="app-foot"><svg width="14" height="14" viewBox="0 0 28 28" aria-hidden="true"><ellipse cx="14" cy="14" rx="5.2" ry="11" fill="none" stroke="currentColor" stroke-width="2" transform="rotate(28 14 14)"/><path d="M10.2 6.8c3 4.6 4.6 9.4 7.6 14.4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>Сверка рейсов · версия <span id="app-ver"><!--ВЕРСИЯ-->14.10.2026 · a13567<!--/ВЕРСИЯ--></span></footer>
 </main>
 
 <div class="modal" id="report" role="dialog" aria-modal="true" aria-labelledby="report-title">
@@ -2621,6 +2621,25 @@ html.fx-lite #stage #stage-h1 em { animation-name: fxIntro; }   /* лёгкий 
 .fx-htip { position: fixed; left: 0; top: 0; z-index: 72; pointer-events: none; white-space: nowrap; max-width: calc(100vw - 16px); overflow: hidden; text-overflow: ellipsis; font: 500 12px/1.2 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; padding: 6px 10px; border-radius: var(--r-s); background: var(--ink); color: var(--paper); box-shadow: var(--shadow-2); opacity: 0; transform: translateY(-4px) scale(.96); transform-origin: 50% 0; transition: opacity .15s var(--ease-out), transform .15s var(--ease-out); }
 .fx-htip.on { opacity: 1; transform: none; transition: opacity var(--t) var(--ease-out), transform var(--t-pop) var(--spring-pop); }
 .snd-btn .tip { display: none !important; }
+/* «Пары» — общая таблица выделения (#res-grid.grid.cells): без вертикальных линий .grid, заголовки липкие по-своему */
+.pv-t.grid :is(th, td) { border-right: 0; }
+.pv-t.grid thead tr:first-child th { top: 0; } .pv-t.grid thead tr:last-child th { top: 30px; }
+.pv-t.grid td[data-c] { cursor: cell; }
+.pv-t.grid td.sel { background-color: transparent; }
+/* «тягач / прицеп» — два знака в строку, прицеп поменьше, разделитель тонкой чертой */
+.plates { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; vertical-align: middle; }
+.plates .plate-sep { color: var(--ink-3); font-size: 12px; }
+.plates .plate.trailer { transform: scale(.82); transform-origin: left center; margin-right: -1.6em; }
+.pv-t .plates .plate { transform: scale(.82); margin-right: -1.6em; } .pv-t .plates .plate.trailer { transform: scale(.72); margin-right: -2.4em; }
+.pv-t td:has(.plates) { max-width: none; }
+/* Н1 «Пользователя»: таблица итога не шире окна — пометки под значениями и длинные описания переносятся
+   (текст ячеек тот же, копируется так же); таблица ужимается до ширины окна, где колонки это позволяют */
+#res-grid:not(.pv-t) { width: auto; }
+#res-grid td .note { white-space: normal; max-width: 15em; }
+#out:has(.tabs [data-tab="issues"][aria-selected="true"]) #res-grid td:nth-child(6) { white-space: normal; min-width: 14em; }
+#out:has(.tabs [data-tab="issues"][aria-selected="true"]) #res-grid td:nth-child(8) { white-space: normal; min-width: 9em; }
+/* Н9: зерно за окнами вставки не проступает поверх цифр — у ячеек с данными почти непрозрачная подложка */
+.stage .sheet-wrap.has-data .grid tbody tr { background-color: color-mix(in srgb, var(--sheet) 90%, transparent); }   /* на строке: свои цвета ячеек (шапка, пропуски, заполнение) остаются поверх */
 </style>
 <script>
 // Движок пружин дизайн-слоя. Одни и те же кривые для CSS и для анимаций из кода.
@@ -2906,11 +2925,11 @@ addEventListener('DOMContentLoaded', () => { if (window.SverkaExtra) SverkaExtra
   function paint(node, set, from = 0, len = null) {
     if (!node || node.nodeType !== 3 || !set.size) return;
     const s = node.nodeValue, end = len == null ? s.length : from + len, frag = document.createDocumentFragment();
-    let buf = '';
+    let buf = '', last = null;
     for (let i = 0; i < s.length; i++) {
       const on = i >= from && i < end && set.has(i - from);
-      if (on) { if (buf) frag.append(buf); buf = ''; const mk = document.createElement('mark'); mk.className = 'fx-dd'; mk.textContent = s[i]; frag.append(mk); }
-      else buf += s[i];
+      if (on) { if (buf) { frag.append(buf); buf = ''; last = null; } if (last) last.textContent += s[i]; else { last = document.createElement('mark'); last.className = 'fx-dd'; last.textContent = s[i]; frag.append(last); } }   /* соседние отличия — одной меткой (Н11) */
+      else { buf += s[i]; last = null; }
     }
     if (buf) frag.append(buf);
     node.replaceWith(frag);
@@ -2924,7 +2943,10 @@ addEventListener('DOMContentLoaded', () => { if (window.SverkaExtra) SverkaExtra
       if (cols) {
         const ta = plainText(tr.cells[cols[0]]), tb = plainText(tr.cells[cols[1]]);
         if (!ta || !tb) continue;
-        const mk = marks(ta.nodeValue, tb.nodeValue); if (!mk) continue;
+        let mk = marks(ta.nodeValue, tb.nodeValue); if (!mk) continue;
+        // Н11: отличается больше половины знаков — это замена значения, а не опечатка: подсветить целиком одной меткой
+        const all = s => new Set([...Array(s.length).keys()]);
+        if (mk[1].size > tb.nodeValue.length / 2) mk = [all(ta.nodeValue), all(tb.nodeValue)];
         paint(ta, mk[0]); paint(tb, mk[1]);
         continue;
       }
@@ -2947,7 +2969,7 @@ addEventListener('DOMContentLoaded', () => { if (window.SverkaExtra) SverkaExtra
   const KIND = { diff: ['расхождение', '--ch-diff'], dup: ['повтор', '--dup-ink'], split: ['перегруз?', '--ch-diff'], missing: ['у вас, нет в порту', '--bad-ink'], 'missing-mine': ['в порту, нет у вас', '--bad-ink'], ok: ['совпало', '--ok-ink'] };
   const FIELD = { price: 'цена', sum: 'сумма', weight: 'вес', plate: 'номер машины', trailer: 'прицеп', date: 'дата', ttn: 'ТТН', crop: 'культура' };
   const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-  const plate = v => { const m = String(v || '').replace(/\s+/g, '').match(/^([A-ZА-ЯІЇЄ]{2})(\d{4})([A-ZА-ЯІЇЄ]{2})$/i); return m ? `<span class="plate"><i>${esc(m[1])}</i><i>${esc(m[2])}</i><i>${esc(m[3])}</i></span>` : esc(v); };
+  const plate = v => { const p = window.SverkaPlate ? window.SverkaPlate(v) : ''; return /class="plate/.test(p) ? p : null; };   // одна функция на все таблицы (основная, 14.10)
   const marked = (s, set) => [...String(s)].map((c, i) => set && set.has(i) ? `<mark class="fx-dd">${esc(c)}</mark>` : esc(c)).join('');
   let box = null, list = [], at = 0, done = new Set(), wrote = new Set(), copied = new Set(), sig = '', from = null;
   const api = () => window.SverkaTriage;
@@ -3054,7 +3076,7 @@ addEventListener('DOMContentLoaded', () => { if (window.SverkaExtra) SverkaExtra
 // ---------- «Пары»: одна строка — одна пара (вкладка «Пары», #pairs-view перерисовывается вместе с итогом) ----------
 (() => {
   const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-  const plate = v => { const m = String(v || '').replace(/\s+/g, '').match(/^([A-ZА-ЯІЇЄ]{2})(\d{4})([A-ZА-ЯІЇЄ]{2})$/i); return m ? `<span class="plate"><i>${esc(m[1])}</i><i>${esc(m[2])}</i><i>${esc(m[3])}</i></span>` : null; };
+  const plate = v => { const p = window.SverkaPlate ? window.SverkaPlate(v) : ''; return /class="plate/.test(p) ? p : null; };   // одна функция на все таблицы (основная, 14.10)
   const marked = (s, set) => [...String(s)].map((c, i) => set && set.has(i) ? `<mark class="fx-dd">${esc(c)}</mark>` : esc(c)).join('');
   const NUM = /^[\s\d.,\u00a0−-]+$/;
   const ROLES = [['ttn', 'ТТН'], ['plate', 'Машина'], ['date', 'Дата'], ['weight', 'Вес'], ['price', 'Цена'], ['sum', 'Сумма']];
@@ -3076,18 +3098,27 @@ addEventListener('DOMContentLoaded', () => { if (window.SverkaExtra) SverkaExtra
     const num = s => { const t = String(s).replace(/[\s\u00a0]/g, '').replace(',', '.'); return /^-?\d+(\.\d+)?$/.test(t) ? +t : null; };
     const units = (a, b) => { const x = num(a), y = num(b); if (x == null || y == null || !x || !y) return false; const q = x > y ? x / y : y / x; return Math.abs(q - 1000) < 1; };
     let markOn = false;
+    let R = -1, C = 0;
+    const at = () => ` data-r="${R}" data-c="${C++}"`;
     const cell = (v, other, k, side) => {
       const t = esc(v);
-      if (k === 'plate') { const p = plate(v); if (p) return `<td class="${side}" title="${t}">${p}</td>`; }
+      if (k === 'plate') { const p = plate(v); if (p) return `<td class="${side}" title="${t}"${at()}>${p}</td>`; }
       const mk = markOn && other && v && v !== other && !units(v, other) && SverkaFx.diff ? SverkaFx.diff(v, other) : null;
-      return `<td class="${side}${NUM.test(v) ? ' n' : ''}${v ? '' : ' pv-none'}" title="${t}">${v ? (mk ? marked(v, mk[0]) : t) : '—'}</td>`;
+      return `<td class="${side}${NUM.test(v) ? ' n' : ''}${v ? '' : ' pv-none'}" title="${t}"${at()}>${v ? (mk ? marked(v, mk[0]) : t) : '—'}</td>`;
     };
     const half = (row, r, other, ro, side) => cols.map(([k], c) => {
       const cls = c === 0 && side === 'side-port' ? 'side-port' : c === cols.length - 1 && side === 'side-mine' ? 'side-mine' : '';
-      return row ? cell(val(row, r, k), other ? val(other, ro, k) : '', k, cls) : `<td class="${cls} pv-none">—</td>`;
+      return row ? cell(val(row, r, k), other ? val(other, ro, k) : '', k, cls) : `<td class="${cls} pv-none"${at()}>—</td>`;
     }).join('');
     let n = 0;
-    const tr = (p, m, st, extra) => (markOn = st === 'diff', '') + `<tr class="s-${st}${extra || ''}" style="--r:${Math.min(n++, 40)}"><td class="no">${p ? esc(p.rowNo) : ''}</td>${half(p, rp, m, rm, 'side-port')}<td class="lk"><i></i></td>${half(m, rm, p, rp, 'side-mine')}<td class="no">${m ? esc(m.rowNo) : ''}</td></tr>`;
+    const BG = { ok: '#c6efce', diff: '#ffeb9c', dup: '#ffeb9c', split: '#ffeb9c', missing: '#ffc7ce' }, pvModel = [];
+    const tr = (p, m, st, extra) => {
+      markOn = st === 'diff'; R = pvModel.length; C = 0;
+      const bg = BG[st] || '', line = [p ? String(p.rowNo) : ''].concat(cols.map(([k]) => val(p, rp, k)), cols.map(([k]) => val(m, rm, k)), [m ? String(m.rowNo) : '']);
+      pvModel.push(line.map(t => ({ t, bg: t ? bg : '' })));
+      const noP = `<td class="no"${at()}>${p ? esc(p.rowNo) : ''}</td>`, left = half(p, rp, m, rm, 'side-port'), right = half(m, rm, p, rp, 'side-mine');
+      return `<tr class="s-${st}${extra || ''}" style="--r:${Math.min(n++, 40)}">${noP}${left}<td class="lk"><i></i></td>${right}<td class="no"${at()}>${m ? esc(m.rowNo) : ''}</td></tr>`;
+    };
     const pairs = [], mineAlone = [];
     P.mine.forEach(m => { const p = m.pairLine != null ? portBy.get(m.pairLine) : null; if (p) { paired.add(p.line); pairs.push(tr(p, m, m.status === 'ok' ? 'ok' : 'diff')); } else mineAlone.push(m); });
     const portAlone = P.port.filter(x => !paired.has(x.line));
@@ -3096,10 +3127,13 @@ addEventListener('DOMContentLoaded', () => { if (window.SverkaExtra) SverkaExtra
     const rows = pairs.join('')
       + grp('У вас, пары в порту нет', mineAlone.length) + mineAlone.map(m => tr(null, m, m.status === 'dup' || m.status === 'split' ? m.status : 'missing', ' alone mine-only')).join('')
       + grp('В порту, пары у вас нет', portAlone.length) + portAlone.map(p => tr(p, null, 'missing', ' alone')).join('');
-    const heads = side => cols.map(([k, name]) => `<th${k === 'weight' || k === 'price' || k === 'sum' ? ' class="n"' : ''}>${name}</th>`).join('');
+    let H = 1;
+    const heads = side => cols.map(([k, name]) => `<th data-hc="${H++}"${k === 'weight' || k === 'price' || k === 'sum' ? ' class="n"' : ''}>${name}</th>`).join('');
     view.innerHTML = `<div class="pv fresh"><div class="pv-head"><span>Пар <b>${pairs.length}</b></span><span>у вас без пары <b>${mineAlone.length}</b></span><span>в порту без пары <b>${portAlone.length}</b></span><span class="pv-hint">строка — пара: слева порт, справа ваша таблица; отличия подсвечены</span></div>
-      <div class="pv-scroll"><table class="pv-t"><thead><tr><th colspan="${cols.length + 1}" class="grp-port">Порт</th><th></th><th colspan="${cols.length + 1}" class="grp-mine">У вас</th></tr>
-      <tr><th>№</th>${heads('port')}<th></th>${heads('mine')}<th>№</th></tr></thead><tbody>${rows}</tbody></table></div></div>`;
+      <div class="pv-scroll"><table class="pv-t grid cells" id="res-grid"><thead><tr><th colspan="${cols.length + 1}" class="grp-port">Порт</th><th></th><th colspan="${cols.length + 1}" class="grp-mine">У вас</th></tr>
+      <tr><th data-hc="0">№</th>${heads('port')}<th></th>${heads('mine')}<th data-hc="${cols.length * 2 + 1}">№</th></tr></thead><tbody>${rows}</tbody></table></div></div>`;
+    // выделение, стрелки и «Скопировать с цветом» — общие (window.SverkaGrid, основная): модель тех же ячеек
+    if (window.SverkaGrid) window.SverkaGrid.setModel({ head: ['Строка в порту'].concat(cols.map(([, nm]) => 'Порт: ' + nm), cols.map(([, nm]) => 'У вас: ' + nm), ['Строка у вас']), rows: pvModel });
     if (SverkaFx.reduce) view.firstElementChild.classList.remove('fresh');
     else setTimeout(() => view.firstElementChild && view.firstElementChild.classList.remove('fresh'), 2200);
   }
@@ -3218,6 +3252,17 @@ SverkaFx.each('#out .r-hero', hero => {
   });
   addEventListener('scroll', hide, { passive: true });
 })();
+
+// ---------- Н3 «Пользователя»: обе таблицы вставлены, а «Сверить» ниже края окна — плавно подвезти кнопку ----------
+addEventListener('DOMContentLoaded', () => setTimeout(() => {
+  if (!window.SverkaEvents) return;
+  window.SverkaEvents.on('pasted', () => requestAnimationFrame(() => {
+    const run = document.getElementById('btn-run');
+    if (!run || run.offsetParent === null || document.querySelectorAll('#stage .sheet-wrap.has-data').length < 2) return;
+    const r = run.getBoundingClientRect(), gap = r.bottom - (innerHeight - 28);
+    if (gap > 0) scrollBy({ top: gap, behavior: SverkaFx.reduce ? 'auto' : 'smooth' });
+  }));
+}, 0));
 
 // ---------- колонка «Статус» в таблицах итога: «✓ совпало» → ярлык со значком; текст ячейки не меняется ----------
 (() => {
@@ -4088,7 +4133,8 @@ SverkaFx.changed('.btn', el => {
   let dragging = null;
   function initSelection() {
     const grid = $('#res-grid');
-    if (!grid || !S.model) return;
+    if (!grid || !S.model || grid.dataset.selOn) return;   // одна таблица — одно подключение (setModel могут звать повторно)
+    grid.dataset.selOn = '1';
     const cellOf = el => { const td = el.closest('td[data-c]'); return td && grid.contains(td) ? { r: +td.dataset.r, c: +td.dataset.c } : null; };
     const headOf = el => { const th = el.closest('th[data-hc]'); return th && grid.contains(th) ? +th.dataset.hc : null; };
     const last = S.model.rows.length - 1;
@@ -4714,7 +4760,8 @@ SverkaFx.changed('.btn', el => {
     let lastRun = -1e9;   // нажали «Сверить» сами (щелчок по кнопке или ⌘↵) — только тогда кольцо рассыпает зерно со звуком
     ['pointerdown', 'keydown'].forEach(t => addEventListener(t, e => { if (!e.isTrusted) return; lastAct = performance.now(); if (t === 'pointerdown' ? e.target.closest && e.target.closest('#btn-run') : e.key === 'Enter' && (e.metaKey || e.ctrlKey)) lastRun = lastAct; }, { capture: true, passive: true }));
     const ranByHand = () => performance.now() - lastRun < 2500;
-    function play(name, arg) { if (muted() || performance.now() - lastAct > 5000) return; ensure(); if (!ctx) return; try { lib[name](arg); } catch (e) {} }
+    const still = matchMedia('(prefers-reduced-motion: reduce)');
+    function play(name, arg) { if (muted() || performance.now() - lastAct > 5000 || (still.matches && name === 'rustle')) return; /* Н9: без движения зерна нет — и шороха */ ensure(); if (!ctx) return; try { lib[name](arg); } catch (e) {} }
     const ICON = {
       on: '<path d="M4 10v4h4l5 4V6L8 10H4Z"/><path d="M16.5 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12"/>',
       night: '<path d="M4 10v4h4l5 4V6L8 10H4Z"/><path d="M21 13.5A5 5 0 1 1 16.5 7a4 4 0 0 0 4.5 6.5Z"/>',
@@ -4903,7 +4950,7 @@ SverkaFx.changed('.btn', el => {
   // Для украшений, которые рисуют свою таблицу (вкладка «Пары»): таблица id="res-grid" class="grid cells",
   // ячейки td[data-r][data-c], заголовки th[data-hc] — и модель тех же ячеек: { head: [названия], rows: [[{ t, bg }]] }.
   // Тогда выделение, стрелки и копирование с цветом работают, как в остальных вкладках.
-  window.SverkaGrid = { setModel(m) { if (S.tab !== 'pairs' || !m || !Array.isArray(m.head) || !Array.isArray(m.rows)) return false; S.model = m; S.sel = null; return true; } };
+  window.SverkaGrid = { setModel(m) { if (S.tab !== 'pairs' || !m || !Array.isArray(m.head) || !Array.isArray(m.rows)) return false; S.model = m; S.sel = null; initSelection(); return true; } };   // initSelection — таблицу «Пар» рисуют после итога (дизайн, 14.10)
 
   // шаги вверху: что сделано и что дальше
   function updateSteps() {
