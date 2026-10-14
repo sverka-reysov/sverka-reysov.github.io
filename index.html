@@ -580,7 +580,7 @@ tr.just .n-ok { display: inline-block; animation: popIn .45s cubic-bezier(.3, 1.
   </section>
 
   <div id="out"></div>
-  <footer class="app-foot"><svg width="14" height="14" viewBox="0 0 28 28" aria-hidden="true"><ellipse cx="14" cy="14" rx="5.2" ry="11" fill="none" stroke="currentColor" stroke-width="2" transform="rotate(28 14 14)"/><path d="M10.2 6.8c3 4.6 4.6 9.4 7.6 14.4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>Сверка рейсов · версия <span id="app-ver"><!--ВЕРСИЯ-->14.10.2026 · f10d6a<!--/ВЕРСИЯ--></span></footer>
+  <footer class="app-foot"><svg width="14" height="14" viewBox="0 0 28 28" aria-hidden="true"><ellipse cx="14" cy="14" rx="5.2" ry="11" fill="none" stroke="currentColor" stroke-width="2" transform="rotate(28 14 14)"/><path d="M10.2 6.8c3 4.6 4.6 9.4 7.6 14.4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>Сверка рейсов · версия <span id="app-ver"><!--ВЕРСИЯ-->14.10.2026 · 180f23<!--/ВЕРСИЯ--></span></footer>
 </main>
 
 <div class="modal" id="report" role="dialog" aria-modal="true" aria-labelledby="report-title">
@@ -945,6 +945,8 @@ const Sverka = (() => {
     ['none', /^(влаг|влажн|сор$|сор\s|соры|натур|протеин|белок|клейк|масл|кислот|контракт|экспорт|водител|дисконт|примеч|кто$|печать|порт$|место)/],
     ['none', /^№\s*п\/?п|^п\/п/],   // «№ п/п» — номер по порядку, не ТТН (Качество, Н4)
     ['date', /^дата\s/],             // «Дата накладной», «Дата ТТН» — дата, а не ТТН (Качество, Н2); «дата выгрузки» — выше, не сверять
+    // «Номер авто / прицеп», «Тягач/прицеп», «Машина и прицеп» — одна колонка «тягач / прицеп»: это машина (Н17)
+    ['plate', /(гос|номер|авто|машин|тягач|т\/?с|транспорт)[^\/\\|,+&]*\s*[\/\\|,+&]\s*(номер\s*)?(прицеп|причеп)|(тягач|авто|машин)\S*\s+и\s+(прицеп|причеп)/],
     ['trailer', /прицеп|причеп/],
     ['plate', /гос|номер\s*(тс|авто|машин|транс)|^авто|машин|тягач|^тс$|^т\/с|транспорт/],
     ['ttn', /ттн|накладн|документ|^№|номер\s*док/],
