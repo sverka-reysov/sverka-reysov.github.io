@@ -15,9 +15,12 @@ const WALK_FPS = 36, WALK_U = 0.165 / 14 * WALK_FPS;    // ходьба: шаг 
 const DEG = Math.PI / 180;
 const YAW_LEFT = 0, YAW_FACE = 55 * DEG, YAW_RIGHT = 110 * DEG;   // смотрит влево / на вас / вправо
 const PECK = { bend: [0, 8], peck: [8, 16], hit: 12, up: [16, 39] };   // кадры клевка: наклон, удар (повтор), выпрямиться
-const STATES = ['idle', 'walk', 'look', 'peck', 'eat', 'coo', 'hop', 'shake', 'knock', 'sleep'];
-const SOUNDS = { coo: ['coo-1', 'coo-2', 'coo-3'], flap: ['flap'], knock: ['tap-1', 'tap-2', 'tap-3'], peck: ['peck-1', 'peck-2'], snore: ['snore'] };
-const VOL = { coo: .35, flap: .3, knock: .55, peck: .3, snore: .22 };
+// кнопка под кромкой окна: «перегнулся» (reach) — удары на кадрах 20, 30, 40, кончик клюва на ударе — 44 px вперёд и
+// 26 px ниже лап (при размере 250); «тянет» (yank) — схватил на 12, рывки 26/44/62, отпустил на 76
+const REACH = { hits: [20, 30, 40], dx: 44, dy: 26 }, YANK = { grab: 12, pulls: [26, 44, 62], let: 76 };
+const STATES = ['idle', 'walk', 'look', 'peck', 'eat', 'coo', 'hop', 'shake', 'knock', 'sleep', 'button'];
+const SOUNDS = { coo: ['coo-1', 'coo-2', 'coo-3'], flap: ['flap'], knock: ['tap-1', 'tap-2', 'tap-3'], peck: ['peck-1', 'peck-2'], snore: ['snore'], btn: ['tap-1', 'tap-2', 'tap-3'] };
+const VOL = { coo: .35, flap: .3, knock: .55, peck: .3, snore: .22, btn: .3 };
 
 export async function start(opts = {}) {
   const host = opts.host || document.body;
@@ -87,7 +90,13 @@ export async function start(opts = {}) {
     // клюв: точка — середина самого клюва (у объекта клюва начало координат лежит у земли)
     let beakObj = null; gltf.scene.traverse(o => { if (!beakObj && o.isMesh && /^Beak/.test(o.name)) beakObj = o; });
     const beakLocal = new THREE.Vector3();
-    if (beakObj) { beakObj.geometry.computeBoundingBox(); beakObj.geometry.boundingBox.getCenter(beakLocal); }
+    const tipLocal = new THREE.Vector3();
+    if (beakObj) {
+      beakObj.geometry.computeBoundingBox(); beakObj.geometry.boundingBox.getCenter(beakLocal);
+      gltf.scene.updateMatrixWorld(true);                      // кончик — самая передняя точка клюва в покое (вперёд — +z)
+      const pos = beakObj.geometry.attributes.position, v = new THREE.Vector3(); let best = -1e9;
+      for (let i = 0; i < pos.count; i++) { v.fromBufferAttribute(pos, i).applyMatrix4(beakObj.matrixWorld); if (v.z > best) { best = v.z; tipLocal.fromBufferAttribute(pos, i); } }
+    }
     const mixer = new THREE.AnimationMixer(gltf.scene);
     const ACT = {};
     for (const clip of gltf.animations) {
@@ -95,7 +104,7 @@ export async function start(opts = {}) {
       a.setLoop(THREE.LoopRepeat, Infinity); a.enabled = true; a.setEffectiveWeight(0); a.play(); a.paused = true;
       ACT[clip.name] = { a, frames: Math.round(clip.duration * FPS) + 1 };
     }
-    for (const n of ['idle', 'walk', 'peck', 'look', 'nibble', 'coo', 'hop', 'shake', 'knock', 'sleep', 'stretch'])
+    for (const n of ['idle', 'walk', 'peck', 'look', 'nibble', 'coo', 'hop', 'shake', 'knock', 'sleep', 'stretch', 'reach', 'yank'])
       if (!ACT[n]) throw new Error('в модели нет движения ' + n);
     st.loadMs = Math.round(performance.now() - t0);
     host.appendChild(layer);
@@ -185,10 +194,10 @@ export async function start(opts = {}) {
       shadow.style.transform = `translate3d(${B.x - sw / 2}px,${gy - sh / 2}px,0)`;
     }
     const tmp = new THREE.Vector3();
-    function beak() {                                          // кончик клюва на экране
+    function beak(tip) {                                       // середина клюва (или кончик) на экране
       const gy = B.g ? B.g.y : innerHeight - 6;
       if (!beakObj) return { x: B.x, y: gy - S * .6 };
-      tmp.copy(beakLocal).applyMatrix4(beakObj.matrixWorld); tmp.project(cam);
+      tmp.copy(tip ? tipLocal : beakLocal).applyMatrix4(beakObj.matrixWorld); tmp.project(cam);
       return { x: B.x - AX * S + (tmp.x + 1) / 2 * S, y: gy - AY * S + (1 - tmp.y) / 2 * S };
     }
 
@@ -269,6 +278,22 @@ export async function start(opts = {}) {
       m.animate([{ opacity: 0, transform: 'scale(.6)' }, { opacity: 1, transform: 'scale(1)', offset: .04 }, { opacity: 1, offset: .55 }, { opacity: 0, transform: 'scale(1.15)' }],
         { duration: 8000, easing: 'ease-out', fill: 'forwards' }).onfinish = () => m.remove();
     }
+    function dent(x, y, strong) {                              // клюнул кнопку: блик-вмятинка тает за 3 с, пара пылинок
+      if (!B.shown) return;
+      const R = (strong ? 9 : 7) * S / 250, m = document.createElement('div');
+      m.style.cssText = `position:absolute;left:${x - R}px;top:${y - R * .6}px;width:${R * 2}px;height:${R * 1.2}px;border-radius:50%;pointer-events:none;` +
+        'background:radial-gradient(closest-side,rgba(255,255,255,.55),rgba(255,255,255,.16) 55%,transparent);box-shadow:inset 0 -1px 1px rgba(0,0,0,.18)';
+      layer.appendChild(m);
+      m.animate([{ opacity: 0, transform: 'scale(.4)' }, { opacity: 1, transform: 'scale(1)', offset: .05 }, { opacity: 0, transform: 'scale(1.3)' }],
+        { duration: 3000, easing: 'ease-out', fill: 'forwards' }).onfinish = () => m.remove();
+      for (let i = 0; i < (strong ? 4 : 2); i++) {
+        const d = document.createElement('div'), r = 1.2 + Math.random() * 1.4, a = -Math.PI * (.15 + Math.random() * .7), v = 10 + Math.random() * 18;
+        d.style.cssText = `position:absolute;left:${x - r}px;top:${y - r}px;width:${r * 2}px;height:${r * 2}px;border-radius:50%;pointer-events:none;background:rgba(240,232,214,.8)`;
+        layer.appendChild(d);
+        d.animate([{ transform: 'translate(0,0)', opacity: 1 }, { transform: `translate(${Math.cos(a) * v}px,${Math.sin(a) * v + 14}px)`, opacity: 0 }],
+          { duration: 520 + Math.random() * 300, easing: 'cubic-bezier(.2,.6,.4,1)', fill: 'forwards' }).onfinish = () => d.remove();
+      }
+    }
     let snoreEl = null, snoreHalf = -1;
     function snore(v) {
       if (v && !snoreEl && B.shown) {
@@ -328,6 +353,24 @@ export async function start(opts = {}) {
       for (let i = 0; i < n; i++) if (!await play('peck', PECK.peck[0], PECK.peck[1], { blend: false, ev: { [PECK.hit]: () => sfx('peck') } }) || busy(my)) return false;
       return await play('peck', PECK.up[0], PECK.up[1], { blend: false }) && !busy(my);
     }
+    function buttonSpot() {                                    // кнопка, до которой клюв достаёт с этой же кромки
+      if (!B.g) return null;
+      let list = [];
+      try { const t = events && events.rects && events.rects().targets; list = (t && (t.buttons || (t.verify ? [t.verify] : []))) || []; } catch (e) { list = []; }
+      const k = S / 250, ty = B.g.y + REACH.dy * k, best = [];
+      for (const b of list) {
+        if (!(ty > b.top + 2 && ty < b.bottom - 2) || b.right - b.left < 30) continue;
+        const cx = b.left + (b.right - b.left) * (.3 + Math.random() * .4);
+        for (const [side, x] of [[YAW_LEFT, cx + REACH.dx * k], [YAW_RIGHT, cx - REACH.dx * k]]) {
+          if (!free(x, B.g)) continue;
+          let ok = true;                                       // путь по кромке свободен
+          for (let xx = B.x; Math.abs(xx - x) > 6; xx += Math.sign(x - xx) * 6) if (!free(xx, B.g)) { ok = false; break; }
+          if (ok) best.push({ x, side, d: Math.abs(x - B.x) + (side === (x > B.x ? YAW_RIGHT : YAW_LEFT) ? 0 : 40) });
+        }
+      }
+      best.sort((a, b) => a.d - b.d);
+      return best[0] || null;
+    }
     async function once(name, s, ev) { setState(s); B.yawTo = B.side; return play(name, 0, ACT[name].frames - 1, { ev }); }
     const SCENES = {
       idle: my => idleFor(3000 + Math.random() * 5000, my),
@@ -359,6 +402,25 @@ export async function start(opts = {}) {
         await play('knock', 0, ACT.knock.frames - 1, { ev: { 16: hit, 27: hit, 38: hit } });
         if (!busy(my)) await turnTo(back, my);
       },
+      button: async (my, tug) => {                             // клюёт кнопку под кромкой; от скуки — пытается оторвать
+        const t = buttonSpot();
+        if (t) {
+          if (!await walkTo(t.x, my)) return;
+          B.side = t.side;
+          if (!await turnTo(t.side, my)) return;
+        }
+        setState('button'); B.yawTo = B.side;
+        const hit = () => { const p = beak(true); dent(p.x, p.y); sfx('btn'); };
+        // тянуть будет — не выпрямляется после ударов, сразу хватает
+        const end = tug ? REACH.hits[REACH.hits.length - 1] + 3 : ACT.reach.frames - 1;
+        if (!await play('reach', 0, end, { ev: Object.fromEntries(REACH.hits.map(f => [f, hit])) }) || busy(my)) return;
+        if (!tug) return;
+        const pull = () => { const p = beak(true); dent(p.x, p.y, true); sfx('peck'); };
+        const ev = { [YANK.grab]: () => { const p = beak(true); dent(p.x, p.y); sfx('btn'); }, [YANK.let]: () => sfx('flap') };
+        YANK.pulls.forEach(f => { ev[f] = pull; });
+        if (!await play('yank', YANK.grab - 4, ACT.yank.frames - 1, { ev, blendS: .3 }) || busy(my)) return;
+        await once('shake', 'button');                         // не поддалась — отряхнулся
+      },
       sleep: async my => {                                     // засыпает; просыпается от действия Паши
         asleep = true; setState('sleep');
         if (!await play('sleep', 0, 30, { fps: 18 }) || busy(my)) { asleep = false; snore(false); return; }
@@ -377,17 +439,18 @@ export async function start(opts = {}) {
         if (!busy(my)) await once('stretch', 'sleep');          // проснулся — потянулся: крыло и лапа назад
       },
     };
-    async function run(name, my) { try { await SCENES[name](my); } catch (e) { fail(e); } }
+    async function run(name, my, arg) { try { await SCENES[name](my, arg); } catch (e) { fail(e); } }
     function calm() { rouse(); snoring = false; snore(false); if (B.walk) { B.walk.r(false); B.walk = null; } B.yawTo = B.side; }   // прервали — снова боком
-    function interrupt(name) {                                 // прервать текущее, сыграть сцену, потом — обычная жизнь
+    function interrupt(name, arg) {                            // прервать текущее, сыграть сцену, потом — обычная жизнь
       const my = ++gen; calm();
-      return run(name, my).then(() => { if (my === gen && alive) life(); });
+      return run(name, my, arg).then(() => { if (my === gen && alive) life(); });
     }
     async function life() {                                    // обычная жизнь: стоит, ходит, клюёт, смотрит, ест
       const my = ++gen;
       while (alive && !busy(my)) {
         const r = Math.random();
-        const name = r < .38 ? 'idle' : r < .7 ? 'walk' : r < .8 ? 'peck' : r < .87 ? 'look' : r < .93 ? 'eat' : r < .97 ? 'shake' : 'coo';
+        let name = r < .38 ? 'idle' : r < .7 ? 'walk' : r < .8 ? 'peck' : r < .87 ? 'look' : r < .93 ? 'eat' : r < .97 ? 'shake' : 'coo';
+        if (name === 'peck' && Math.random() < .3 && buttonSpot()) name = 'button';   // кнопка под ногами — клюнуть её
         await run(name, my);
         if (busy(my)) return;
         if (P.name !== 'idle') play('idle', 0, ACT.idle.frames - 1, { loop: true });
@@ -486,7 +549,8 @@ export async function start(opts = {}) {
       tab: () => refreshRects(),
       cleared: () => interrupt('shake'),
       idle: () => {                                            // ещё 45 с без действий после стука — засыпает
-        const k = ++idleGen; interrupt('knock');
+        const k = ++idleGen;
+        if (Math.random() < .5 && buttonSpot()) interrupt('button', true); else interrupt('knock');   // от скуки — кнопку
         wait(45000).then(() => { if (k === idleGen && alive && !reduced && !asleep) interrupt('sleep'); });
       },
       active: () => { idleGen++; if (asleep) rouse(); },
@@ -525,7 +589,7 @@ export async function start(opts = {}) {
           })();
           return true;
         }
-        interrupt(name); return true;
+        interrupt(name, name === 'button' ? true : undefined); return true;
       },
       __own: stop,
     };

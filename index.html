@@ -580,7 +580,7 @@ tr.just .n-ok { display: inline-block; animation: popIn .45s cubic-bezier(.3, 1.
   </section>
 
   <div id="out"></div>
-  <footer class="app-foot"><svg width="14" height="14" viewBox="0 0 28 28" aria-hidden="true"><ellipse cx="14" cy="14" rx="5.2" ry="11" fill="none" stroke="currentColor" stroke-width="2" transform="rotate(28 14 14)"/><path d="M10.2 6.8c3 4.6 4.6 9.4 7.6 14.4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>Сверка рейсов · версия <span id="app-ver"><!--ВЕРСИЯ-->14.10.2026 · f5c993<!--/ВЕРСИЯ--></span></footer>
+  <footer class="app-foot"><svg width="14" height="14" viewBox="0 0 28 28" aria-hidden="true"><ellipse cx="14" cy="14" rx="5.2" ry="11" fill="none" stroke="currentColor" stroke-width="2" transform="rotate(28 14 14)"/><path d="M10.2 6.8c3 4.6 4.6 9.4 7.6 14.4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>Сверка рейсов · версия <span id="app-ver"><!--ВЕРСИЯ-->14.10.2026 · 68a713<!--/ВЕРСИЯ--></span></footer>
 </main>
 
 <div class="modal" id="report" role="dialog" aria-modal="true" aria-labelledby="report-title">
@@ -3524,9 +3524,11 @@ SverkaFx.changed('.btn', el => {
     const avoid = [...document.querySelectorAll('header, #hello, .pane, .actions, #out > *')].map(vis).filter(Boolean).concat(head);
     let lastRow = null;
     if (S.nlast && S.nlast.length) lastRow = vis(document.querySelector(`#res-grid tr[data-nkey="${nKey(S.nlast[S.nlast.length - 1])}"]`));
-    return { avoid, targets: { verify: vis($('#btn-run')), lastRow } };
+    // buttons — кнопки, которые голубь «клюёт» на своём слое (сами кнопки не трогает): «Вставить», «Очистить», «Сверить»
+    const buttons = [...document.querySelectorAll('.pane .btn, #btn-run')].filter(b => !b.disabled).map(vis).filter(Boolean);
+    return { avoid, targets: { verify: vis($('#btn-run')), lastRow, buttons } };
   }
-  window.SverkaEvents = { on: Events.on, rects: () => { try { return pageRects(); } catch (e) { return { avoid: [], targets: { verify: null, lastRow: null } }; } }, sound: () => Snd.state() };
+  window.SverkaEvents = { on: Events.on, rects: () => { try { return pageRects(); } catch (e) { return { avoid: [], targets: { verify: null, lastRow: null, buttons: [] } }; } }, sound: () => Snd.state() };
   (() => {   // простой: 60 с без мыши и клавиш — idle, потом первое действие — active
     let t = null, idle = false;
     const kick = () => { if (idle) { idle = false; Events.emit('active'); } clearTimeout(t); t = setTimeout(() => { idle = true; Events.emit('idle', { sec: 60 }); }, 60000); };
@@ -4648,7 +4650,7 @@ SverkaFx.changed('.btn', el => {
   // только через SverkaEvents. Прячется кнопкой в шапке — запоминается. V — отпечаток файлов голубя (сборка):
   // новая версия голубя — новый адрес, сервис-воркер не подсунет старую.
   const Pigeon = (() => {
-    const V = /*АРКАДИЙ-V*/'6ef8fe35'/*АРКАДИЙ-V-КОНЕЦ*/;
+    const V = /*АРКАДИЙ-V*/'d976927c'/*АРКАДИЙ-V-КОНЕЦ*/;
     const KEY = 'sverka.arkadiy', btn = $('#arkadiy-toggle');
     let want = true; try { want = localStorage.getItem(KEY) !== 'off'; } catch (e) {}
     let inst = null, busy = false;
