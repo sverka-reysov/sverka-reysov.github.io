@@ -22,10 +22,13 @@ const PROPS = { grain: [0, 5, 16], seed: [5, 4, 17], crumb: [9, 4, 12] }, PROP_C
 const REACH = { hits: [20, 30, 40], dx: 44, dy: 26 }, YANK = { grab: 12, pulls: [26, 44, 62], let: 76 };
 const STATES = ['idle', 'walk', 'look', 'peck', 'eat', 'coo', 'hop', 'shake', 'knock', 'sleep', 'button', 'fly', 'poop', 'stretch'];
 // жизнь в покое: сцены по очереди, без повтора подряд; между ними отдых (кадров нет)
-const LIFE = ['fly', 'button', 'poop', 'knock', 'walk', 'shake', 'stretch', 'peck', 'look', 'eat', 'walk', 'fly'];
+const LIFE = ['fly', 'button', 'poop', 'knock', 'walk', 'shake', 'stretch', 'peck', 'look', 'eat', 'walk', 'fly', 'tour', 'coo', 'hop'];
 const FLY = { up: [0, 16], air: [16, 100], down: 100, flap: 10 };   // кадры перелёта: присел-взлёт, полёт, посадка
-const SOUNDS = { coo: ['coo-1', 'coo-2', 'coo-3'], flap: ['flap'], knock: ['tap-1', 'tap-2', 'tap-3'], peck: ['peck-1', 'peck-2'], btn: ['tap-1', 'tap-2', 'tap-3'] };
-const VOL = { coo: .35, flap: .3, knock: .55, peck: .3, btn: .3 };
+const SOUNDS = { coo: ['coo-1', 'coo-2', 'coo-3'], flap: ['flap'], land: ['flap-soft'], knock: ['tap-1', 'tap-2', 'tap-3'], peck: ['peck-1', 'peck-2'],
+  btn: ['tap-1', 'tap-2', 'tap-3'], snore: ['snore'], splat: ['splat'] };
+const VOL = { coo: .35, flap: .3, land: .25, knock: .5, peck: .3, btn: .3, snore: .22, splat: .25 };
+// насест — свои сцены (на месте); облёт с насеста — раз в 20–40 с покоя
+const CORNER_LIFE = ['look', 'shake', 'hop', 'stretch', 'coo', 'peck', 'shuffle', 'poop', 'eat'];
 
 export async function start(opts = {}) {
   const host = opts.host || document.body;
@@ -34,7 +37,7 @@ export async function start(opts = {}) {
   let reduced = opts.reduced ?? MQ.matches;               // может смениться на лету — см. ниже
   let alive = true, raf = 0, layer = null, renderer = null, THREE = null;
   const offs = [];
-  const st = { frames: 0, ms: 0, maxMs: 0, loadMs: 0, errors: 0, dozes: 0 };
+  const st = { frames: 0, ms: 0, maxMs: 0, loadMs: 0, errors: 0, dozes: 0, scenes: 0, tours: 0 };
 
   function stop() {
     if (!alive) return;
@@ -185,13 +188,13 @@ export async function start(opts = {}) {
       return list;
     }
     const onSurf = (x, g) => x > Math.max(g.l, 0) + S * .32 && x < Math.min(g.r, innerWidth) - S * .32;
-    const free = (x, g) => !!g && (g.corner ? Math.abs(x - g.x) < 2 : onSurf(x, g) && !RECTS.some(r => hits(bodyBox(x, g.y), r)));
+    const free = (x, g) => !!g && (g.pin ? Math.abs(x - g.x) < 2 : onSurf(x, g) && !RECTS.some(r => hits(bodyBox(x, g.y), r)));
     // Насест (решение основной 14.10.2026): места по avoid нет нигде — неподвижный угол справа внизу, поверх края таблицы;
     // на узком окне голубь там чуть меньше (×0,72 → 180 при 250). Курсор рядом — притухает; странице — html.has-arkadiy.
     const CORNER_K = () => innerWidth < 1600 ? .72 : 1;
     function cornerG() {
       const k = CORNER_K(), x = document.documentElement.clientWidth - 12 - S * .3 * k;
-      return { y: innerHeight - 6, l: x - 1, r: x + 1, x, fixed: true, corner: true };
+      return { y: innerHeight - 6, l: x - 1, r: x + 1, x, fixed: true, corner: true, pin: true, k };
     }
     function spot(prefX, prefY) {
       let best = null, bd = 1e9;
@@ -210,6 +213,7 @@ export async function start(opts = {}) {
     function trackG(g) {
       if (!g) return null;
       if (g.corner) return cornerG();
+      if (g.temp) return g;                                    // остановка облёта — на пару секунд, не следим
       const list = surfaces();
       if (g.fixed) return list[0];
       let best = null;
@@ -314,10 +318,11 @@ export async function start(opts = {}) {
       try { if (events && events.sound) return !!events.sound().muted; } catch (e) { /* ниже — по режиму */ }
       const h = new Date().getHours(); return modeNow === 'off' || (modeNow === 'night' && (h >= 22 || h < 7));
     };
-    // Звук — только прямой отклик на действие Паши: 2,5 с после вставил / скопировал / сверил / вписал. Всё, что голубь
-    // делает сам (простой, стук в стекло и по кнопке, сон, клёв, еда и воркование по своей воле), — только движения.
-    const HEARD = 2500, HEARD_ON = { pasted: 1, copied: 1, reconciled: 1, numbersSent: 1 };
-    let heardUntil = -1e9;
+    // Звук (решение владельца 14.10.2026 — со звуком): отклик на действие Паши (2,5 с после вставил / скопировал / сверил /
+    // вписал) — как есть; всё, что голубь делает сам, — тише (≤ 0,35) и редко: серия ≤ 1,5 с, потом ≥ 9 с тишины.
+    // Всегда: только после первого действия Паши; «выкл», ночью, вкладка в фоне, голубь спрятан — тишина.
+    const HEARD = 2500, HEARD_ON = { pasted: 1, copied: 1, reconciled: 1, numbersSent: 1 }, AMB_GAP = 9000, AMB_SERIES = 1500;
+    let heardUntil = -1e9, ambAt = -1e9;
     function preload() {
       try {
         if (muted()) return;                                   // «выкл» и ночью — ничего не грузит
@@ -327,14 +332,19 @@ export async function start(opts = {}) {
       } catch (e) { /* без звука — не беда */ }
     }
     function sfx(kind) {
-      if (!acted || muted() || document.hidden || !B.shown || !SOUNDS[kind] || nowClock() > heardUntil) return;   // спрятан — молчит
+      if (!acted || muted() || document.hidden || !B.shown || !SOUNDS[kind]) return;   // спрятан — молчит
+      const c = nowClock(); let vol = VOL[kind];
+      if (c > heardUntil) {                                    // сам по себе
+        if (c - ambAt > AMB_SERIES) { if (c - ambAt < AMB_GAP) return; ambAt = c; }
+        vol = Math.min(.35, vol * .7);
+      }
       try {
         preload();
         const list = SOUNDS[kind], buf = BUF[list[Math.random() * list.length | 0]];
         if (!buf) return;                                      // первый раз — только загрузка, звук со следующего
         if (AC.state === 'suspended') AC.resume();
         const s = AC.createBufferSource(), g = AC.createGain();
-        s.buffer = buf; s.playbackRate.value = .95 + Math.random() * .1; g.gain.value = VOL[kind];
+        s.buffer = buf; s.playbackRate.value = .95 + Math.random() * .1; g.gain.value = vol;
         s.connect(g); g.connect(AC.destination); s.start();
       } catch (e) { /* без звука — не беда */ }
     }
@@ -459,19 +469,20 @@ export async function start(opts = {}) {
     const poops = [];                                          // { w, g, x }
     const POOP_URL = `url("${BASE}poop.webp${V}")`;
     function poopBox(x, g) { const k = S / 250; return { left: x - 18 * k, right: x + 18 * k, top: g.y - 22 * k, bottom: g.y - 2 }; }
-    const tailX = () => B.x - (B.side === YAW_RIGHT ? 1 : -1) * 34 * S / 250;   // под хвостом
-    const poopOk = () => !!B.g && B.shown && !RECTS.some(r => hits(poopBox(tailX(), B.g), r)) && onSurf(tailX(), { l: B.g.l - S * .3, r: B.g.r + S * .3 });
+    const tailX = () => B.x - (B.side === YAW_RIGHT ? 1 : -1) * 34 * S / 250 * B.k;   // под хвостом
+    const poopOk = () => !!B.g && B.shown && !B.g.temp && (B.g.corner ||                // с насеста — к краю окна (можно)
+      !RECTS.some(r => hits(poopBox(tailX(), B.g), r)) && onSurf(tailX(), { l: B.g.l - S * .3, r: B.g.r + S * .3 }));
     function placePoop(o) { o.w.style.transform = `translate3d(${o.x - o.size / 2}px,${o.g.y - o.size + 2}px,0)`; }
     function poopDrop() {
       if (!poopOk()) return;
-      const k = S / 250, x = tailX(), g = B.g, y0 = g.y - 58 * k, dsz = 12 * k, size = 40 * k;
+      const k = S / 250 * B.k, x = tailX(), g = B.g, y0 = g.y - 58 * k, dsz = 12 * k, size = 40 * k;
       const d = document.createElement('div');
       d.style.cssText = `position:absolute;left:${x - dsz / 2}px;top:${y0}px;width:${dsz}px;height:${dsz}px;pointer-events:none;` +
         `background:${POOP_URL} ${-2 * dsz}px 0/${3 * dsz}px ${dsz}px no-repeat`;
       layer.appendChild(d);
       d.animate([{ transform: 'translateY(0) scale(.6,.9)' }, { transform: `translateY(${g.y - y0 - dsz * .8}px) scale(.8,1.25)` }],
         { duration: 240, easing: 'cubic-bezier(.55,0,1,.6)', fill: 'forwards' }).onfinish = () => {
-        d.remove();
+        d.remove(); sfx('splat');
         const w = document.createElement('div'), im = document.createElement('div');
         w.style.cssText = `position:absolute;left:0;top:0;width:${size}px;height:${size}px;pointer-events:none`;
         im.style.cssText = `width:100%;height:100%;transform-origin:50% 92%;background:${POOP_URL} ${-(Math.random() < .5 ? 0 : 1) * size}px 0/${3 * size}px ${size}px no-repeat;` +
@@ -519,7 +530,7 @@ export async function start(opts = {}) {
       snoreEl.style.width = snoreEl.style.height = R * 2 + 'px';
       snoreEl.style.transform = `translate3d(${b.x - R * 1.7}px,${b.y - R * 1.2}px,0)`;
       const half = ph < .5 ? 0 : 1;
-      snoreHalf = half;                                        // храп — только пузырь, без звука
+      if (half !== snoreHalf) { snoreHalf = half; if (!half && snoring && P.name === 'sleep' && P.f >= 30) sfx('snore'); }
     }
 
     // ---------- поведение: сцены (одна за раз; новая прерывает старую) ----------
@@ -594,6 +605,22 @@ export async function start(opts = {}) {
         return () => ({ x: r.left + 30 + Math.random() * Math.max(10, r.right - r.left - 60), y: r.bottom - 4, vy: undefined });
       return () => ({ x: B.x + (Math.random() - .5) * 120, y: gy - 240 - Math.random() * 60, vy: -Math.random() * 40 });
     }
+    function tourStop() {
+      const k = CORNER_K(), kk = S / 250 * k, r = Math.random();
+      let list = [];
+      try { const t = events && events.rects && events.rects().targets; list = (t && t.buttons) || []; } catch (e) { list = []; }
+      list = list.filter(b => b.right - b.left >= 30 && b.top - REACH.dy * kk > S * .75 * k && b.top < innerHeight - 10 && b.left > 0 && b.right < innerWidth);
+      if (list.length && r < .5) {
+        const b = list[Math.random() * list.length | 0], cx = b.left + (b.right - b.left) * (.35 + Math.random() * .3), y = b.top - REACH.dy * kk + 2;
+        const opts = [cx + REACH.dx * kk, cx - REACH.dx * kk].filter(x => x > S * .35 * k && x < innerWidth - S * .35 * k);
+        if (opts.length) { const x = opts[Math.random() * opts.length | 0]; return { x, act: 'button', g: { y, l: x - 1, r: x + 1, x, pin: true, temp: true, k } }; }
+      }
+      if (r < .85) {
+        const x = S * k + Math.random() * Math.max(10, innerWidth - 2 * S * k), y = innerHeight * (.45 + Math.random() * .25);
+        return { x, act: 'knock', g: { y, l: x - 1, r: x + 1, x, pin: true, temp: true, k } };
+      }
+      return null;                                             // просто дуга над страницей
+    }
     function buttonSpot() {                                    // кнопка, до которой клюв достаёт с этой же кромки
       if (!B.g) return null;
       let list = [];
@@ -610,20 +637,21 @@ export async function start(opts = {}) {
       best.sort((a, b) => a.d - b.d);
       return best[0] || null;
     }
-    async function flyTo(p, my) {                              // перелёт на другую кромку по дуге: присел — взлёт — полёт — посадка
+    async function flyTo(p, my, via) {                         // перелёт по дуге (или через точку via): присел — взлёт — полёт — посадка
       B.moving = true;
       try {
         if (B.walk) { const w = B.walk; B.walk = null; w.r(false); }
         const x0 = B.x, y0 = B.g && !B.lost ? B.g.y : B.g ? B.g.y : innerHeight - 6;
         B.side = B.yawTo = p.x >= x0 ? YAW_RIGHT : YAW_LEFT;     // разворачивается на взлёте
         setState('fly');
-        B.fly = { x: x0, y: y0, gy: y0, x0, y0, x1: p.x, g1: p.g, t0: 0, T: 1, arc: 0, go: false, k0: B.k, k1: p.g.corner ? CORNER_K() : 1 };
+        B.fly = { x: x0, y: y0, gy: y0, x0, y0, x1: p.x, g1: p.g, t0: 0, T: 1, arc: 0, go: false, k0: B.k, k1: p.g.k || 1, via };
         if (!await play('fly', FLY.up[0], FLY.up[1], { ev: { [FLY.flap]: () => sfx('flap') } }) || busy(my)) return false;
-        const dist = Math.hypot(p.x - x0, p.g.y - y0), T = Math.max(.7, Math.min(2.4, dist / 520));
+        const dist = via ? Math.hypot(via.x - x0, via.y - y0) + Math.hypot(p.x - via.x, p.g.y - via.y) : Math.hypot(p.x - x0, p.g.y - y0);
+        const T = Math.max(.7, Math.min(via ? 3.6 : 2.4, dist / 520));
         Object.assign(B.fly, { t0: clock, T: T * 1000, arc: Math.min(140, 30 + dist * .2), go: true });
         if (!await play('fly', FLY.air[0], FLY.air[1], { fps: (FLY.air[1] - FLY.air[0]) / T, blend: false }) || busy(my)) return false;
         B.x = B.fly.x1; B.g = B.fly.g1; B.k = B.fly.k1; B.lost = false; B.fly = null;
-        return await play('fly', FLY.down, ACT.fly.frames - 1, { blend: false }) && !busy(my);
+        return await play('fly', FLY.down, ACT.fly.frames - 1, { blend: false, ev: { [FLY.down + 10]: () => sfx('land') } }) && !busy(my);
       } finally {
         if (B.fly) { B.x = B.fly.x1; B.g = B.fly.g1; B.k = B.fly.k1; B.lost = false; B.fly = null; }   // прервали в воздухе — уже сел
         B.moving = false;
@@ -633,7 +661,10 @@ export async function start(opts = {}) {
       const f = B.fly; if (!f.go) return;
       const t = Math.min(1, (clock - f.t0) / f.T), e = t * t * (3 - 2 * t);
       if (f.g1.corner) f.x1 = f.g1.x;
-      f.x = f.x0 + (f.x1 - f.x0) * e; f.gy = f.y0 + (f.g1.y - f.y0) * e; f.y = f.gy - f.arc * Math.sin(Math.PI * t);
+      if (f.via) {                                             // через точку: квадратичная кривая, проходит via на середине
+        const cx = 2 * f.via.x - (f.x0 + f.x1) / 2, cy = 2 * f.via.y - (f.y0 + f.g1.y) / 2, u = 1 - e;
+        f.x = u * u * f.x0 + 2 * u * e * cx + e * e * f.x1; f.y = u * u * f.y0 + 2 * u * e * cy + e * e * f.g1.y; f.gy = f.y0 + (f.g1.y - f.y0) * e;
+      } else { f.x = f.x0 + (f.x1 - f.x0) * e; f.gy = f.y0 + (f.g1.y - f.y0) * e; f.y = f.gy - f.arc * Math.sin(Math.PI * t); }
       B.k = f.k0 + (f.k1 - f.k0) * e;
     }
     async function once(name, s, ev) { setState(s); B.yawTo = B.side; return play(name, 0, ACT[name].frames - 1, { ev }); }
@@ -701,6 +732,22 @@ export async function start(opts = {}) {
         await once('shake', 'button');                         // не поддалась — отряхнулся
       },
       fly: my => flyTo(pickPerch() || { x: B.x, g: B.g || surfaces()[0] }, my),   // некуда — подлетает на месте
+      tour: async my => {                                      // облёт: дуга над страницей, по пути — кнопка или стекло, потом домой
+        st.tours++;
+        const home = () => perchSpot(B.x, false, null) || { x: cornerG().x, g: cornerG() };
+        const stop = tourStop();
+        if (!stop) { const h = home(); return flyTo(h, my, { x: innerWidth * (.3 + Math.random() * .4), y: innerHeight * (.2 + Math.random() * .25) }); }
+        if (!await flyTo(stop, my) || busy(my)) return;
+        if (stop.act === 'button') await SCENES.button(my, Math.random() < .4); else await SCENES.knock(my);
+        if (busy(my)) return;
+        await flyTo(home(), my);
+      },
+      shuffle: async my => {                                   // переминается с лапы на лапу
+        setState('walk'); B.yawTo = B.side;
+        play('walk', 0, ACT.walk.frames - 1, { loop: true, fps: WALK_FPS * .8 });
+        await wait(900 + Math.random() * 700);
+        if (!busy(my)) play('idle', 0, ACT.idle.frames - 1, { loop: true });
+      },
       perch: (my, p) => flyTo(p, my),                          // кромка ушла (прокрутка) — перелетает
       poop: async my => {                                      // хвост вверх, присел — плюх (не на таблицы и кнопки)
         setState('poop'); B.yawTo = B.side;
@@ -733,30 +780,42 @@ export async function start(opts = {}) {
     }
     let lastScene = '';
     const onCorner = () => !!(B.g && B.g.corner);
-    const canScene = n => onCorner() ? !['walk', 'button', 'poop', 'eat'].includes(n) : n === 'button' ? !!buttonSpot() : n === 'poop' ? poopOk() : true;
-    let bag = [];                                              // сцены по кругу в случайном порядке: каждая — раз за круг
+    const canScene = n => onCorner() ? true : n === 'button' ? !!buttonSpot() : n === 'poop' ? poopOk() : true;
+    let bag = [], bagCorner = false, nextTour = 0, wokeAt = 0;              // сцены по кругу в случайном порядке: каждая — раз за круг
     async function life() {                                    // обычная жизнь: сцены по очереди, между ними отдых без кадров
       const my = ++gen;
       while (alive && !busy(my)) {
-        if (nowClock() - poked > 120000 && !asleep) {          // 2 мин без действий — засыпает до первого действия
+        if (nowClock() - Math.max(poked, wokeAt) > 120000 && !asleep) {   // 2 мин без действий — дремлет 25–45 с (или до первого действия)
+          st.scenes++;
+          wait(25000 + Math.random() * 20000).then(() => { if (my === gen && asleep) rouse(); });
           await run('sleep', my);
+          wokeAt = nowClock();
           if (busy(my)) return;
         } else {
           let name = 'peck';
+          refreshRects();                                      // места пересчитываются перед каждой сценой (≤ ~15 с)
           const legal = onCorner() && perchSpot(B.x, false, null);   // с насеста — на свободное место, как только оно есть
+          if (onCorner() && !nextTour) nextTour = nowClock() + 20000 + Math.random() * 20000;
+          if (!onCorner()) nextTour = 0;
           if (legal) name = 'perch';
+          else if (onCorner() && nowClock() > nextTour) { name = 'tour'; nextTour = 0; }
           else {
-            if (!bag.length) { bag = [...new Set(LIFE)].sort(() => Math.random() - .5); if (bag[0] === lastScene) bag.push(bag.shift()); }
-            for (let k = 0; k < bag.length; k++) if (canScene(bag[k])) { name = bag.splice(k, 1)[0]; break; }
+            if (bagCorner !== onCorner()) { bag = []; bagCorner = onCorner(); }
+            // круг: каждая сцена раз за круг; из остатка ничего не сыграть (нет кнопки, некуда гадить) — новый круг
+            for (let pass = 0; pass < 2; pass++) {
+              if (!bag.length || pass) bag = (onCorner() ? CORNER_LIFE : LIFE).slice().sort(() => Math.random() - .5);
+              const k = bag.findIndex(n => n !== lastScene && canScene(n));
+              if (k >= 0) { name = bag.splice(k, 1)[0]; break; }
+            }
           }
-          lastScene = name;
+          lastScene = name; st.scenes++;
           if (name === 'perch') { await run('perch', my, legal); if (busy(my)) return; continue; }
           await run(name, my, name === 'button' ? Math.random() < .5 : undefined);
           if (busy(my)) return;
         }
         if (P.name !== 'idle') play('idle', 0, ACT.idle.frames - 1, { loop: true });
         setState('idle');
-        const rest = lite ? 8000 + Math.random() * 12000 : 4000 + Math.random() * 6000;   // ≤ 20 с — меньше сторожа idle
+        const rest = lite ? 8000 + Math.random() * 12000 : 3000 + Math.random() * 5000;   // ≤ 20 с — меньше сторожа idle
         if (!await idleFor(rest, my)) return;
       }
     }
@@ -778,12 +837,12 @@ export async function start(opts = {}) {
         root.rotation.y = B.yaw; show(true); return;
       }
       // кромка ушла с экрана или место заняли — виден: перелетает (при прокрутке — на низ окна); не виден — пересаживается
-      if (B.shown && !B.moving && B.g && (B.lost || !free(B.x, B.g))) {
+      if (B.shown && !B.moving && B.g && (B.lost || !free(B.x, B.g) && !(nowClock() < (B.hold || 0)))) {
         const q = perchSpot(B.x, B.lost, null) || (B.g.corner ? null : { x: cornerG().x, g: cornerG() });
         if (q) { interrupt('perch', q); return; }
       }
       if (B.moving) { root.rotation.y = B.yaw; return; }
-      if (!B.g || B.lost || !free(B.x, B.g)) {                 // не виден (старт, размер окна) — пересаживается; места нет — насест
+      if (!B.g || B.lost || !free(B.x, B.g) && !(B.shown && nowClock() < (B.hold || 0))) {   // не виден (старт, размер окна) — пересаживается; места нет — насест
         if (B.shown) { show(false); B.reseat = clock + 380; return; }
         if (clock < B.reseat) return;
         const p = spot(B.x, B.g ? B.g.y : innerHeight) || { x: cornerG().x, g: cornerG() };
@@ -860,7 +919,7 @@ export async function start(opts = {}) {
     offs.push(() => clearTimeout(scrollT));
     let dimT = 0, dimmed = false;
     on(document, 'mousemove', e => {
-      if (!B.g || !B.g.corner || B.fly || !B.shown) { if (dimmed) { dimmed = false; layer.style.opacity = ''; } return; }
+      if (!B.g || !B.g.pin || B.fly || !B.shown) { if (dimmed) { dimmed = false; layer.style.opacity = ''; } return; }
       const k = B.k, gy = B.g.y, pad = 24;
       const inside = e.clientX > B.x - S * .36 * k - pad && e.clientX < B.x + S * .36 * k + pad && e.clientY > gy - S * .72 * k - pad && e.clientY < gy + pad;
       if (inside) { clearTimeout(dimT); dimT = 0; if (!dimmed) { dimmed = true; layer.style.transition = 'opacity .18s'; layer.style.opacity = .25; } }
@@ -897,13 +956,14 @@ export async function start(opts = {}) {
       states: STATES.slice(),
       state: () => now_,
       feed: n => { if (reduced || !alive) return false; interrupt('feed', { n: n || 6 }); return true; },   // как после «Вписать»
-      rest: () => ({ frames: st.frames, dozes: st.dozes, dozing: !!doze, lite }),   // покой: сколько кадров нарисовано, дремлет ли
+      rest: () => ({ frames: st.frames, dozes: st.dozes, dozing: !!doze, lite, scenes: st.scenes, tours: st.tours, corner: !!(B.g && B.g.corner) }),   // для замеров
       go: name => {                                            // перевести в состояние; выход — сам, потом обычная жизнь
         if (!STATES.includes(name) || reduced || !alive) return false;
+        B.hold = nowClock() + 6000;                            // 6 с не перелетает из-за сдвига страницы — заказанное не перебьётся
         if (name === 'sleep') { interrupt('sleep'); wait(6000).then(() => { if (asleep) rouse(); }); return true; }
         if (name === 'idle') { const my = ++gen; calm(); idleFor(2500, my).then(() => { if (my === gen && alive) life(); }); return true; }
         if (name === 'walk') {
-          const my = ++gen; calm();
+          const my = ++gen; calm(); setState('walk');
           (async () => {
             for (let i = 0; i < 20 && !B.g; i++) await wait(100);
             let to = null;
