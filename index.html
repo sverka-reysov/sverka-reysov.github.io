@@ -580,7 +580,7 @@ tr.just .n-ok { display: inline-block; animation: popIn .45s cubic-bezier(.3, 1.
   </section>
 
   <div id="out"></div>
-  <footer class="app-foot"><svg width="14" height="14" viewBox="0 0 28 28" aria-hidden="true"><ellipse cx="14" cy="14" rx="5.2" ry="11" fill="none" stroke="currentColor" stroke-width="2" transform="rotate(28 14 14)"/><path d="M10.2 6.8c3 4.6 4.6 9.4 7.6 14.4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>Сверка рейсов · версия <span id="app-ver"><!--ВЕРСИЯ-->14.10.2026 · eb5713<!--/ВЕРСИЯ--></span></footer>
+  <footer class="app-foot"><svg width="14" height="14" viewBox="0 0 28 28" aria-hidden="true"><ellipse cx="14" cy="14" rx="5.2" ry="11" fill="none" stroke="currentColor" stroke-width="2" transform="rotate(28 14 14)"/><path d="M10.2 6.8c3 4.6 4.6 9.4 7.6 14.4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>Сверка рейсов · версия <span id="app-ver"><!--ВЕРСИЯ-->14.10.2026 · 8d6ab6<!--/ВЕРСИЯ--></span></footer>
 </main>
 
 <div class="modal" id="report" role="dialog" aria-modal="true" aria-labelledby="report-title">
@@ -2599,6 +2599,15 @@ html.fx-lite #stage #stage-h1 em { animation-name: fxIntro; }   /* лёгкий 
 .toast[data-tone="ok"] { --tt-i: var(--i-ok); --tt-c: var(--toast-ok); } .toast[data-tone="warn"] { --tt-i: var(--i-diff); --tt-c: var(--toast-warn); }
 .toast.show[data-tone]:not([data-kind="restore"])::before { animation: fxTonePop var(--t-pop) var(--spring-pop) .08s both; }
 @keyframes fxTonePop { from { transform: scale(.4); opacity: 0; } }
+/* списки истории на широком экране («нашлись в порту», «уже были в прошлой сверке»): ровные строки как у «хвостов» —
+   «строка N:», номер и описание стоят колонками, строки через тонкие линии, под курсором подсветка. Без :has() — как было */
+@media (min-width: 701px) {
+  .notice.hist:not(.tails) ul:has(> li > .plate) { list-style: none; margin: 10px 0 2px; padding: 0; }
+  .notice.hist:not(.tails) li:has(> .plate) { display: grid; grid-template-columns: 6.2em auto minmax(0, 1fr); align-items: center; column-gap: 10px; margin: 0; padding: 5px 8px; border-radius: 0; font-variant-numeric: tabular-nums; transition: background-color var(--t-fast) var(--ease-out); }
+  .notice.hist:not(.tails) li:has(> .plate) + li { border-top: 1px solid color-mix(in srgb, currentColor 10%, transparent); }
+  .notice.hist:not(.tails) li:has(> .plate):hover { background: color-mix(in srgb, currentColor 6%, transparent); }
+  .notice.hist:not(.tails) li:has(> .plate) > .plate { margin: 0; }
+}
 </style>
 <script>
 // Движок пружин дизайн-слоя. Одни и те же кривые для CSS и для анимаций из кода.
