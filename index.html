@@ -580,7 +580,7 @@ tr.just .n-ok { display: inline-block; animation: popIn .45s cubic-bezier(.3, 1.
   </section>
 
   <div id="out"></div>
-  <footer class="app-foot"><svg width="14" height="14" viewBox="0 0 28 28" aria-hidden="true"><ellipse cx="14" cy="14" rx="5.2" ry="11" fill="none" stroke="currentColor" stroke-width="2" transform="rotate(28 14 14)"/><path d="M10.2 6.8c3 4.6 4.6 9.4 7.6 14.4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>Сверка рейсов · версия <span id="app-ver"><!--ВЕРСИЯ-->14.10.2026 · a53282<!--/ВЕРСИЯ--></span></footer>
+  <footer class="app-foot"><svg width="14" height="14" viewBox="0 0 28 28" aria-hidden="true"><ellipse cx="14" cy="14" rx="5.2" ry="11" fill="none" stroke="currentColor" stroke-width="2" transform="rotate(28 14 14)"/><path d="M10.2 6.8c3 4.6 4.6 9.4 7.6 14.4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>Сверка рейсов · версия <span id="app-ver"><!--ВЕРСИЯ-->14.10.2026 · e3274d<!--/ВЕРСИЯ--></span></footer>
 </main>
 
 <div class="modal" id="report" role="dialog" aria-modal="true" aria-labelledby="report-title">
@@ -2688,21 +2688,20 @@ const SverkaFx = window.SverkaFx = (() => {
   const hooks = [], changeHooks = [];
   function each(selector, fn) {
     hooks.push([selector, fn]);
-    document.querySelectorAll(selector).forEach(el => fn(el));
+    try { document.querySelectorAll(selector).forEach(el => fn(el)); } catch (e) { /* старый браузер */ }
   }
   const changed = (selector, fn) => changeHooks.push([selector, fn]);
   new MutationObserver(list => {
     const seen = new Set();
     for (const m of list) {
       const t = m.target;
-      if (t.nodeType === 1 && !seen.has(t) && t.isConnected) for (const [sel, fn] of changeHooks) if (t.matches(sel)) { seen.add(t); fn(t); }
+      if (t.nodeType === 1 && !seen.has(t) && t.isConnected) for (const [sel, fn] of changeHooks) { try { if (t.matches(sel)) { seen.add(t); fn(t); } } catch (e) { /* селектор не по силам браузеру — только он и пропускается */ } }
     }
     if (!hooks.length) return;
     for (const m of list) for (const n of m.addedNodes) {
       if (n.nodeType !== 1) continue;
       for (const [sel, fn] of hooks) {
-        if (n.matches(sel)) fn(n);
-        n.querySelectorAll(sel).forEach(el => fn(el));
+        try { if (n.matches(sel)) fn(n); n.querySelectorAll(sel).forEach(el => fn(el)); } catch (e) { /* то же: один непонятый селектор не роняет остальные */ }
       }
     }
   }).observe(document.body, { childList: true, subtree: true });
@@ -3265,7 +3264,7 @@ SverkaFx.each('#out .r-hero', hero => {
   };
   const hide = () => { cur = null; tip.classList.remove('on'); };
   const prep = b => { if (b.title) { b.dataset.tip = b.title; if (!b.getAttribute('aria-label')) b.setAttribute('aria-label', b.title); b.removeAttribute('title'); } };
-  SverkaFx.each('.top :is(.icon-btn, .bot-btn)', b => {
+  SverkaFx.each('.top .icon-btn, .top .bot-btn', b => {   // без :is(): старые браузеры не понимали его в matches() (сбой 14.10, Chrome 116)
     prep(b);
     new MutationObserver(() => { prep(b); if (cur === b) show(b); }).observe(b, { attributes: true, attributeFilter: ['title', 'aria-label'], childList: true, subtree: true, characterData: true });
     b.addEventListener('pointerenter', e => { if (e.pointerType === 'mouse') { clearTimeout(tmr); tmr = setTimeout(() => show(b), cur ? 0 : 350); } });
