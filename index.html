@@ -579,7 +579,7 @@ tr.just .n-ok { display: inline-block; animation: popIn .45s cubic-bezier(.3, 1.
   </section>
 
   <div id="out"></div>
-  <footer style="margin-top:40px;color:var(--ink-3);font-size:12px">Сверка рейсов · версия <span id="app-ver"><!--ВЕРСИЯ-->14.10.2026 · 2723fc<!--/ВЕРСИЯ--></span></footer>
+  <footer style="margin-top:40px;color:var(--ink-3);font-size:12px">Сверка рейсов · версия <span id="app-ver"><!--ВЕРСИЯ-->14.10.2026 · 2137f7<!--/ВЕРСИЯ--></span></footer>
 </main>
 
 <div class="modal" id="report" role="dialog" aria-modal="true" aria-labelledby="report-title">
@@ -2428,7 +2428,9 @@ html.fx-io #out.fresh .tally:not(.fx-seen) button::after { animation-play-state:
 #res-grid thead th { background: color-mix(in srgb, var(--head) 76%, transparent); -webkit-backdrop-filter: blur(14px) saturate(1.6); backdrop-filter: blur(14px) saturate(1.6); }
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) { #res-grid thead th { background: var(--head); } }
 /* кольцо итога под курсором: в центре вместо «34 рейса» — счёт статуса (цвет статуса) и доля; прежний центр уходит вверх */
-.r-orb .core { transition: opacity .22s var(--ease-out), transform var(--t-spring) var(--spring); }
+.r-orb .core { transition: opacity .14s var(--ease-out), transform var(--t-spring) var(--spring); }
+/* без наложения: уходящий центр гаснет за .14 с, приходящий начинает после него */
+.r-orb.fx-peek .fx-core-alt, .r-orb:not(.fx-peek) .core:not(.fx-core-alt) { transition-delay: .12s; }
 .r-orb.fx-peek .core:not(.fx-core-alt) { opacity: 0; transform: translateY(-12px) scale(.96); }
 .r-orb .fx-core-alt { opacity: 0; transform: translateY(12px) scale(.96); }
 .r-orb.fx-peek .fx-core-alt { opacity: 1; transform: none; }
@@ -4672,11 +4674,11 @@ SverkaFx.changed('.btn', el => {
       const NAME = { ok: () => 'совпало', diff: v => plural(v, 'расхождение', 'расхождения', 'расхождений'), dup: () => 'повтор · перегруз', missing: () => 'нет в порту' };
       let cur = null, timer = 0;
       const show = k => {
-        if (k === cur) return; cur = k; focus = k; kick(); if (reduce) draw(99);
+        if (k === cur) return; const was = cur; cur = k; focus = k; kick(); if (reduce) draw(99);
         orbEl.classList.toggle('fx-peek', !!k); if (!k) return;
         const v = n[k] || 0; alt.style.setProperty('--peek', col[k]);
         alt.firstChild.textContent = v; alt.lastChild.textContent = NAME[k](v) + ' · ' + Math.round(v / total * 100) + ' %';
-        if (!reduce) alt.animate([{ transform: 'translateY(7px)', opacity: .35 }, { transform: 'none', opacity: 1 }], { duration: 300, easing: 'cubic-bezier(.2, .7, .2, 1)' });
+        if (!reduce && was) alt.animate([{ transform: 'translateY(7px)', opacity: .35 }, { transform: 'none', opacity: 1 }], { duration: 300, easing: 'cubic-bezier(.2, .7, .2, 1)' });
       };
       const hit = e => {
         const o = orbEl.getBoundingClientRect(), x = e.clientX - (o.left + o.width / 2), y = e.clientY - (o.top + o.height / 2), d = Math.hypot(x, y), r = Math.min(o.width, o.height) * .4;
@@ -4687,8 +4689,11 @@ SverkaFx.changed('.btn', el => {
         for (const s of segs) { const dd = th < s.a0 ? s.a0 - th : th > s.a1 ? th - s.a1 : 0; if (dd < bd) { bd = dd; best = s.k; } }
         return best;
       };
-      orbEl.addEventListener('pointermove', e => { if (e.pointerType === 'mouse') show(hit(e)); });
-      orbEl.addEventListener('pointerleave', e => { if (e.pointerType === 'mouse') show(null); });
+      // выдержка: быстрый проход мышью не дёргает число — новый участок показывается, если мышь задержалась на нём, возврат — с паузой
+      let want = cur, wt = 0;
+      const ask = k => { if (k === want) return; want = k; clearTimeout(wt); wt = setTimeout(() => show(want), k ? (cur ? 110 : 70) : 220); };
+      orbEl.addEventListener('pointermove', e => { if (e.pointerType === 'mouse') ask(hit(e)); });
+      orbEl.addEventListener('pointerleave', e => { if (e.pointerType === 'mouse') ask(null); });
       orbEl.addEventListener('pointerdown', e => { if (e.pointerType === 'mouse') return; show(hit(e)); clearTimeout(timer); timer = setTimeout(() => show(null), 2600); });
     }
     function frame() { raf = 0; if (!host || !host.isConnected || pend) return; draw(clock() - t0); if (!reduce && vis && !document.hidden) raf = requestAnimationFrame(frame); }
