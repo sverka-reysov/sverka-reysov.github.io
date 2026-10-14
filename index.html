@@ -579,7 +579,7 @@ tr.just .n-ok { display: inline-block; animation: popIn .45s cubic-bezier(.3, 1.
   </section>
 
   <div id="out"></div>
-  <footer style="margin-top:40px;color:var(--ink-3);font-size:12px">Сверка рейсов · версия <span id="app-ver"><!--ВЕРСИЯ-->14.10.2026 · 11e7f5<!--/ВЕРСИЯ--></span></footer>
+  <footer style="margin-top:40px;color:var(--ink-3);font-size:12px">Сверка рейсов · версия <span id="app-ver"><!--ВЕРСИЯ-->14.10.2026 · a12404<!--/ВЕРСИЯ--></span></footer>
 </main>
 
 <div class="modal" id="report" role="dialog" aria-modal="true" aria-labelledby="report-title">
@@ -590,10 +590,10 @@ tr.just .n-ok { display: inline-block; animation: popIn .45s cubic-bezier(.3, 1.
     </div>
     <div class="tools">
       <div class="seg" id="rep-tools">
-        <button data-tool="arrow" aria-pressed="true">↗ Стрелка</button>
-        <button data-tool="ellipse" aria-pressed="false">◯ Круг</button>
-        <button data-tool="rect" aria-pressed="false">▢ Квадрат</button>
-        <button data-tool="text" aria-pressed="false">T Текст</button>
+        <button data-tool="arrow" aria-pressed="true"><i class="ti" aria-hidden="true"></i>Стрелка</button>
+        <button data-tool="ellipse" aria-pressed="false"><i class="ti" aria-hidden="true"></i>Круг</button>
+        <button data-tool="rect" aria-pressed="false"><i class="ti" aria-hidden="true"></i>Квадрат</button>
+        <button data-tool="text" aria-pressed="false"><i class="ti" aria-hidden="true"></i>Текст</button>
       </div>
       <button class="swatch" data-color="#e5484d" style="background:#e5484d" aria-pressed="true" aria-label="Красный"></button>
       <button class="swatch" data-color="#f0a000" style="background:#f0a000" aria-pressed="false" aria-label="Жёлтый"></button>
@@ -2499,6 +2499,20 @@ html.fx-io #out.fresh .tally:not(.fx-seen) button::after { animation-play-state:
 .help-grid .sw::after { content: ""; position: absolute; inset: 3px; background: var(--sw-ink, var(--ink-2)); -webkit-mask: var(--sw-i) center / contain no-repeat; mask: var(--sw-i) center / contain no-repeat; }
 .help-grid > div:nth-child(2) li:nth-child(1) .sw { --sw-i: var(--i-fill); --sw-ink: var(--fill-ink); } .help-grid > div:nth-child(2) li:nth-child(2) .sw { --sw-i: var(--i-ok); --sw-ink: var(--ok-ink); }
 .help-grid > div:nth-child(2) li:nth-child(3) .sw { --sw-i: var(--i-diff); --sw-ink: var(--warn-ink); } .help-grid > div:nth-child(2) li:nth-child(4) .sw { --sw-i: var(--i-miss); --sw-ink: var(--bad-ink); }
+/* окно «Сообщить об ошибке»: значки инструментов — свои, в стиле значков программы (вместо символов шрифта) */
+:root { --t-arrow: url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2024%2024%27%20fill%3D%27none%27%20stroke%3D%27black%27%20stroke-width%3D%271.9%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%3E%3Cpath%20d%3D%27M5.5%2018.5L18%206M10%206h8v8%27%2F%3E%3C%2Fsvg%3E"); --t-ellipse: url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2024%2024%27%20fill%3D%27none%27%20stroke%3D%27black%27%20stroke-width%3D%271.9%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%3E%3Cellipse%20cx%3D%2712%27%20cy%3D%2712%27%20rx%3D%278.5%27%20ry%3D%277%27%2F%3E%3C%2Fsvg%3E"); --t-rect: url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2024%2024%27%20fill%3D%27none%27%20stroke%3D%27black%27%20stroke-width%3D%271.9%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%3E%3Crect%20x%3D%274.5%27%20y%3D%275.5%27%20width%3D%2715%27%20height%3D%2713%27%20rx%3D%273%27%2F%3E%3C%2Fsvg%3E"); --t-text: url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2024%2024%27%20fill%3D%27none%27%20stroke%3D%27black%27%20stroke-width%3D%271.9%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%3E%3Cpath%20d%3D%27M6%206.5h12M12%206.5v12M9.5%2018.5h5%27%2F%3E%3C%2Fsvg%3E"); }
+#rep-tools button { display: inline-flex; align-items: center; gap: 6px; }
+#rep-tools .ti { width: 15px; height: 15px; flex: none; background: currentColor; -webkit-mask: var(--ti) center / contain no-repeat; mask: var(--ti) center / contain no-repeat; }
+#rep-tools [data-tool="arrow"] { --ti: var(--t-arrow); } #rep-tools [data-tool="ellipse"] { --ti: var(--t-ellipse); } #rep-tools [data-tool="rect"] { --ti: var(--t-rect); } #rep-tools [data-tool="text"] { --ti: var(--t-text); }
+/* галочки программы — переключатели, как в iOS: это те же input type=checkbox (щелчок, клавиатура, диктор — как раньше) */
+:is(.check, .fill-toggle, .mb-chk) { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; }
+:is(.check, .fill-toggle, .mb-chk) input[type="checkbox"] { -webkit-appearance: none; appearance: none; position: relative; flex: none; width: 32px; height: 19px; margin: 0; border-radius: 999px; background: color-mix(in srgb, var(--ink) 16%, transparent); cursor: pointer; transition: background-color var(--t) var(--ease-out); }
+:is(.check, .fill-toggle, .mb-chk) input[type="checkbox"]::before { content: ""; position: absolute; left: 2px; top: 2px; width: 15px; height: 15px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0, 0, 0, .28), 0 0 0 .5px rgba(0, 0, 0, .06); transition: transform var(--t-spring) var(--spring); }
+:is(.check, .fill-toggle, .mb-chk) input[type="checkbox"]:checked { background: var(--ok-ink); }
+:is(.check, .fill-toggle, .mb-chk) input[type="checkbox"]:checked::before { transform: translateX(13px); }
+:is(.check, .fill-toggle, .mb-chk) input[type="checkbox"]:active::before { width: 18px; }
+:is(.check, .fill-toggle, .mb-chk) input[type="checkbox"]:checked:active::before { transform: translateX(10px); }
+:is(.check, .fill-toggle, .mb-chk) input[type="checkbox"]:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 </style>
 <script>
 // Движок пружин дизайн-слоя. Одни и те же кривые для CSS и для анимаций из кода.
