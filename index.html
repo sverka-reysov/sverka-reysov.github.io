@@ -580,7 +580,7 @@ tr.just .n-ok { display: inline-block; animation: popIn .45s cubic-bezier(.3, 1.
   </section>
 
   <div id="out"></div>
-  <footer class="app-foot"><svg width="14" height="14" viewBox="0 0 28 28" aria-hidden="true"><ellipse cx="14" cy="14" rx="5.2" ry="11" fill="none" stroke="currentColor" stroke-width="2" transform="rotate(28 14 14)"/><path d="M10.2 6.8c3 4.6 4.6 9.4 7.6 14.4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>Сверка рейсов · версия <span id="app-ver"><!--ВЕРСИЯ-->14.10.2026 · 2bf40b<!--/ВЕРСИЯ--></span></footer>
+  <footer class="app-foot"><svg width="14" height="14" viewBox="0 0 28 28" aria-hidden="true"><ellipse cx="14" cy="14" rx="5.2" ry="11" fill="none" stroke="currentColor" stroke-width="2" transform="rotate(28 14 14)"/><path d="M10.2 6.8c3 4.6 4.6 9.4 7.6 14.4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>Сверка рейсов · версия <span id="app-ver"><!--ВЕРСИЯ-->14.10.2026 · f10d6a<!--/ВЕРСИЯ--></span></footer>
 </main>
 
 <div class="modal" id="report" role="dialog" aria-modal="true" aria-labelledby="report-title">
@@ -2643,6 +2643,20 @@ html.fx-lite #stage #stage-h1 em { animation-name: fxIntro; }   /* лёгкий 
 /* порядок С7: плашки — фильтр таблицы, поэтому вплотную к ней (одна группа); от остальных блоков — просторнее */
 #out > .tally + .result-bar { margin-top: 14px; }
 #out > .result-sheet + :is(.duo, .card2, .notice) { margin-top: 28px; }
+/* Н5: «Всё очищено · Вернуть» — карточка со значком возврата, полоска оставшихся 10 с, въезжает и тает (её снимает код через 10 с) */
+#undo-clear { display: flex; align-items: center; gap: 12px; position: relative; overflow: hidden; padding: 14px 16px 16px; border-radius: var(--r-l); background: var(--sheet); border: 1px solid var(--rule-strong); box-shadow: var(--shadow-1); color: var(--ink); font-weight: 500;
+  animation: fxRise var(--t-spring) var(--spring) both, fxUndoOut .4s var(--ease-out) 9.6s forwards; }
+#undo-clear::before { content: ""; width: 18px; height: 18px; flex: none; background: var(--sea); -webkit-mask: url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2024%2024%27%20fill%3D%27none%27%20stroke%3D%27black%27%20stroke-width%3D%271.9%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%3E%3Cpath%20d%3D%27M9%2014%204.5%209.5%209%205M4.5%209.5H14a5.5%205.5%200%200%201%200%2011h-3%27%2F%3E%3C%2Fsvg%3E") center / contain no-repeat; mask: url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2024%2024%27%20fill%3D%27none%27%20stroke%3D%27black%27%20stroke-width%3D%271.9%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%3E%3Cpath%20d%3D%27M9%2014%204.5%209.5%209%205M4.5%209.5H14a5.5%205.5%200%200%201%200%2011h-3%27%2F%3E%3C%2Fsvg%3E") center / contain no-repeat; }
+#undo-clear::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 3px; background: var(--sea); opacity: .45; transform-origin: 0 50%; animation: fxUndoBar 10s linear both; }
+#undo-clear-btn { margin-left: auto; }
+@keyframes fxUndoBar { to { transform: scaleX(0); } }
+@keyframes fxUndoOut { to { opacity: 0; transform: translateY(-6px); } }
+/* Н8: переключатель цен в ряду кнопок итога — той же высоты и формы, что кнопки рядом */
+.r-ctas > label.fill-toggle { height: 40px; box-sizing: border-box; padding: 0 14px 0 10px; border-radius: var(--r-m); border: 1px solid var(--rule-strong); background: color-mix(in srgb, var(--sheet) 60%, transparent); color: var(--ink); font-size: 13.5px; font-weight: 500; white-space: nowrap; transition: background-color var(--t) var(--ease-out); }
+.r-ctas > label.fill-toggle:hover { background: color-mix(in srgb, var(--sheet) 90%, transparent); }
+/* Н4: ни одна машина не нашлась — курсив красным, свечение итога уже красное (доля «нет в порту» — вся) */
+.r-hero.fx-none .r-lede h2 em { color: var(--bad-ink); }
+.r-hero.fx-none .r-lede .eyebrow { color: var(--bad-ink); }
 </style>
 <script>
 // Движок пружин дизайн-слоя. Одни и те же кривые для CSS и для анимаций из кода.
@@ -3149,6 +3163,7 @@ addEventListener('DOMContentLoaded', () => { if (window.SverkaExtra) SverkaExtra
   function wreath(hero) {
     const h2 = hero.querySelector('.r-lede h2'), orb = hero.querySelector('.r-orb');
     if (!h2 || !orb || h2.querySelector('.n') || orb.querySelector('.fx-wreath')) return;   // «.n» — есть число проблем или цен: не наш случай
+    const okBar = document.querySelector('#out .tally button'); if (!okBar || parseFloat(okBar.style.getPropertyValue('--p')) < .999) return;   // венок — только когда совпали все (без числа и «ни одна не нашлась»)
     const s = document.createElementNS(NS, 'svg'); s.setAttribute('class', 'fx-wreath'); s.setAttribute('viewBox', '0 0 200 200'); s.setAttribute('aria-hidden', 'true');
     let k = 0, out = '';
     for (const side of [-1, 1]) {
@@ -3180,6 +3195,7 @@ SverkaFx.each('#out .r-hero', hero => {
   if (b.length < 5) return;
   hero.style.setProperty('--amb-ok', b[0].toFixed(3)); hero.style.setProperty('--amb-warn', Math.min(1, b[1] + b[2] + b[3]).toFixed(3)); hero.style.setProperty('--amb-bad', b[4].toFixed(3));
   hero.classList.add('fx-amb');
+  hero.classList.toggle('fx-none', b[0] === 0 && !hero.querySelector('.r-lede h2 .n'));   // ни одной пары: совпало 0 и в заголовке нет числа — тон предупреждения (Н4)
 });
 
 // ---------- «Рейсы по дням»: столбик под курсором в фокусе, остальные притухают; подсказка — стеклянная карточка ----------
@@ -3499,14 +3515,27 @@ SverkaFx.scene = (() => {
       const cy = (r.top + r.bottom) / 2;
       return { x: Math.max(r.left, c.left), w: Math.min(r.right, c.right) - Math.max(r.left, c.left), cy: Math.min(bot - 3, Math.max(top + 3, cy)), hid: cy < top || cy > bot, ct: c.top, ch: c.height };
     };
-    const links = data.links.map(o => ({ a: anchor(o.a), b: anchor(o.b), k: o.k })).filter(o => o.a && o.b && !(o.a.hid && o.b.hid)).map(o => {
+    // Нить — только у пары, оба конца которой видны: дуга между окнами. Если пара разнесена (на настоящих реестрах
+    // это почти все: строка 56 порта ↔ строка 53 у вас), конец за краем прокрутки — не тянем нить к краю окна
+    // («все нити вниз», замечание владельца 14.10.2026), а рисуем короткий хвостик от видимой строки в сторону
+    // другого окна и вверх или вниз — туда, где пара; хвостиков не больше 8, равномерно по окну.
+    const ends = data.links.map(o => ({ a: anchor(o.a), b: anchor(o.b), k: o.k })).filter(o => o.a && o.b && !(o.a.hid && o.b.hid));
+    const full = ends.filter(o => !o.a.hid && !o.b.hid), part = ends.filter(o => o.a.hid !== o.b.hid);
+    const STUBS = 8, stubs = part.length <= STUBS ? part : Array.from({ length: STUBS }, (_, i) => part[Math.floor(i * part.length / STUBS)]);
+    const stubOf = o => {
+      const v = o.a.hid ? o.b : o.a, hidE = o.a.hid ? o.a : o.b, port = !o.a.hid;
+      const stacked = o.b.ct > o.a.ct + o.a.ch - 10, hx = port || stacked ? 1 : -1, dy = Math.sign(hidE.cy - v.cy) || 1;
+      const p0 = { x: port || stacked ? v.x + v.w - 34 : v.x + 34, y: v.cy }, p3 = { x: p0.x + hx * 92, y: p0.y + dy * 44 };
+      return { k: o.k, p0, p3, c1: { x: p0.x + hx * 60, y: p0.y }, c2: { x: p3.x - hx * 6, y: p3.y - dy * 26 }, t: at(v) + .05, fa: false, fb: true, stub: true };
+    };
+    const links = full.map(o => {
       const stacked = o.b.ct > o.a.ct + o.a.ch - 10;   // окна друг под другом (узкий экран)
       // концы — внутри таблиц, в 34 px от края: между окнами всего ~18 px, нить должна быть видна дугой
       const p0 = { x: o.a.x + o.a.w - 34, y: o.a.cy }, p3 = stacked ? { x: o.b.x + o.b.w - 34, y: o.b.cy } : { x: o.b.x + 34, y: o.b.cy };
       const bend = stacked ? Math.max(30, Math.min(110, innerWidth - 6 - p0.x)) : Math.max(50, (p3.x - p0.x) * .5);
       const t = Math.max(o.a.hid ? 0 : at(o.a), o.b.hid ? 0 : at(o.b)) + .05;
       return { k: o.k, p0, p3, c1: { x: p0.x + bend, y: p0.y }, c2: { x: p3.x + (stacked ? bend : -bend), y: p3.y }, t, fa: o.a.hid, fb: o.b.hid };
-    });
+    }).concat(stubs.map(stubOf));
     const clips = [...new Set(rows.map(o => o.b.clip))].map(el => el.getBoundingClientRect());
     if (!cv) { cv = document.createElement('canvas'); cv.className = 'fx-scene'; cv.setAttribute('aria-hidden', 'true'); document.body.appendChild(cv); ctx = cv.getContext('2d'); }
     const D = Math.min(2, devicePixelRatio || 1), W = innerWidth, H = innerHeight;
@@ -3543,10 +3572,10 @@ SverkaFx.scene = (() => {
       for (const L of links) {
         const s = t - L.t; if (s <= 0) continue;
         const p = ease(Math.min(1, s / DRAW)), c = col(L.k);
-        if (p >= 1 && !L.ticked) { L.ticked = true; if (data.tick && ticks < 14 && t - lastTick > .045) { ticks++; lastTick = t; data.tick(); } }
+        if (p >= 1 && !L.ticked) { L.ticked = true; if (!L.stub && data.tick && ticks < 14 && t - lastTick > .045) { ticks++; lastTick = t; data.tick(); } }
         if (t >= END && !L.burst) {   // нить рассыпается зерном
           L.burst = true;
-          for (let i = 0; i < 9; i++) { const q = bez(L, (i + Math.random()) / 9); grains.push({ x: q.x, y: q.y, vx: (Math.random() - .5) * 120, vy: -40 - Math.random() * 120, r: Math.random() * 6, vr: (Math.random() - .5) * 8, c, t: t }); }
+          for (let i = 0, nb = L.stub ? 4 : 9; i < nb; i++) { const q = bez(L, (i + Math.random()) / nb * (L.stub ? .7 : 1)); grains.push({ x: q.x, y: q.y, vx: (Math.random() - .5) * 120, vy: -40 - Math.random() * 120, r: Math.random() * 6, vr: (Math.random() - .5) * 8, c, t: t }); }
         }
         ctx.strokeStyle = c; ctx.shadowColor = c; ctx.shadowBlur = 10; ctx.lineWidth = 1.6;
         const n = 24, fade = u => (L.fa ? Math.min(1, u / .45) : 1) * (L.fb ? Math.min(1, (1 - u) / .45) : 1);
