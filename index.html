@@ -580,7 +580,7 @@ tr.just .n-ok { display: inline-block; animation: popIn .45s cubic-bezier(.3, 1.
   </section>
 
   <div id="out"></div>
-  <footer class="app-foot"><svg width="14" height="14" viewBox="0 0 28 28" aria-hidden="true"><ellipse cx="14" cy="14" rx="5.2" ry="11" fill="none" stroke="currentColor" stroke-width="2" transform="rotate(28 14 14)"/><path d="M10.2 6.8c3 4.6 4.6 9.4 7.6 14.4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>Сверка рейсов · версия <span id="app-ver"><!--ВЕРСИЯ-->14.10.2026 · 180f23<!--/ВЕРСИЯ--></span></footer>
+  <footer class="app-foot"><svg width="14" height="14" viewBox="0 0 28 28" aria-hidden="true"><ellipse cx="14" cy="14" rx="5.2" ry="11" fill="none" stroke="currentColor" stroke-width="2" transform="rotate(28 14 14)"/><path d="M10.2 6.8c3 4.6 4.6 9.4 7.6 14.4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>Сверка рейсов · версия <span id="app-ver"><!--ВЕРСИЯ-->14.10.2026 · 3648d2<!--/ВЕРСИЯ--></span></footer>
 </main>
 
 <div class="modal" id="report" role="dialog" aria-modal="true" aria-labelledby="report-title">
@@ -2659,6 +2659,8 @@ html.fx-lite #stage #stage-h1 em { animation-name: fxIntro; }   /* лёгкий 
 /* Н4: ни одна машина не нашлась — курсив красным, свечение итога уже красное (доля «нет в порту» — вся) */
 .r-hero.fx-none .r-lede h2 em { color: var(--bad-ink); }
 .r-hero.fx-none .r-lede .eyebrow { color: var(--bad-ink); }
+/* «Пары»: из чего складывается «у вас без пары» — как на плашках (Н20) */
+.pv-head .pv-of { font-style: normal; color: var(--ink-3); margin-left: 4px; }
 </style>
 <script>
 // Движок пружин дизайн-слоя. Одни и те же кривые для CSS и для анимаций из кода.
@@ -3148,7 +3150,7 @@ addEventListener('DOMContentLoaded', () => { if (window.SverkaExtra) SverkaExtra
       + grp('В порту, пары у вас нет', portAlone.length) + portAlone.map(p => tr(p, null, 'missing', ' alone')).join('');
     let H = 1;
     const heads = side => cols.map(([k, name]) => `<th data-hc="${H++}"${k === 'weight' || k === 'price' || k === 'sum' ? ' class="n"' : ''}>${name}</th>`).join('');
-    view.innerHTML = `<div class="pv fresh"><div class="pv-head"><span>Пар <b>${pairs.length}</b></span><span>у вас без пары <b>${mineAlone.length}</b></span><span>в порту без пары <b>${portAlone.length}</b></span><span class="pv-hint">строка — пара: слева порт, справа ваша таблица; отличия подсвечены</span></div>
+    view.innerHTML = `<div class="pv fresh"><div class="pv-head"><span>Пар <b>${pairs.length}</b></span><span>у вас без пары <b>${mineAlone.length}</b>${(() => { const c = s => mineAlone.filter(m => m.status === s).length, d = c('dup'), sp = c('split'); return d || sp ? ' <i class="pv-of">нет в порту ' + (mineAlone.length - d - sp) + (d ? ' · повтор ' + d : '') + (sp ? ' · перегруз ' + sp : '') + '</i>' : ''; })()}</span><span>в порту без пары <b>${portAlone.length}</b></span><span class="pv-hint">строка — пара: слева порт, справа ваша таблица; отличия подсвечены</span></div>
       <div class="pv-scroll"><table class="pv-t grid cells" id="res-grid"><thead><tr><th colspan="${cols.length + 1}" class="grp-port">Порт</th><th></th><th colspan="${cols.length + 1}" class="grp-mine">У вас</th></tr>
       <tr><th data-hc="0">№</th>${heads('port')}<th></th>${heads('mine')}<th data-hc="${cols.length * 2 + 1}">№</th></tr></thead><tbody>${rows}</tbody></table></div></div>`;
     // выделение, стрелки и «Скопировать с цветом» — общие (window.SverkaGrid, основная): модель тех же ячеек
@@ -3481,18 +3483,19 @@ SverkaFx.scene = (() => {
       const c = p.cloneNode(true); c.removeAttribute('id'); c.querySelectorAll('[id]').forEach(e => e.removeAttribute('id'));
       c.setAttribute('aria-hidden', 'true'); c.classList.add('fx-fly');
       Object.assign(c.style, { left: rc.left + 'px', top: rc.top + 'px', width: rc.width + 'px', height: rc.height + 'px' });
-      document.body.appendChild(c); p.style.visibility = 'hidden';
+      // настоящее окно не прячем (Н19: страница уже едет к итогу, и пустое место от него выглядело тёмной полосой) — оно притухает
+      document.body.appendChild(c); p.style.transition = 'opacity .25s ease-out'; p.style.opacity = '.18';
       const sx = tx - (rc.left + rc.width / 2), sy = ty - (rc.top + rc.height / 2);
       const a = c.animate([
         { transform: 'none', opacity: 1, borderRadius: '20px' },
         { opacity: 1, offset: .5 },
         { transform: `translate(${sx}px, ${sy}px) scale(${size / rc.width}, ${size / rc.height}) rotate(${k ? 8 : -8}deg)`, opacity: 0, borderRadius: '50%' }
       ], { duration: 950, delay: k * 60, easing: SverkaFx.ease('--spring-soft'), fill: 'forwards' });
-      let gone = false; const back = () => { if (gone) return; gone = true; c.remove(); p.style.visibility = ''; };
+      let gone = false; const back = () => { if (gone) return; gone = true; c.remove(); p.style.opacity = ''; setTimeout(() => { p.style.transition = ''; }, 300); };
       a.onfinish = back; setTimeout(back, 1800);
     });
   }
-  const SCAN = .42, DRAW = .26, END = .72, TAIL = .9;   // секунды: луч, нить, рассыпание, хвост зерна (14.10: короче — итог на экране ≤ 2 с)
+  const SCAN = .42, DRAW = .26, END = .9, TAIL = .9;   // секунды: луч, нить, рассыпание, хвост зерна (14.10: итог на экране ≤ 2 с, дуги видны ~0,5 с — Н19)
   let cv = null, ctx = null, raf = 0;
   const ease = p => 1 - Math.pow(1 - p, 3);
   function box(tr) {
