@@ -527,6 +527,7 @@ tr.just .n-ok { display: inline-block; animation: popIn .45s cubic-bezier(.3, 1.
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round" aria-hidden="true"><path d="M21.5 3.5 2.8 10.7c-.9.4-.9 1.6 0 1.9l4.6 1.5 1.8 5.6c.3.8 1.3 1 1.9.4l2.6-2.5 4.6 3.4c.7.5 1.7.1 1.9-.7l3-15.4c.2-1-.8-1.8-1.7-1.4Z"/></svg>Бот<span class="live" aria-hidden="true"></span>
       </a>
       <button class="icon-btn snd-btn" id="sndBtn"></button>
+      <button class="icon-btn" id="arkadiy-toggle" title="Аркадий: скрыть" aria-label="Аркадий: скрыть" aria-pressed="true" hidden><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 17.5h6c4.2 0 7.3-2.9 7.3-7.2l2.7-1.6-2.9-.8c-.6-1.4-1.9-2.4-3.6-2.4-2.6 0-4.2 2-5 4.6-.6 1.9-1.6 3-3.4 3.3"/><path d="M9 17.5 8 20.5M12 17.2l.6 3.3"/><circle cx="14.2" cy="8.6" r=".5" fill="currentColor"/></svg></button>
       <button class="icon-btn" id="btn-help" title="Как это работает" aria-label="Как это работает"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.6 9.3a2.5 2.5 0 0 1 4.8.9c0 1.7-2.4 2.2-2.4 3.8"/><path d="M12 17.2h.01"/></svg></button>
       <button class="icon-btn" id="btn-theme" title="Тёмная или светлая тема" aria-label="Переключить тему"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.5 14.5A8.5 8.5 0 1 1 9.5 3.5a7 7 0 0 0 11 11Z"/></svg></button>
     </div>
@@ -579,7 +580,7 @@ tr.just .n-ok { display: inline-block; animation: popIn .45s cubic-bezier(.3, 1.
   </section>
 
   <div id="out"></div>
-  <footer class="app-foot"><svg width="14" height="14" viewBox="0 0 28 28" aria-hidden="true"><ellipse cx="14" cy="14" rx="5.2" ry="11" fill="none" stroke="currentColor" stroke-width="2" transform="rotate(28 14 14)"/><path d="M10.2 6.8c3 4.6 4.6 9.4 7.6 14.4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>Сверка рейсов · версия <span id="app-ver"><!--ВЕРСИЯ-->14.10.2026 · ee33cc<!--/ВЕРСИЯ--></span></footer>
+  <footer class="app-foot"><svg width="14" height="14" viewBox="0 0 28 28" aria-hidden="true"><ellipse cx="14" cy="14" rx="5.2" ry="11" fill="none" stroke="currentColor" stroke-width="2" transform="rotate(28 14 14)"/><path d="M10.2 6.8c3 4.6 4.6 9.4 7.6 14.4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>Сверка рейсов · версия <span id="app-ver"><!--ВЕРСИЯ-->14.10.2026 · 0a5800<!--/ВЕРСИЯ--></span></footer>
 </main>
 
 <div class="modal" id="report" role="dialog" aria-modal="true" aria-labelledby="report-title">
@@ -2542,10 +2543,49 @@ html.fx-io #out.fresh .tally:not(.fx-seen) button::after { animation-play-state:
 .legend > span:nth-child(3) i { --lg-i: var(--i-miss); --lg-ink: var(--bad-ink); } .legend > span:nth-child(4) i { --lg-i: var(--i-fill); --lg-ink: var(--fill-ink); }
 /* тёмная тема: белые номера не слепят — приглушены, как картинки в тёмном режиме Apple (остаются белыми на вид) */
 :root[data-theme="dark"] .plate { filter: brightness(.84) contrast(1.06); }
+/* лёгкий режим (html.fx-lite, С3): без размытия стекла, светового пятна за курсором и бумажной фактуры — цвета и смысл те же */
+html.fx-lite * { -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
+html.fx-lite .top, html.fx-lite .fx-tip, html.fx-lite #res-grid thead th { background: var(--sheet) !important; }
+html.fx-lite #res-grid thead th { background: var(--head) !important; }
+html.fx-lite::after, html.fx-lite :is(.card2, .r-hero, .tally, .totals)::before, html.fx-lite :is(.card2, .r-hero, .tally, .totals, .pane)::after { display: none !important; }
+/* первое открытие: главный экран собирается за ~0,8 с — подпись, заголовок (слово, потом курсив), текст, окна вставки, кнопки;
+   в конце сухогруз и зерновоз «заводятся» (один раз качнутся). Блок не перерисовывается — играет при открытии и когда экран вставки возвращается */
+#stage :is(#stage-eyebrow, #stage-h1, #stage-p, .hello, .pane, .actions) { animation: fxIntro .8s var(--spring-soft) both; }
+#stage .hello { animation-delay: .26s; }
+html.fx-lite #stage #stage-h1 em { animation-name: fxIntro; }   /* лёгкий режим: без размытия */
+#stage #stage-eyebrow { animation-delay: .02s; } #stage #stage-h1 { animation-delay: .08s; } #stage #stage-p { animation-delay: .2s; }
+#stage .pane.port { animation-delay: .28s; } #stage .pane.mine { animation-delay: .36s; } #stage .actions { animation-delay: .46s; }
+#stage #stage-h1 em { display: inline-block; animation: fxIntroEm .9s var(--spring-soft) .18s both; }
+@keyframes fxIntro { from { opacity: 0; transform: translateY(18px); } 45% { opacity: 1; } }
+@keyframes fxIntroEm { from { opacity: 0; transform: translateY(14px) rotate(-1.5deg); filter: blur(6px); } 50% { opacity: 1; filter: none; } }
+#stage .pane.port .empty > div::before { transform-origin: 50% 80%; animation: fxBob 1.5s ease-in-out .9s 1; }
+#stage .pane.mine .empty > div::before { animation: fxIdle .2s ease-in-out 1s 6 alternate; }
+#stage .pane:is(:hover, :focus-within) .empty > div::before { animation-delay: 0s; animation-iteration-count: infinite; }
+#stage .pane.port:is(:hover, :focus-within) .empty > div::before { animation-duration: 2.6s; }
+/* кнопка «Аркадий»: подсказка как у звука (из aria-label); скрыт — значок бледнее и перечёркнут, черта прорисовывается */
+#arkadiy-toggle { position: relative; }
+#arkadiy-toggle::after { content: attr(aria-label); position: absolute; top: calc(100% + 8px); right: 0; white-space: nowrap; font: 500 12px/1.2 -apple-system, BlinkMacSystemFont, sans-serif; background: var(--ink); color: var(--paper); padding: 5px 9px; border-radius: 8px; opacity: 0; transform: translateY(-4px); transition: opacity .2s, transform .2s; pointer-events: none; z-index: 5; }
+#arkadiy-toggle:hover::after, #arkadiy-toggle:focus-visible::after { opacity: 1; transform: none; }
+#arkadiy-toggle svg { transition: opacity var(--t) var(--ease-out); }
+#arkadiy-toggle::before { content: ""; position: absolute; left: 50%; top: 50%; width: 22px; height: 1.8px; margin: -.9px 0 0 -11px; border-radius: 1px; background: currentColor; transform: rotate(-45deg) scaleX(0); transition: transform var(--t-spring) var(--spring); pointer-events: none; }
+#arkadiy-toggle[aria-pressed="false"] svg { opacity: .42; }
+#arkadiy-toggle[aria-pressed="false"]::before { transform: rotate(-45deg) scaleX(1); }
+#arkadiy-toggle[aria-pressed="false"] { color: var(--ink-2); }
+/* телефон: шаги — три равных сегмента в одну строку (раньше «Впишите» уходил на вторую строку и шапка занимала треть экрана) */
+@media (max-width: 520px) {
+  .top .steps { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; width: 100%; flex-wrap: nowrap; }
+  .top .steps li { justify-content: center; gap: 6px; height: 36px; padding: 0 6px; font-size: 12.5px; min-width: 0; }
+  .top .steps li > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .top .steps li i { width: 20px; height: 20px; flex: none; font-size: 11px; }
+}
+/* запятая после значка клавиш не уходит в начало следующей строки */
+.kb-nw { white-space: nowrap; }
+/* телефон: «Вставить / Очистить» в одной строке с названием окна (у «Моей таблицы» уходили вниз) */
+@media (max-width: 520px) { .pane-head { flex-wrap: nowrap; gap: 6px; } .pane-head .pane-name { min-width: 0; white-space: nowrap; } .pane-head .btn-sm { padding: 0 8px; } }
 </style>
 <script>
 // Движок пружин дизайн-слоя. Одни и те же кривые для CSS и для анимаций из кода.
-const SverkaFx = (() => {
+const SverkaFx = window.SverkaFx = (() => {
   'use strict';
   const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
   const fine = matchMedia('(hover: hover) and (pointer: fine)').matches;   // мышь или трекпад, не палец
@@ -2624,7 +2664,17 @@ const SverkaFx = (() => {
     }
     return true;
   }
-  return { reduce, fine, ease, step, each, changed, odometer };
+  // Лёгкий режим (С3, 14.10.2026): на слабой машине меньше зерна, живое покачивание короче, без размытия стекла и
+  // светового пятна. Признак — ядер ≤ 4 или памяти ≤ 4 ГБ (где браузер это сообщает), ?lite в адресе — или медленные
+  // первые кадры после загрузки (медиана > 24 мс): тогда класс html.fx-lite ставится позже, зёрна уже не уменьшить —
+  // но покачивание и стекло выключаются сразу. Сверка, цены и копирование от этого не зависят.
+  let lite = (navigator.hardwareConcurrency || 8) <= 4 || (navigator.deviceMemory || 8) <= 4 || /[?&]lite\b/.test(location.search);
+  const liteOn = () => { if (lite && document.documentElement.classList.contains('fx-lite')) return; lite = true; document.documentElement.classList.add('fx-lite'); document.dispatchEvent(new Event('fx-lite')); };
+  if (lite) liteOn();
+  else if (!reduce) addEventListener('load', () => { const ts = []; let last = 0;
+    const f = t => { if (last) ts.push(t - last); last = t; if (ts.length < 40) requestAnimationFrame(f); else { ts.sort((a, b) => a - b); if (ts[20] > 24) liteOn(); } };
+    setTimeout(() => requestAnimationFrame(f), 600); });
+  return { reduce, fine, ease, step, each, changed, odometer, get lite() { return lite; } };
 })();
 
 // ---------- цифры крупных чисел шрифтом Newsreader: только по ссылке, через Extra; не загрузился или открыто файлом — системный ----------
@@ -3433,6 +3483,47 @@ SverkaFx.changed('.btn', el => {
     };
   })();
   window.SverkaExtra = Extra;
+  // События для живых украшений (персонаж Аркадий, 14.10.2026): страница только сообщает, украшение только слушает —
+  // ничего в сверке не меняет; ошибка в слушателе страницу не роняет. window.SverkaEvents.on(имя, fn) → отписка.
+  // pasted {which, rows} · reconciled {rows, ok, issues, allOk} · numbersSent {n, undo} · copied {lines} · tab {tab} ·
+  // cleared · idle {sec} (нет действий 60 с) · active (снова действия после idle)
+  const Events = (() => {
+    const hs = {};
+    return {
+      on(n, f) { (hs[n] = hs[n] || []).push(f); return () => { hs[n] = (hs[n] || []).filter(x => x !== f); }; },
+      emit(n, d) { (hs[n] || []).slice().forEach(f => { try { f(d || {}); } catch (e) { /* украшение не роняет страницу */ } }); },
+    };
+  })();
+  // rects() — только чтение, координаты окна (как getBoundingClientRect): avoid — куда не садиться и что не закрывать
+  // (шапка, окна вставки, кнопки, итог и таблицы), targets.verify — «Сверить», targets.lastRow — строка, вписанная
+  // последней в Numbers (или null). sound() → {mode: 'on'|'night'|'off', muted} — muted уже учитывает ночь 22–7.
+  function pageRects() {
+    const vis = el => { if (!el || el.hidden) return null; const r = el.getBoundingClientRect(); return r.width && r.height ? r : null; };
+    // заголовок «Вставьте две таблицы» — по строкам текста (кусочки строки склеены в одну рамку), а не весь блок
+    const lines = el => {
+      const rg = document.createRange(); rg.selectNodeContents(el);
+      const out = [];
+      for (const r of rg.getClientRects()) {
+        if (!r.width || !r.height) continue;
+        const same = out.find(o => r.top < o.bottom - 2 && r.bottom > o.top + 2);
+        if (same) { same.left = Math.min(same.left, r.left); same.right = Math.max(same.right, r.right); same.top = Math.min(same.top, r.top); same.bottom = Math.max(same.bottom, r.bottom); }
+        else out.push({ left: r.left, right: r.right, top: r.top, bottom: r.bottom });
+      }
+      return out.map(o => new DOMRect(o.left, o.top, o.right - o.left, o.bottom - o.top));
+    };
+    const head = [...document.querySelectorAll('.stage-head > *')].filter(el => !el.hidden && vis(el)).flatMap(lines);
+    const avoid = [...document.querySelectorAll('header, #hello, .pane, .actions, #out > *')].map(vis).filter(Boolean).concat(head);
+    let lastRow = null;
+    if (S.nlast && S.nlast.length) lastRow = vis(document.querySelector(`#res-grid tr[data-nkey="${nKey(S.nlast[S.nlast.length - 1])}"]`));
+    return { avoid, targets: { verify: vis($('#btn-run')), lastRow } };
+  }
+  window.SverkaEvents = { on: Events.on, rects: () => { try { return pageRects(); } catch (e) { return { avoid: [], targets: { verify: null, lastRow: null } }; } }, sound: () => Snd.state() };
+  (() => {   // простой: 60 с без мыши и клавиш — idle, потом первое действие — active
+    let t = null, idle = false;
+    const kick = () => { if (idle) { idle = false; Events.emit('active'); } clearTimeout(t); t = setTimeout(() => { idle = true; Events.emit('idle', { sec: 60 }); }, 60000); };
+    ['mousemove', 'mousedown', 'keydown', 'wheel', 'touchstart'].forEach(ev => addEventListener(ev, kick, { passive: true }));
+    kick();
+  })();
   // по ссылке — работа без интернета после первого открытия (сайт/sw.js: страница сначала из сети, без сети — сохранённая)
   if (Extra.on && 'serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => { /* без него — как раньше */ });   // для проверки из консоли: SverkaExtra.on, await SverkaExtra.js('extra/…')
   // Цвета для копирования в Excel/Numbers — стандартные светлые, от темы не зависят.
@@ -3486,6 +3577,7 @@ SverkaFx.changed('.btn', el => {
     return true;
   }
   function setText(which, text) {
+    setTimeout(() => Events.emit('pasted', { which, rows: String(text || '').split('\n').filter(l => l.trim()).length }), 0);
     const fresh = !!(text && text.trim() && text !== S.text[which]);
     S.text[which] = text || '';
     S.overrides[which] = null; S.confirmedNoSwap = false; S.marked[which].clear(); S.zedits = {}; S.done3 = false; S.todo = {};
@@ -3592,7 +3684,7 @@ SverkaFx.changed('.btn', el => {
     const pane = $('#pane-' + which), body = pane.querySelector('.sheet-body'), wrap = pane.querySelector('.sheet-wrap'), read = pane.querySelector('.read');
     if (!S.text[which].trim()) {
       wrap.classList.remove('has-data');
-      body.innerHTML = `<div class="empty"><div><b>Вставьте строки ${which === 'port' ? 'из таблицы порта' : 'из своей таблицы'}</b>Выделите их в ${which === 'port' ? 'Excel' : 'Numbers'}, нажмите <kbd>⌘C</kbd>, затем щёлкните здесь и <kbd>⌘V</kbd></div></div>`;
+      body.innerHTML = `<div class="empty"><div><b>Вставьте строки ${which === 'port' ? 'из таблицы порта' : 'из своей таблицы'}</b>Выделите их в ${which === 'port' ? 'Excel' : 'Numbers'}, нажмите <span class="kb-nw"><kbd>⌘C</kbd>,</span> затем щёлкните здесь и <kbd>⌘V</kbd></div></div>`;
       read.textContent = ''; $('#found-' + which).innerHTML = '';
       return;
     }
@@ -3628,6 +3720,7 @@ SverkaFx.changed('.btn', el => {
     if (S.res) run();
   };
   $('#btn-clear').onclick = () => {
+    Events.emit('cleared');
     S.text.port = S.text.mine = ''; S.overrides.port = S.overrides.mine = null; S.res = null; S.filter = null;
     S.marked.port.clear(); S.marked.mine.clear(); S.confirmedNoSwap = false;
     S.zedits = {}; S.todo = {};
@@ -3659,6 +3752,7 @@ SverkaFx.changed('.btn', el => {
       return;
     }
     S.res = res; S.nsent = new Set(); S.nlast = null;
+    setTimeout(() => Events.emit('reconciled', { rows: res.summary.mine.read, ok: res.summary.mine.ok, issues: res.issues.length, allOk: !res.issues.length }), 0);
     try { const past = store.get(HKEY) || []; S.hist = Sverka.historyCheck(res, past, undefined, { client: clientName() }); store.set(HKEY, Sverka.historySave(past, S.hist)); fillClients(); } catch (e) { S.hist = null; }
     // один раз на пару таблиц: вставка сама пересверяет, потом «Сверить» — второй прогон уже «та же сверка»
     const regKey = S.text.port + '\n\u0001\n' + S.text.mine;
@@ -3807,7 +3901,7 @@ SverkaFx.changed('.btn', el => {
       if (S.filter) S.tab = t.tab;
       renderResults();
     });
-    out.querySelectorAll('[data-tab]').forEach(b => b.onclick = () => { Snd.play('pop'); S.tab = b.dataset.tab; if (S.filter && S.filter.tab !== S.tab) S.filter = null; renderResults(); });
+    out.querySelectorAll('[data-tab]').forEach(b => b.onclick = () => { Snd.play('pop'); S.tab = b.dataset.tab; Events.emit('tab', { tab: S.tab }); if (S.filter && S.filter.tab !== S.tab) S.filter = null; renderResults(); });
     out.querySelectorAll('[data-unfilter]').forEach(b => b.onclick = () => { S.filter = null; renderResults(); });
     out.querySelectorAll('td.pick').forEach(td => td.onclick = () => { if (td.dataset.line !== '') toggleMark(td.dataset.w, +td.dataset.line); });
     $('#btn-copy').onclick = () => (S.sel ? copySelection() : copyTab());
@@ -4035,7 +4129,8 @@ SverkaFx.changed('.btn', el => {
 
   // ---------- копирование в Excel / Numbers ----------
   function copyRich(html, text) {
-    S.lastCopy = String(text).replace(/\r/g, '');   // вставка этого же текста в окно — не новая таблица (selfPaste)
+    S.lastCopy = String(text).replace(/\r/g, '');
+    setTimeout(() => Events.emit('copied', { lines: S.lastCopy.split('\n').length }), 0);   // вставка этого же текста в окно — не новая таблица (selfPaste)
     let ok = false;
     const onCopy = e => { e.clipboardData.setData('text/html', html); e.clipboardData.setData('text/plain', text); e.preventDefault(); ok = true; };
     document.addEventListener('copy', onCopy);
@@ -4533,10 +4628,42 @@ SverkaFx.changed('.btn', el => {
       b.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICON[mode]}</svg><span class="tip">${TEXT[mode]}</span>`;
       b.setAttribute('aria-label', TEXT[mode] + '. Нажмите, чтобы сменить');
     }
-    function cycle() { mode = MODES[(MODES.indexOf(mode) + 1) % 3]; try { localStorage.setItem('sverka.sound', mode); } catch (e) {} paintBtn(); toast(TEXT[mode] + (mode === 'night' && night() ? ' — сейчас тихо' : '')); play('pop'); }
-    return { play, cycle, paintBtn };
+    const state = () => ({ mode, muted: muted() });
+    function cycle() { mode = MODES[(MODES.indexOf(mode) + 1) % 3]; try { localStorage.setItem('sverka.sound', mode); } catch (e) {} paintBtn(); Events.emit('soundMode', state()); toast(TEXT[mode] + (mode === 'night' && night() ? ' — сейчас тихо' : '')); play('pop'); }
+    return { play, cycle, paintBtn, state };
   })();
   $('#sndBtn').addEventListener('click', () => Snd.cycle());
+
+  // ================= голубь Аркадий (отдел «Персонаж», 14.10.2026; правила — ОТДЕЛЫ.md) =================
+  // Только по ссылке (файлом из бота — без голубя), грузится в простое после загрузки страницы; со страницей связан
+  // только через SverkaEvents. Прячется кнопкой в шапке — запоминается. V — отпечаток файлов голубя (сборка):
+  // новая версия голубя — новый адрес, сервис-воркер не подсунет старую.
+  const Pigeon = (() => {
+    const V = /*АРКАДИЙ-V*/'283c180c'/*АРКАДИЙ-V-КОНЕЦ*/;
+    const KEY = 'sverka.arkadiy', btn = $('#arkadiy-toggle');
+    let want = true; try { want = localStorage.getItem(KEY) !== 'off'; } catch (e) {}
+    let inst = null, busy = false;
+    async function start() {
+      if (!Extra.on || !V || inst || busy || !want) return;
+      busy = true;
+      try {
+        const m = await Extra.module('extra/arkadiy/arkadiy.js?v=' + V);
+        if (m && m.start && want) inst = await m.start({ events: window.SverkaEvents, soundMode: Snd.state().mode, reduced: matchMedia('(prefers-reduced-motion: reduce)').matches });
+      } catch (e) { inst = null; }
+      busy = false;
+      if (!want) stop();
+    }
+    function stop() { try { inst && inst.stop(); } catch (e) {} inst = null; }
+    function paint() { const t = 'Аркадий: ' + (want ? 'скрыть' : 'показать'); btn.removeAttribute('title'); btn.setAttribute('aria-label', t); /* подсказка — из aria-label (дизайн-слой, как у звука) */ btn.setAttribute('aria-pressed', String(want)); }
+    if (btn && Extra.on && V) {
+      btn.hidden = false; paint();
+      btn.addEventListener('click', () => { want = !want; try { localStorage.setItem(KEY, want ? 'on' : 'off'); } catch (e) {} paint(); Snd.play('pop'); if (want) start(); else stop(); });
+    }
+    const later = () => (window.requestIdleCallback ? requestIdleCallback(start, { timeout: 3000 }) : setTimeout(start, 800));
+    if (document.readyState === 'complete') later(); else addEventListener('load', later, { once: true });
+    return { get on() { return !!inst; }, stats: () => (inst && inst.stats ? inst.stats() : null) };
+  })();
+  window.SverkaPigeon = Pigeon;   // для проверок: SverkaPigeon.on, SverkaPigeon.stats()
 
   // ================= движение (13.10.2026): зерно при вставке и сверке, отклик таблиц =================
   // Слой поверх страницы, сквозной для мыши; при «уменьшить движение» в системе ничего не летает.
@@ -4744,7 +4871,7 @@ SverkaFx.changed('.btn', el => {
     const easeOut = p => 1 - Math.pow(1 - p, 3), clock = () => performance.now() / 1000;
     function colors() { const cs = getComputedStyle(document.documentElement), g = k => cs.getPropertyValue(k).trim(); col = { ok: g('--ok-ink'), diff: g('--ch-diff'), dup: g('--ch-dup'), missing: g('--bad-ink'), fill: g('--fill-ink') }; }
     function build(n) {
-      const groups = KEYS.filter(k => n[k] > 0), total = groups.reduce((s, k) => s + n[k], 0) || 1, G = innerWidth < 640 ? 600 : 1000, gap = groups.length > 1 ? .06 : 0;
+      const groups = KEYS.filter(k => n[k] > 0), total = groups.reduce((s, k) => s + n[k], 0) || 1, G = typeof SverkaFx !== 'undefined' && SverkaFx.lite ? 420 : innerWidth < 640 ? 600 : 1000, gap = groups.length > 1 ? .06 : 0;
       const span = 2 * Math.PI - gap * groups.length; let a = -Math.PI / 2;
       grains = []; segs = [];
       for (const k of groups) {
@@ -4832,16 +4959,20 @@ SverkaFx.changed('.btn', el => {
       orbEl.addEventListener('pointerleave', e => { if (e.pointerType === 'mouse') ask(null); });
       orbEl.addEventListener('pointerdown', e => { if (e.pointerType === 'mouse') return; show(hit(e)); clearTimeout(timer); timer = setTimeout(() => show(null), 2600); });
     }
-    function frame() { raf = 0; if (!host || !host.isConnected || pend) return; draw(clock() - t0); if (!reduce && vis && !document.hidden) raf = requestAnimationFrame(frame); }
-    const kick = () => { if (!raf) raf = requestAnimationFrame(frame); };
+    // в покое засыпает (С3): зерно оседает (~3,5 с), потом вращение ещё IDLE секунд и стоп — последний кадр остаётся
+    let live = 0; const IDLE = () => (typeof SverkaFx !== 'undefined' && SverkaFx.lite ? 1.5 : 10);
+    function frame() { raf = 0; if (!host || !host.isConnected || pend) return; draw(clock() - t0); if (!reduce && vis && !document.hidden && clock() < live) raf = requestAnimationFrame(frame); }
+    const kick = sec => { live = Math.max(live, clock() + (sec ?? IDLE())); if (!raf) raf = requestAnimationFrame(frame); };
     // новая сверка: зерно летит в кольцо, когда кольцо показалось на экране (pend), а не пока страница едет к итогу
     let pend = false, onStart = null;
-    const begin = () => { if (!pend) return; pend = false; t0 = clock(); const f = onStart; onStart = null; if (f) f(); };
+    const begin = () => { if (!pend) return; pend = false; t0 = clock(); live = Math.max(live, t0 + 4 + IDLE()); const f = onStart; onStart = null; if (f) f(); };
     const io = 'IntersectionObserver' in window ? new IntersectionObserver(es => { vis = es[0].isIntersecting; if (vis) { begin(); kick(); } }, { rootMargin: '0px 0px -12% 0px' }) : null;
     const ro = 'ResizeObserver' in window ? new ResizeObserver(() => { measure(); kick(); }) : null;
     document.addEventListener('visibilitychange', kick);
     if (!reduce) addEventListener('pointermove', e => {
-      if (e.pointerType !== 'mouse' || !G || !G.ok || !orbEl || !orbEl.isConnected || !vis) return;
+      if (e.pointerType !== 'mouse' || !orbEl || !orbEl.isConnected || !vis) return;
+      if (host && host.isConnected) { const hr = host.getBoundingClientRect(); if (e.clientY > hr.top && e.clientY < hr.bottom && clock() > live - 1) kick(); }   // курсор над итогом — кольцо живёт
+      if (!G || !G.ok) return;
       const o = orbEl.getBoundingClientRect(), dx = (e.clientX - (o.left + o.width / 2)) / (innerWidth / 2), dy = (e.clientY - (o.top + o.height / 2)) / (innerHeight / 2);
       tgtY = Math.max(-1, Math.min(1, dx)) * .32; tgtX = .28 - Math.max(-1, Math.min(1, dy)) * .2;
     }, { passive: true });
@@ -4907,6 +5038,7 @@ SverkaFx.changed('.btn', el => {
     else toast('Не получилось положить правки в буфер — нажмите ещё раз');
   }
   function sentNumbers(list, undo) {
+    Events.emit('numbersSent', { n: list.length, undo: !!undo });
     S.nsent = S.nsent || new Set();
     list.forEach(e => (undo ? S.nsent.delete(nKey(e)) : S.nsent.add(nKey(e))));
     S.nlast = undo ? null : list.slice();
@@ -5148,11 +5280,12 @@ SverkaFx.changed('.btn', el => {
   const Field = (() => {
     const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
     const stage = $('#stage'), cv = $('#field'), ctx = cv.getContext('2d');
-    const N = innerWidth < 640 ? 260 : 560, rnd = (a, b) => a + Math.random() * (b - a), clock = () => performance.now() / 1000;
+    const LITE = typeof SverkaFx !== 'undefined' && SverkaFx.lite, IDLE = () => (typeof SverkaFx !== 'undefined' && SverkaFx.lite ? 1.5 : 10);
+    const N = LITE ? 180 : innerWidth < 640 ? 260 : 560, rnd = (a, b) => a + Math.random() * (b - a), clock = () => performance.now() / 1000;
     let W = 0, H = 0, DPR = 1, raf = 0, vis = true, col = {}, refill = 0;
     const rects = { port: null, mine: null }, grains = [];
     for (const src of ['port', 'mine']) for (let i = 0; i < N; i++) grains.push({ src, hx: Math.random(), hy: Math.random(), ph: rnd(0, 6.28), sz: rnd(.95, 1.55), side: rnd(-1, 1), mode: 'hidden', x: 0, y: 0, fx: 0, fy: 0, start: 0, dur: 1, appear: false, down: false });
-    const dust = Array.from({ length: innerWidth < 640 ? 30 : 70 }, () => ({ x: Math.random(), y: Math.random(), v: rnd(.006, .016), s: rnd(.5, 1.4), a: rnd(.06, .24), ph: rnd(0, 6.28) }));
+    const dust = Array.from({ length: LITE ? 0 : innerWidth < 640 ? 30 : 70 }, () => ({ x: Math.random(), y: Math.random(), v: rnd(.006, .016), s: rnd(.5, 1.4), a: rnd(.06, .24), ph: rnd(0, 6.28) }));
     function colors() { const cs = getComputedStyle(root), g = k => cs.getPropertyValue(k).trim(); col = { port: g('--sea'), mine: g('--wheat') }; }
     function measure() {
       const sr = stage.getBoundingClientRect(); DPR = Math.min(2, devicePixelRatio || 1); W = sr.width; H = sr.height;
@@ -5194,8 +5327,10 @@ SverkaFx.changed('.btn', el => {
       ctx.globalAlpha = 1;
     }
     let liveUntil = 0;
-    function frame() { raf = 0; draw(clock()); if (vis && !document.hidden && (!reduce || clock() < liveUntil)) raf = requestAnimationFrame(frame); }
-    const kick = (sec) => { liveUntil = Math.max(liveUntil, clock() + (sec || .2)); if (!raf) raf = requestAnimationFrame(frame); };
+    // в покое засыпает (С3): живёт, пока идёт движение, и ещё IDLE секунд покачивания; потом стоит последний кадр
+    function frame() { raf = 0; draw(clock()); if (vis && !document.hidden && clock() < liveUntil) raf = requestAnimationFrame(frame); }
+    const kick = (sec) => { liveUntil = Math.max(liveUntil, clock() + (sec || .2) + (reduce ? 0 : IDLE())); if (!raf) raf = requestAnimationFrame(frame); };
+    if (!reduce) stage.addEventListener('pointermove', () => { if (clock() > liveUntil - 1) kick(); }, { passive: true });
     const ro = new ResizeObserver(() => { measure(); kick(); });
     ro.observe(stage); ['port', 'mine'].forEach(s => ro.observe($('#pane-' + s)));
     if ('IntersectionObserver' in window) new IntersectionObserver(es => { vis = es[0].isIntersecting; if (vis) kick(); }).observe(stage);
