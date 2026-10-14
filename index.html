@@ -579,7 +579,7 @@ tr.just .n-ok { display: inline-block; animation: popIn .45s cubic-bezier(.3, 1.
   </section>
 
   <div id="out"></div>
-  <footer class="app-foot"><svg width="14" height="14" viewBox="0 0 28 28" aria-hidden="true"><ellipse cx="14" cy="14" rx="5.2" ry="11" fill="none" stroke="currentColor" stroke-width="2" transform="rotate(28 14 14)"/><path d="M10.2 6.8c3 4.6 4.6 9.4 7.6 14.4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>Сверка рейсов · версия <span id="app-ver"><!--ВЕРСИЯ-->14.10.2026 · 322472<!--/ВЕРСИЯ--></span></footer>
+  <footer class="app-foot"><svg width="14" height="14" viewBox="0 0 28 28" aria-hidden="true"><ellipse cx="14" cy="14" rx="5.2" ry="11" fill="none" stroke="currentColor" stroke-width="2" transform="rotate(28 14 14)"/><path d="M10.2 6.8c3 4.6 4.6 9.4 7.6 14.4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>Сверка рейсов · версия <span id="app-ver"><!--ВЕРСИЯ-->14.10.2026 · f8493c<!--/ВЕРСИЯ--></span></footer>
 </main>
 
 <div class="modal" id="report" role="dialog" aria-modal="true" aria-labelledby="report-title">
@@ -2518,15 +2518,17 @@ html.fx-io #out.fresh .tally:not(.fx-seen) button::after { animation-play-state:
 .btn-sm > svg.bi { margin-right: 5px; }
 .icon-btn > svg.bi { display: block; }
 /* подвал: тонкая черта, знак-зерно, номер версии — моноширинной капсулой */
-.app-foot { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 40px; padding-top: 16px; border-top: 1px solid var(--rule); color: var(--ink-3); font-size: 12px; }
-.app-foot > svg { flex: none; color: var(--ink-3); }
-.app-foot #app-ver { font: 500 11px/1 var(--mono); letter-spacing: .02em; padding: 4px 9px; border-radius: 999px; background: color-mix(in srgb, var(--ink) 6%, transparent); color: var(--ink-2); }
+.app-foot { display: block; margin-top: 40px; padding-top: 16px; border-top: 1px solid var(--rule); color: var(--ink-3); font-size: 12px; }
+.app-foot > svg { display: inline-block; vertical-align: -2px; margin-right: 8px; color: var(--ink-3); }   /* строкой, не flex: «Сверка рейсов · версия …» читается одной строкой (innerText) */
+.app-foot #app-ver { display: inline-block; margin-left: 2px; font: 500 11px/1 var(--mono); letter-spacing: .02em; padding: 4px 9px; border-radius: 999px; background: color-mix(in srgb, var(--ink) 6%, transparent); color: var(--ink-2); }
 /* легенда под окнами вставки — те же значки статусов на подложках, что в справке, вместо квадратиков */
 .legend > span { display: inline-flex; align-items: center; }
 .legend i { position: relative; width: 17px; height: 17px; border-radius: 5px; margin-right: 7px; vertical-align: -4px; }
 .legend i::after { content: ""; position: absolute; inset: 2.5px; background: var(--lg-ink, var(--ink-2)); -webkit-mask: var(--lg-i) center / contain no-repeat; mask: var(--lg-i) center / contain no-repeat; }
 .legend > span:nth-child(1) i { --lg-i: var(--i-ok); --lg-ink: var(--ok-ink); } .legend > span:nth-child(2) i { --lg-i: var(--i-diff); --lg-ink: var(--warn-ink); }
 .legend > span:nth-child(3) i { --lg-i: var(--i-miss); --lg-ink: var(--bad-ink); } .legend > span:nth-child(4) i { --lg-i: var(--i-fill); --lg-ink: var(--fill-ink); }
+/* тёмная тема: белые номера не слепят — приглушены, как картинки в тёмном режиме Apple (остаются белыми на вид) */
+:root[data-theme="dark"] .plate { filter: brightness(.84) contrast(1.06); }
 </style>
 <script>
 // Движок пружин дизайн-слоя. Одни и те же кривые для CSS и для анимаций из кода.
