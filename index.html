@@ -580,7 +580,7 @@ tr.just .n-ok { display: inline-block; animation: popIn .45s cubic-bezier(.3, 1.
   </section>
 
   <div id="out"></div>
-  <footer class="app-foot"><svg width="14" height="14" viewBox="0 0 28 28" aria-hidden="true"><ellipse cx="14" cy="14" rx="5.2" ry="11" fill="none" stroke="currentColor" stroke-width="2" transform="rotate(28 14 14)"/><path d="M10.2 6.8c3 4.6 4.6 9.4 7.6 14.4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>Сверка рейсов · версия <span id="app-ver"><!--ВЕРСИЯ-->14.10.2026 · 0a5800<!--/ВЕРСИЯ--></span></footer>
+  <footer class="app-foot"><svg width="14" height="14" viewBox="0 0 28 28" aria-hidden="true"><ellipse cx="14" cy="14" rx="5.2" ry="11" fill="none" stroke="currentColor" stroke-width="2" transform="rotate(28 14 14)"/><path d="M10.2 6.8c3 4.6 4.6 9.4 7.6 14.4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>Сверка рейсов · версия <span id="app-ver"><!--ВЕРСИЯ-->14.10.2026 · 5fa808<!--/ВЕРСИЯ--></span></footer>
 </main>
 
 <div class="modal" id="report" role="dialog" aria-modal="true" aria-labelledby="report-title">
@@ -2582,6 +2582,13 @@ html.fx-lite #stage #stage-h1 em { animation-name: fxIntro; }   /* лёгкий 
 .kb-nw { white-space: nowrap; }
 /* телефон: «Вставить / Очистить» в одной строке с названием окна (у «Моей таблицы» уходили вниз) */
 @media (max-width: 520px) { .pane-head { flex-wrap: nowrap; gap: 6px; } .pane-head .pane-name { min-width: 0; white-space: nowrap; } .pane-head .btn-sm { padding: 0 8px; } }
+/* панель «Одно на всех строки» (заполнение шаблона): заголовок капителью, поля ровной сеткой одной высоты */
+.consts { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px 16px; align-items: end; padding: 16px 18px 18px; border-radius: var(--r-xl); }
+.consts > b { grid-column: 1 / -1; margin: 0; font: 600 11px/1.4 var(--mono); letter-spacing: .12em; text-transform: uppercase; color: var(--ink-2); }
+.consts label { gap: 6px; min-width: 0; }
+.consts :is(input, select) { box-sizing: border-box; width: 100%; min-width: 0 !important; height: 38px !important; border-radius: var(--r-s) !important; }
+.consts label > span { height: 38px !important; }
+.consts label > span > b { font: 600 15px/1 var(--display) !important; font-variant-numeric: lining-nums tabular-nums; }
 </style>
 <script>
 // Движок пружин дизайн-слоя. Одни и те же кривые для CSS и для анимаций из кода.
