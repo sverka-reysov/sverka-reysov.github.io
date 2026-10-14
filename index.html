@@ -580,7 +580,7 @@ tr.just .n-ok { display: inline-block; animation: popIn .45s cubic-bezier(.3, 1.
   </section>
 
   <div id="out"></div>
-  <footer class="app-foot"><svg width="14" height="14" viewBox="0 0 28 28" aria-hidden="true"><ellipse cx="14" cy="14" rx="5.2" ry="11" fill="none" stroke="currentColor" stroke-width="2" transform="rotate(28 14 14)"/><path d="M10.2 6.8c3 4.6 4.6 9.4 7.6 14.4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>Сверка рейсов · версия <span id="app-ver"><!--ВЕРСИЯ-->14.10.2026 · 68a713<!--/ВЕРСИЯ--></span></footer>
+  <footer class="app-foot"><svg width="14" height="14" viewBox="0 0 28 28" aria-hidden="true"><ellipse cx="14" cy="14" rx="5.2" ry="11" fill="none" stroke="currentColor" stroke-width="2" transform="rotate(28 14 14)"/><path d="M10.2 6.8c3 4.6 4.6 9.4 7.6 14.4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>Сверка рейсов · версия <span id="app-ver"><!--ВЕРСИЯ-->14.10.2026 · eb5713<!--/ВЕРСИЯ--></span></footer>
 </main>
 
 <div class="modal" id="report" role="dialog" aria-modal="true" aria-labelledby="report-title">
@@ -2591,6 +2591,14 @@ html.fx-lite #stage #stage-h1 em { animation-name: fxIntro; }   /* лёгкий 
 .consts label > span > b { font: 600 15px/1 var(--display) !important; font-variant-numeric: lining-nums tabular-nums; }
 /* фокус с клавиатуры на плашках итога: внутренняя рамка — блок плашек обрезает края, внешняя срезалась сверху и снизу */
 .tally button:focus-visible { outline: 2px solid var(--focus); outline-offset: -4px; border-radius: var(--r-l); }
+/* уведомления: значок слева — зелёная галочка «получилось», жёлтый знак «не получилось»; цвета под фон уведомления
+   (в светлой теме оно тёмное, в тёмной — светлое) */
+:root { --toast-ok: #4bd39a; --toast-warn: #f4c24a; }
+:root[data-theme="dark"] { --toast-ok: #0c7a4c; --toast-warn: #8a6100; }
+.toast[data-tone="ok"]:not([data-kind="restore"])::before, .toast[data-tone="warn"]:not([data-kind="restore"])::before { content: ""; display: inline-block; width: 16px; height: 16px; margin: 0 8px 0 -2px; vertical-align: -3px; -webkit-mask: var(--tt-i) center / contain no-repeat; mask: var(--tt-i) center / contain no-repeat; background: var(--tt-c); }
+.toast[data-tone="ok"] { --tt-i: var(--i-ok); --tt-c: var(--toast-ok); } .toast[data-tone="warn"] { --tt-i: var(--i-diff); --tt-c: var(--toast-warn); }
+.toast.show[data-tone]:not([data-kind="restore"])::before { animation: fxTonePop var(--t-pop) var(--spring-pop) .08s both; }
+@keyframes fxTonePop { from { transform: scale(.4); opacity: 0; } }
 </style>
 <script>
 // Движок пружин дизайн-слоя. Одни и те же кривые для CSS и для анимаций из кода.
@@ -3149,6 +3157,16 @@ SverkaFx.each('#out .r-hero', hero => {
       b.addEventListener('focus', () => on(i)); b.addEventListener('blur', off);
     });
   });
+})();
+
+// ---------- уведомления: слева значок — галочка (получилось) или знак (не получилось), по смыслу текста ----------
+// toast() один и тот же #toast с новым текстом и data-tick при каждом показе; текст и логика не меняются.
+(() => {
+  const WARN = /^(Не удалось|Не получилось|Браузер не дал|Это не файл|Буфер пуст|В буфере — ячейки|Вписывать сами умеют только|Картинка ещё готовится|Скопировано без цвета)/;
+  const OK = /^(Скопирован|Список правок скопирован|Скрипт скопирован|Картинка скопирована|Картинка в буфере|Выделенное сразу скопировано|Отправлен|Скачан|Справочник очищен|История сверок очищена|Снятые хвосты возвращены|Убрано из хвостов|Вставлено)/;
+  const t = document.getElementById('toast'); if (!t) return;
+  const tone = () => { const s = t.textContent.trim(); t.dataset.tone = WARN.test(s) ? 'warn' : OK.test(s) ? 'ok' : ''; };
+  new MutationObserver(tone).observe(t, { attributes: true, attributeFilter: ['data-tick'] });
 })();
 
 // ---------- колонка «Статус» в таблицах итога: «✓ совпало» → ярлык со значком; текст ячейки не меняется ----------
