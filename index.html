@@ -237,9 +237,9 @@ table.cells th[data-hc]:hover { color: var(--ink); }
 .send-box .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 
 /* ================= новый вид (13.10.2026) =================
-   Шрифты только системные — страница работает без интернета: на Маке New York, SF и DIN Condensed для номеров. */
+   Шрифты системные — страница работает без интернета: на Маке New York, SF и DIN Condensed для номеров. По ссылке цифры крупных чисел — Newsreader (сайт/extra/fonts). */
 :root {
-  --display: ui-serif, "New York", "Iowan Old Style", Georgia, "Times New Roman", serif;
+  --display: "Sverka Num", ui-serif, "New York", "Iowan Old Style", Georgia, "Times New Roman", serif;   /* «Sverka Num» — цифры Newsreader, только по ссылке (сайт/extra/fonts/numbers.css); файлом — системный */
   --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
   --plate-font: "DIN Condensed", "DIN Alternate", "Roboto Condensed", "Arial Narrow", Arial, sans-serif;
 }
@@ -579,7 +579,7 @@ tr.just .n-ok { display: inline-block; animation: popIn .45s cubic-bezier(.3, 1.
   </section>
 
   <div id="out"></div>
-  <footer style="margin-top:40px;color:var(--ink-3);font-size:12px">Сверка рейсов · версия <span id="app-ver"><!--ВЕРСИЯ-->14.10.2026 · 11bd8d<!--/ВЕРСИЯ--></span></footer>
+  <footer style="margin-top:40px;color:var(--ink-3);font-size:12px">Сверка рейсов · версия <span id="app-ver"><!--ВЕРСИЯ-->14.10.2026 · 9e1912<!--/ВЕРСИЯ--></span></footer>
 </main>
 
 <div class="modal" id="report" role="dialog" aria-modal="true" aria-labelledby="report-title">
@@ -2498,6 +2498,9 @@ const SverkaFx = (() => {
   }
   return { reduce, fine, ease, step, each, changed, odometer };
 })();
+
+// ---------- цифры крупных чисел шрифтом Newsreader: только по ссылке, через Extra; не загрузился или открыто файлом — системный ----------
+addEventListener('DOMContentLoaded', () => { if (window.SverkaExtra) SverkaExtra.css('extra/fonts/numbers.css'); });
 
 // ---------- окна (.modal): вырастают из кнопки, которой их открыли, и сворачиваются в неё обратно ----------
 (() => {

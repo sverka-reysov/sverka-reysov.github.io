@@ -1,0 +1,7 @@
+/* Цифры крупных чисел (итог, шар, плашки, суммы) — шрифт Newsreader, только знаки чисел; буквы остаются системными.
+   Newsreader (Production Type), набор latin из пакета @fontsource/newsreader 5.3.0, лицензия SIL OFL 1.1 — OFL.txt рядом.
+   Страница подключает файл через Extra.css; имя семейства «Sverka Num» стоит первым в --display. Не загрузился — системный шрифт. */
+@font-face { font-family: "Sverka Num"; src: url(newsreader-400.woff2) format("woff2"); font-weight: 400; font-style: normal; font-display: swap; unicode-range: U+0025, U+002B-002E, U+0030-0039, U+2212; }
+@font-face { font-family: "Sverka Num"; src: url(newsreader-600.woff2) format("woff2"); font-weight: 600; font-style: normal; font-display: swap; unicode-range: U+0025, U+002B-002E, U+0030-0039, U+2212; }
+@font-face { font-family: "Sverka Num"; src: url(newsreader-400-italic.woff2) format("woff2"); font-weight: 400; font-style: italic; font-display: swap; unicode-range: U+0025, U+002B-002E, U+0030-0039, U+2212; }
+@font-face { font-family: "Sverka Num"; src: url(newsreader-600-italic.woff2) format("woff2"); font-weight: 600; font-style: italic; font-display: swap; unicode-range: U+0025, U+002B-002E, U+0030-0039, U+2212; }
