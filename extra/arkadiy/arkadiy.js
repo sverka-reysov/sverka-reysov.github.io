@@ -5,7 +5,7 @@
 //   soundMode — начальный режим звука ('on' | 'night' | 'off'), дальше — sound() и событие soundMode;
 //   reduced   — «уменьшить движение»: спокойная поза, без анимации.
 // Правила (ОТДЕЛЫ.md): слой с атрибутом data-arkadiy и pointer-events: none — щелчки проходят к странице; вкладка в
-// фоне — 0 кадров (и часы поведения стоят); без звука до первого действия Паши и при sound().muted; любая ошибка —
+// фоне — 0 кадров (и часы поведения стоят); без звука до первого действия пользователя и при sound().muted; любая ошибка —
 // голубь тихо исчезает. Для проверок — window.SverkaArkadiy = { states, state(), go(имя) }.
 const BASE = new URL('./', import.meta.url).href;
 const V = new URL(import.meta.url).search;              // метка версии (?v=…) — на все свои файлы, мимо старого кэша
@@ -174,12 +174,29 @@ export async function start(opts = {}) {
       cv.style.width = cv.style.height = S + 'px';
     }
     // Где стоять: «опора» — низ окна или верхняя кромка карточки (как голубь на подоконнике); тело не задевает rects().avoid.
-    let RECTS = [], rectsAt = -1e9;
+    // rects() читает раскладку страницы (getBoundingClientRect): посреди работы страницы — на большой таблице это лишняя
+    // полная раскладка. Поэтому: один вызов — и рамки, и цели (кнопки, строка), в кэш; обновление — не в момент события и
+    // не в кадре, а через ≥ 300 мс и когда браузер свободен (requestIdleCallback). Сразу — только при прокрутке (раскладка
+    // там уже готова, а ехать с кромкой надо в каждом кадре) и при старте.
+    let RECTS = [], TARGETS = {}, rectsAt = -1e9, rectsT = 0, rectsIdle = 0;
+    const box = r => ({ left: r.left, right: r.right, top: r.top, bottom: r.bottom });
     function refreshRects() {
-      try { RECTS = ((events && events.rects && events.rects().avoid) || []).map(r => ({ left: r.left, right: r.right, top: r.top, bottom: r.bottom })); }
-      catch (e) { RECTS = []; }
+      try {
+        const all = (events && events.rects && events.rects()) || {}, t = all.targets || {};
+        RECTS = (all.avoid || []).map(box);
+        TARGETS = { buttons: (t.buttons || []).map(box), verify: t.verify ? box(t.verify) : null, lastRow: t.lastRow ? box(t.lastRow) : null };
+      } catch (e) { RECTS = []; TARGETS = {}; }
       rectsAt = clock;
     }
+    function requestRects(delay = 350) {                       // обновить рамки позже, когда страница свободна
+      if (rectsT || rectsIdle) return;
+      rectsT = setTimeout(() => {
+        rectsT = 0;
+        const go = () => { rectsIdle = 0; if (!alive) return; try { refreshRects(); track(); wake(); } catch (e) { fail(e); } };
+        rectsIdle = window.requestIdleCallback ? requestIdleCallback(go, { timeout: 1500 }) : setTimeout(go, 0);
+      }, delay);
+    }
+    offs.push(() => { clearTimeout(rectsT); if (rectsIdle && window.cancelIdleCallback) cancelIdleCallback(rectsIdle); });
     const hits = (b, r) => !(b.right < r.left || b.left > r.right || b.bottom < r.top || b.top > r.bottom);
     const bodyBox = (x, y) => ({ left: x - S * .3, right: x + S * .3, top: y - S * .64, bottom: y - 6 });
     function surfaces() {
@@ -308,9 +325,9 @@ export async function start(opts = {}) {
     }
     offs.push(() => { if (doze) clearTimeout(doze.t); });
 
-    // ---------- звук: только после первого действия Паши и если страница не велит молчать ----------
+    // ---------- звук: только после первого действия пользователя и если страница не велит молчать ----------
     let acted = false, AC = null, sndLoading = null; const BUF = {};
-    const touched = () => { acted = true; poked = nowClock(); preload(); if (asleep) rouse(); };   // первое действие — звуки грузятся заранее
+    const touched = () => { acted = true; poked = nowClock(); preload(); if (asleep) rouse(); pauseFrames(); };   // первое действие — звуки грузятся заранее
     on(window, 'pointerdown', touched, { passive: true, capture: true });
     on(window, 'keydown', touched, { passive: true, capture: true });
     let modeNow = opts.soundMode || 'night';
@@ -318,9 +335,9 @@ export async function start(opts = {}) {
       try { if (events && events.sound) return !!events.sound().muted; } catch (e) { /* ниже — по режиму */ }
       const h = new Date().getHours(); return modeNow === 'off' || (modeNow === 'night' && (h >= 22 || h < 7));
     };
-    // Звук (решение владельца 14.10.2026 — со звуком): отклик на действие Паши (2,5 с после вставил / скопировал / сверил /
+    // Звук (решение владельца 14.10.2026 — со звуком): отклик на действие пользователя (2,5 с после вставил / скопировал / сверил /
     // вписал) — как есть; всё, что голубь делает сам, — тише (≤ 0,35) и редко: серия ≤ 1,5 с, потом ≥ 9 с тишины.
-    // Всегда: только после первого действия Паши; «выкл», ночью, вкладка в фоне, голубь спрятан — тишина.
+    // Всегда: только после первого действия пользователя; «выкл», ночью, вкладка в фоне, голубь спрятан — тишина.
     const HEARD = 2500, HEARD_ON = { pasted: 1, copied: 1, reconciled: 1, numbersSent: 1 }, AMB_GAP = 9000, AMB_SERIES = 1500;
     let heardUntil = -1e9, ambAt = -1e9;
     function preload() {
@@ -599,7 +616,7 @@ export async function start(opts = {}) {
       return !busy(my);
     }
     function grainSource() {                                   // откуда сыплется: из строки, вписанной последней, или сверху
-      let r = null; try { const t = events && events.rects && events.rects().targets; r = t && t.lastRow; } catch (e) { r = null; }
+      const r = TARGETS.lastRow;
       const gy = B.g ? B.g.y : innerHeight;
       if (r && r.bottom > 0 && r.top < innerHeight && Math.abs(r.bottom - gy) < innerHeight * .7)
         return () => ({ x: r.left + 30 + Math.random() * Math.max(10, r.right - r.left - 60), y: r.bottom - 4, vy: undefined });
@@ -607,9 +624,7 @@ export async function start(opts = {}) {
     }
     function tourStop() {
       const k = CORNER_K(), kk = S / 250 * k, r = Math.random();
-      let list = [];
-      try { const t = events && events.rects && events.rects().targets; list = (t && t.buttons) || []; } catch (e) { list = []; }
-      list = list.filter(b => b.right - b.left >= 30 && b.top - REACH.dy * kk > S * .75 * k && b.top < innerHeight - 10 && b.left > 0 && b.right < innerWidth);
+      const list = (TARGETS.buttons || []).filter(b => b.right - b.left >= 30 && b.top - REACH.dy * kk > S * .75 * k && b.top < innerHeight - 10 && b.left > 0 && b.right < innerWidth);
       if (list.length && r < .5) {
         const b = list[Math.random() * list.length | 0], cx = b.left + (b.right - b.left) * (.35 + Math.random() * .3), y = b.top - REACH.dy * kk + 2;
         const opts = [cx + REACH.dx * kk, cx - REACH.dx * kk].filter(x => x > S * .35 * k && x < innerWidth - S * .35 * k);
@@ -623,8 +638,7 @@ export async function start(opts = {}) {
     }
     function buttonSpot() {                                    // кнопка, до которой клюв достаёт с этой же кромки
       if (!B.g) return null;
-      let list = [];
-      try { const t = events && events.rects && events.rects().targets; list = (t && (t.buttons || (t.verify ? [t.verify] : []))) || []; } catch (e) { list = []; }
+      const list = TARGETS.buttons && TARGETS.buttons.length ? TARGETS.buttons : TARGETS.verify ? [TARGETS.verify] : [];
       const k = S / 250, ty = B.g.y + REACH.dy * k, best = [];
       for (const b of list) {
         if (!(ty > b.top + 2 && ty < b.bottom - 2) || b.right - b.left < 30) continue;
@@ -760,7 +774,7 @@ export async function start(opts = {}) {
         await play('poop', 0, ACT.poop.frames - 1, { ev: { 44: poopDrop } });
       },
       stretch: () => once('stretch', 'stretch'),
-      sleep: async my => {                                     // засыпает; просыпается от действия Паши
+      sleep: async my => {                                     // засыпает; просыпается от действия пользователя
         asleep = true; setState('sleep');
         if (!await play('sleep', 0, 30, { fps: 18 }) || busy(my)) { asleep = false; snore(false); return; }
         let first = true;
@@ -799,7 +813,7 @@ export async function start(opts = {}) {
           if (busy(my)) return;
         } else {
           let name = 'peck';
-          refreshRects();                                      // места пересчитываются перед каждой сценой (≤ ~15 с)
+          requestRects(0);                                     // места пересчитываются к каждой сцене (≤ ~15 с) — когда страница свободна
           const legal = onCorner() && perchSpot(B.x, false, null);   // с насеста — на свободное место, как только оно есть
           if (onCorner() && !nextTour) nextTour = nowClock() + 20000 + Math.random() * 20000;
           if (!onCorner()) nextTour = 0;
@@ -828,15 +842,16 @@ export async function start(opts = {}) {
 
     // ---------- кадр ----------
     let last = performance.now(), moved = false;
-    function follow() {                                        // страница сдвинулась: голубь, зёрна и помёт едут со своими кромками
-      refreshRects();
+    function follow() { refreshRects(); track(); }            // прокрутка: раскладка готова — читаем сразу
+    function track() {                                         // страница сдвинулась: голубь, зёрна и помёт едут со своими кромками
       if (B.fly) { const n = trackG(B.fly.g1); if (n) B.fly.g1 = n; else { const q = perchSpot(B.fly.x, true); if (q) { B.fly.x1 = q.x; B.fly.g1 = q.g; } } }
       else if (B.g) { const n = trackG(B.g); if (n) { B.g = n; B.lost = false; } else B.lost = true; }
       for (const b of bits.slice()) { const n = trackG(b.g); if (!n) { removeBit(b, true); continue; } const dy = n.y - b.g.y; b.y += dy; b.gy += dy; b.g = n; }
       for (const o of poops.slice()) { const n = trackG(o.g); if (!n) { removePoop(o, true); continue; } o.g = n; placePoop(o); }
     }
     function step(dt) {
-      if (moved || clock - rectsAt > 1500) { moved = false; follow(); }
+      if (moved) { moved = false; follow(); }
+      else if (clock - rectsAt > 1500) requestRects(0);
       if (B.fly) {                                             // в воздухе
         flyStep();
         if (Math.abs(B.yawTo - B.yaw) > .01) B.yaw += Math.sign(B.yawTo - B.yaw) * Math.min(Math.abs(B.yawTo - B.yaw), dt * 4.2);
@@ -900,7 +915,20 @@ export async function start(opts = {}) {
         root.rotation.y = B.yaw = YAW_LEFT; place(); renderer.render(scene, cam);
       } catch (e) { fail(e); }
     }
-    const resume = () => { if (alive && !raf && !reduced && !document.hidden) { last = performance.now(); raf = requestAnimationFrame(frame); } };
+    const resume = () => { if (alive && !raf && !reduced && !document.hidden && !paused) { last = performance.now(); raf = requestAnimationFrame(frame); } };
+    // пользователь щёлкнул, нажал клавишу или страница что-то сделала — голубь на миг замирает (≥ 1 с, потом — когда браузер
+    // свободен): страница строит таблицу на тысячи строк без его кадров, а сборщик мусора получает простой.
+    let paused = false, pauseT = 0;
+    function pauseFrames(ms = 1000) {
+      paused = true;
+      if (raf) { cancelAnimationFrame(raf); raf = 0; }
+      clearTimeout(pauseT);
+      pauseT = setTimeout(() => {
+        const go = () => { paused = false; if (alive) resume(); };
+        if (window.requestIdleCallback) requestIdleCallback(go, { timeout: 1500 }); else go();
+      }, ms);
+    }
+    offs.push(() => clearTimeout(pauseT));
     let scrollT = 0;
     const settle = () => { refreshRects(); clearBits(); B.g = null; if (B.walk) { const w = B.walk; B.walk = null; w.r(false); } if (reduced) still(); else wake(); };
     function freeze(v) {                                       // фон и «уменьшить движение»: слой не меняется ни на пиксель
@@ -942,7 +970,7 @@ export async function start(opts = {}) {
       reconciled: d => interrupt(d && d.allOk ? 'coo' : 'look'),
       numbersSent: d => interrupt(d && d.undo ? 'hop' : 'feed', d),   // отмена — просто подскок
       copied: () => interrupt('eat'),
-      tab: () => refreshRects(),
+      tab: () => {},                                           // рамки — через requestRects в обёртке событий
       cleared: () => interrupt('shake'),
       idle: () => {},                                          // простой: сцены идут своим чередом, сон — после 2 мин без действий
       active: () => { idleGen++; if (asleep) rouse(); },
@@ -951,7 +979,9 @@ export async function start(opts = {}) {
     if (events && events.on) {
       for (const [name, fn] of Object.entries(react)) {
         try {
-          const off = events.on(name, d => { setTimeout(() => { if (alive && !reduced) { try { if (name !== 'idle') poked = nowClock(); if (HEARD_ON[name]) heardUntil = nowClock() + HEARD; refreshRects(); fn(d); wake(); } catch (e) { fail(e); } } else if (alive && reduced && name === 'soundMode') fn(d); }, 60); });
+          // реакция — когда страница дорисовала (браузер свободен, не дольше 1,2 с): не отнимаем у неё время посреди работы
+          const later = f => setTimeout(() => { if (window.requestIdleCallback) requestIdleCallback(f, { timeout: 1200 }); else f(); }, 60);
+          const off = events.on(name, d => { if (name !== 'idle' && name !== 'soundMode') pauseFrames(); later(() => { if (alive && !reduced) { try { if (name !== 'idle') poked = nowClock(); if (HEARD_ON[name]) heardUntil = nowClock() + HEARD; requestRects(350); fn(d); wake(); } catch (e) { fail(e); } } else if (alive && reduced && name === 'soundMode') fn(d); }); });
           if (typeof off === 'function') offs.push(off);
         } catch (e) { /* ничего */ }
       }
