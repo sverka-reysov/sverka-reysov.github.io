@@ -581,7 +581,11 @@ span.dl-src:hover { color: var(--ink-2); border-color: transparent; }
   font: 600 11.5px/1 var(--mono); background: var(--bad-ink); color: var(--sheet); }
 @media (max-width: 700px) { .dl-switch { display: flex; width: 100%; } .dl-switch button { flex: 1; justify-content: center; } }
 /* на вкладке «Мои дела» сверка спрятана (ничего не стирается: таблицы, итог и выбор остаются) */
-html.dl-mode .top .steps, html.dl-mode #stage, html.dl-mode #out { display: none; }
+html.dl-mode #stage, html.dl-mode #out { display: none; }
+/* шаги сверки на «Моих делах» прячем, но место держим — шапка одна и та же на обеих вкладках, ничего не прыгает */
+html.dl-mode .top .steps { visibility: hidden; pointer-events: none; }
+@media (max-width: 700px) { html.dl-mode .top .steps { display: none; } }   /* на телефоне шаги — целая строка: пустая строка хуже сдвига */
+html.dl-on { scrollbar-gutter: stable; }   /* короткая вкладка без полосы прокрутки не сдвигает шапку вбок */
 .dl-screen { display: none; gap: 24px; margin: 0 0 24px; }
 html.dl-mode .dl-screen { display: grid; }
 .dl-hero { position: relative; isolation: isolate; overflow: hidden; border-radius: var(--r-xxl); padding: 24px; border: 1px solid var(--rule);
@@ -721,7 +725,7 @@ html.dl-mode .dl-screen { display: grid; }
   </section>
 
   <div id="out"></div>
-  <footer class="app-foot"><svg width="14" height="14" viewBox="0 0 28 28" aria-hidden="true"><ellipse cx="14" cy="14" rx="5.2" ry="11" fill="none" stroke="currentColor" stroke-width="2" transform="rotate(28 14 14)"/><path d="M10.2 6.8c3 4.6 4.6 9.4 7.6 14.4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>Сверка рейсов · версия <span id="app-ver"><!--ВЕРСИЯ-->22.10.2026 · 7dff73<!--/ВЕРСИЯ--></span></footer>
+  <footer class="app-foot"><svg width="14" height="14" viewBox="0 0 28 28" aria-hidden="true"><ellipse cx="14" cy="14" rx="5.2" ry="11" fill="none" stroke="currentColor" stroke-width="2" transform="rotate(28 14 14)"/><path d="M10.2 6.8c3 4.6 4.6 9.4 7.6 14.4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>Сверка рейсов · версия <span id="app-ver"><!--ВЕРСИЯ-->22.10.2026 · ac8979<!--/ВЕРСИЯ--></span></footer>
 </main>
 
 <div class="modal" id="report" role="dialog" aria-modal="true" aria-labelledby="report-title">
