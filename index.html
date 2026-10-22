@@ -721,7 +721,7 @@ html.dl-mode .dl-screen { display: grid; }
   </section>
 
   <div id="out"></div>
-  <footer class="app-foot"><svg width="14" height="14" viewBox="0 0 28 28" aria-hidden="true"><ellipse cx="14" cy="14" rx="5.2" ry="11" fill="none" stroke="currentColor" stroke-width="2" transform="rotate(28 14 14)"/><path d="M10.2 6.8c3 4.6 4.6 9.4 7.6 14.4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>Сверка рейсов · версия <span id="app-ver"><!--ВЕРСИЯ-->22.10.2026 · db651d<!--/ВЕРСИЯ--></span></footer>
+  <footer class="app-foot"><svg width="14" height="14" viewBox="0 0 28 28" aria-hidden="true"><ellipse cx="14" cy="14" rx="5.2" ry="11" fill="none" stroke="currentColor" stroke-width="2" transform="rotate(28 14 14)"/><path d="M10.2 6.8c3 4.6 4.6 9.4 7.6 14.4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>Сверка рейсов · версия <span id="app-ver"><!--ВЕРСИЯ-->22.10.2026 · 7dff73<!--/ВЕРСИЯ--></span></footer>
 </main>
 
 <div class="modal" id="report" role="dialog" aria-modal="true" aria-labelledby="report-title">
@@ -6274,6 +6274,11 @@ SverkaFx.changed('.btn', el => {
   const KEY_STORE = 'dela.key.v1';
   const KEY_RE = /^[A-Za-z0-9_-]{16,64}$/;
   const POLL_MS = 3 * 60 * 1000, STALE_MS = 15 * 60 * 1000, FETCH_MS = 20000;
+  const FAST_MS = 4000;                                  // пока окно Телеграма открыто или идёт подключение — спрашиваем чаще
+  const HIST_MS = 20000;                                 // пока сервер подтягивает историю выбранных чатов — раз в 20 секунд
+  const CHAT_PAGE = 40;                                  // сколько чатов показывать в списке за раз («Показать ещё» — следующие)
+  const PW_RE = /^https:\/\/[a-z0-9-]+\.trycloudflare\.com\/[A-Za-z0-9_-]{43}$/;   // разовая страница сервера (как у бота); любой другой адрес не принимаем
+  const DEVICE = 'Сверка — читалка';                    // как сеанс называется в Телеграме → Настройки → Устройства
   const root = document.documentElement;
   const $ = (s, r = document) => r.querySelector(s);
   const E = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -6326,6 +6331,8 @@ SverkaFx.changed('.btn', el => {
     tab: fromLink ? 'dela' : 'sverka', filter: null, doneOpen: false, modal: false, loaded: false,
     stats: { req: 0, ok: 0, net: 0, server: 0, format: 0, empty: 0, key: 0 },
     alive: true, lastTry: 0,
+    // выбор рабочих чатов (окно Телеграма): list — чаты от бота, sel — сохранённый выбор, draft — то, что отмечено сейчас
+    ch: { list: null, sel: [], draft: new Set(), dirty: false, q: '', limit: CHAT_PAGE, loaded: false, loading: false, busy: false, err: '', msg: '', lastTry: 0, savedAt: 0 },
   };
   const age = () => (st.snap ? st.now - st.at + (st.okLocal ? Date.now() - st.okLocal : 0) : 0);
   const isStale = () => !!st.snap && age() > STALE_MS;
@@ -6333,27 +6340,37 @@ SverkaFx.changed('.btn', el => {
   const cnt = k => { const c = st.snap && st.snap.счётчики && num(st.snap.счётчики[k]); return c != null ? c : (st.secs && st.secs[k] ? st.secs[k].length : 0); };
 
   // ---------- разбор ответа бота (ничему не верим: форма, типы, длины) ----------
+  function parseTg(t) {
+    if (!t || typeof t !== 'object' || !['on', 'wait', 'off'].includes(t.state)) return null;
+    const o = { state: t.state, since: num(t.since), last: num(t.last), chats: num(t.chats), sel: num(t.sel), hd: null, ht: null, reason: '', step: '', pw: '' };
+    if (typeof t.reason === 'string' && /^[A-Za-z0-9_:.\-]{1,60}$/.test(t.reason)) o.reason = t.reason;
+    const hd = num(t.hist_done), ht = num(t.hist_total);
+    if (t.state === 'on' && hd != null && ht != null && ht > 0 && hd >= 0 && hd <= ht) { o.hd = hd; o.ht = ht; }     // «подтягиваю историю: N из M чатов
+    if (t.state === 'wait') {
+      o.step = ['request', 'qr', 'password'].includes(t.step) ? t.step : 'request';
+      if (typeof t.pw === 'string' && PW_RE.test(t.pw)) o.pw = t.pw;
+    }
+    return o;
+  }
   function parse(resp) {
     if (!resp || typeof resp !== 'object') return { err: 'format' };
-    if (resp.ok !== true) return { err: resp.err === 'key' ? 'key' : resp.err === 'empty' ? 'empty' : 'server' };
+    if (resp.ok !== true) return resp.err === 'empty' ? { err: 'empty', tg: parseTg(resp.tg) } : { err: resp.err === 'key' ? 'key' : 'server' };
     const s = resp.snap, at = Number(resp.at);
     if (!s || typeof s !== 'object' || !s.разделы || typeof s.разделы !== 'object' || !s.счётчики || typeof s.счётчики !== 'object' || !isFinite(at) || at <= 0) return { err: 'format' };
     const rows = a => (Array.isArray(a) ? a.filter(x => x && typeof x === 'object' && typeof x.что === 'string' && x.что).slice(0, 300) : []);
     const secs = {}; ALL.forEach(([k]) => { secs[k] = rows(s.разделы[k]); });
     const now = Number(resp.now);
-    const t = resp.tg && typeof resp.tg === 'object' ? resp.tg : null;
-    return { ok: true, snap: s, secs, done: Array.isArray(s.выполнено) ? rows(s.выполнено) : null, at, now: isFinite(now) && now > 0 ? now : Date.now(),
-      tg: t && ['on', 'wait', 'off'].includes(t.state) ? { state: t.state, since: num(t.since), last: num(t.last), chats: num(t.chats) } : null };
+    return { ok: true, snap: s, secs, done: Array.isArray(s.выполнено) ? rows(s.выполнено) : null, at, now: isFinite(now) && now > 0 ? now : Date.now(), tg: parseTg(resp.tg) };
   }
 
   // ---------- запрос ----------
-  async function fetchOnce() {
+  async function fetchOnce(connect) {
     st.stats.req++; st.lastTry = Date.now();
     const ctl = typeof AbortController === 'function' ? new AbortController() : null;
     const timer = setTimeout(() => { try { ctl && ctl.abort(); } catch (e) { /* уже закончился */ } }, FETCH_MS);
     try {
       // text/plain — «простой» запрос: у веб-приложения Google нет ответа на предварительный OPTIONS
-      const r = await fetch(window.SverkaBotExec, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ dela: key }),
+      const r = await fetch(window.SverkaBotExec, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(connect ? { dela: key, tg: 'connect' } : { dela: key }),
         redirect: 'follow', cache: 'no-store', credentials: 'omit', referrerPolicy: 'no-referrer', signal: ctl ? ctl.signal : undefined });
       if (!r.ok) return { err: 'net' };
       let j = null; try { j = await r.json(); } catch (e) { return { err: 'format' }; }
@@ -6362,11 +6379,11 @@ SverkaFx.changed('.btn', el => {
     finally { clearTimeout(timer); }
   }
   let inflight = null;
-  function refresh() {
+  function refresh(connect) {
     if (!st.alive) return Promise.resolve();
-    if (inflight) return inflight;
+    if (inflight) return connect ? inflight.then(() => refresh(true)) : inflight;
     inflight = (async () => {
-      let res; try { res = await fetchOnce(); } catch (e) { res = { err: 'net' }; }
+      let res; try { res = await fetchOnce(connect); } catch (e) { res = { err: 'net' }; }
       if (!st.alive) return;
       st.loaded = true;
       if (res.ok) {
@@ -6375,22 +6392,87 @@ SverkaFx.changed('.btn', el => {
         paint();
       } else {
         st.stats[res.err] = (st.stats[res.err] || 0) + 1; st.err = res.err;
+        if (res.err === 'empty' && res.tg) st.tg = res.tg;     // снимка ещё нет, но заявка и вход идут — статус Телеграма всё равно показываем
         if (res.err === 'key') { st.snap = null; st.secs = null; }
         paint();
       }
     })().finally(() => { inflight = null; });
     return inflight;
   }
-  // раз в 3 минуты, пока страница видна; скрыта — не стучим, при возвращении — сразу, если пора
+  // ---------- выбор рабочих чатов: список и «Сохранить» ----------
+  // Тем же проводом: {"dela":ключ,"tg":"list"} → список и сохранённый выбор; {"dela":ключ,"tg":"chats","ids":[…]} → сохранить отмеченные.
+  async function botPost(body) {
+    const ctl = typeof AbortController === 'function' ? new AbortController() : null;
+    const timer = setTimeout(() => { try { ctl && ctl.abort(); } catch (e) { /* уже закончился */ } }, FETCH_MS);
+    try {
+      const r = await fetch(window.SverkaBotExec, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(body),
+        redirect: 'follow', cache: 'no-store', credentials: 'omit', referrerPolicy: 'no-referrer', signal: ctl ? ctl.signal : undefined });
+      if (!r.ok) return { ok: false, err: 'net' };
+      try { return await r.json(); } catch (e) { return { ok: false, err: 'format' }; }
+    } catch (e) { return { ok: false, err: 'net' }; }
+    finally { clearTimeout(timer); }
+  }
+  const chatId = v => (typeof v === 'number' && isFinite(v) && Math.floor(v) === v && v !== 0 ? v : null);
+  function parseList(j) {
+    if (!j || typeof j !== 'object') return { err: 'format' };
+    if (j.ok !== true) return { err: j.err === 'key' ? 'key' : j.err === 'net' ? 'net' : 'format' };
+    if (!Array.isArray(j.list) || !Array.isArray(j.sel)) return { err: 'format' };
+    const list = j.list.filter(r => Array.isArray(r) && r.length === 4 && chatId(r[0]) != null && typeof r[1] === 'string' && ['u', 'g', 'c'].includes(r[2]))
+      .slice(0, 250).map(r => ({ id: r[0], t: r[1].slice(0, 50), k: r[2], d: num(r[3]) || 0 }));
+    return { ok: true, list, sel: j.sel.map(chatId).filter(v => v != null).slice(0, 300) };
+  }
+  const sameIds = (set, arr) => set.size === arr.length && arr.every(x => set.has(x));
+  async function loadChats() {
+    const c = st.ch;
+    if (c.loading || !st.alive) return;
+    c.loading = true; c.lastTry = Date.now();
+    const res = parseList(await botPost({ dela: key, tg: 'list' }));
+    c.loading = false;
+    if (!st.alive) return;
+    c.loaded = true;
+    if (res.ok) {
+      c.err = ''; c.list = res.list; c.sel = res.sel;
+      if (!c.dirty) c.draft = new Set(res.sel);              // несохранённые галочки не затираем
+      else c.dirty = !sameIds(c.draft, c.sel);
+    } else c.err = res.err;
+    paintModal();
+  }
+  async function saveChats() {
+    const c = st.ch;
+    if (c.busy || !c.dirty) return;
+    c.busy = true; c.msg = ''; renderPick();
+    const j = await botPost({ dela: key, tg: 'chats', ids: [...c.draft] });
+    c.busy = false;
+    if (!st.alive) return;
+    if (j && j.ok === true && Array.isArray(j.sel)) {
+      c.sel = j.sel.map(chatId).filter(v => v != null); c.draft = new Set(c.sel); c.dirty = false; c.savedAt = Date.now();
+      c.msg = c.sel.length ? 'Сохранено. Сервер подхватит выбор за минуту-две и подтянет историю за 30 дней.' : 'Сохранено. Ни один чат не выбран — чтение остановится.';
+      if (st.tg && st.tg.state === 'on') st.tg = Object.assign({}, st.tg, { sel: c.sel.length, reason: c.sel.length ? st.tg.reason : '' });
+      paint(); schedule(FAST_MS);
+    } else {
+      c.msg = j && j.err === 'nolist' ? 'Список чатов ещё не пришёл с сервера — подождите минуту и нажмите ещё раз.'
+        : j && j.err === 'key' ? 'Ключ не действует — выбор не сохранён.'
+        : j && j.err === 'busy' ? 'Бот занят — нажмите «Сохранить» ещё раз.'
+        : j && j.err === 'ids' ? 'Бот не принял выбор (слишком много чатов?).' : 'Нет связи с ботом — выбор не сохранён.';
+      renderPick();
+    }
+  }
+  // раз в 3 минуты, пока страница видна; пока идёт подключение Телеграма (или окно открыто, а Телеграм не подключён, или сохранённый выбор ещё
+  // применяется, или ждём список чатов) — раз в 4 секунды; пока идёт подтягивание истории — раз в 20 секунд; скрыта — не стучим, при возвращении — сразу, если пора
+  const PICK_KINDS = ['on', 'apply', 'idle'];
+  const histOn = () => !!st.tg && st.tg.state === 'on' && st.tg.ht > 0;
+  const wantFast = () => (!!st.tg && st.tg.state === 'wait') || (st.modal && !(st.tg && st.tg.state === 'on'))
+    || (st.modal && PICK_KINDS.includes(tgView().kind) && !(st.ch.list && st.ch.list.length)) || Date.now() - st.ch.savedAt < 3 * 60000;
+  const interval = () => (wantFast() ? FAST_MS : histOn() ? HIST_MS : POLL_MS);
   let timer = null;
   function schedule(ms) {
     clearTimeout(timer); timer = null;
     if (!st.alive || st.err === 'key' || document.visibilityState === 'hidden') return;
-    timer = setTimeout(async () => { await refresh(); schedule(POLL_MS); }, ms == null ? POLL_MS : ms);
+    timer = setTimeout(async () => { await refresh(); schedule(); }, ms == null ? interval() : ms);
   }
   document.addEventListener('visibilitychange', () => {
     if (!st.alive) return;
-    if (document.visibilityState === 'visible') { const left = POLL_MS - (Date.now() - st.lastTry); if (left <= 0) refresh().then(() => schedule(POLL_MS)); else schedule(left); }
+    if (document.visibilityState === 'visible') { const left = interval() - (Date.now() - st.lastTry); if (left <= 0) refresh().then(() => schedule()); else schedule(left); }
     else { clearTimeout(timer); timer = null; }
   });
 
@@ -6427,8 +6509,14 @@ SverkaFx.changed('.btn', el => {
     return `<div class="dl-done${open ? ' open' : ''}"><button class="dl-done-t" data-dl="done" aria-expanded="${open}"><i class="dl-tick"></i>Выполнено сегодня (${st.done.length})${IC.chev}</button>` +
       `<ul class="dl-list">${st.done.map(x => row(x, true)).join('')}</ul></div>`;
   };
+  const tgNote = () => {
+    const t = st.tg;
+    if (!t || t.state !== 'on' || st.err || isStale()) return '';
+    if (t.ht > 0) return ` · подтягиваю историю: ${t.hd} из ${t.ht} ${plural(t.ht, 'чата', 'чатов', 'чатов')}`;
+    return t.sel === 0 ? ' · выберите рабочие чаты (значок Телеграма)' : '';
+  };
   const updHtml = () => isStale() || st.err ? `<span class="dl-upd"><i class="dot-w"></i>данные от ${hhmm(st.at)}</span>`
-    : `<span class="dl-upd"><i class="live"></i>обновлено ${hhmm(st.at)} · каждые 3 мин</span>`;
+    : `<span class="dl-upd"><i class="live"></i>обновлено ${hhmm(st.at)} · каждые 3 мин${E(tgNote())}</span>`;
   const staleNote = () => {
     if (st.err && st.err !== 'key') {
       const lead = st.snap ? `${ERR[st.err]} — данные от ${hhmm(st.at)}, ${Math.max(0, Math.floor(age() / 60000))} мин назад.` : `${ERR[st.err]}.`;
@@ -6471,37 +6559,121 @@ SverkaFx.changed('.btn', el => {
 
   // ---------- вкладки, значок, окно Телеграма ----------
   let sw = null, tgBtn = null, screen = null, modal = null;
+  // Виды окна: off (не подключено / ошибка с причиной), request (заявка ушла, ждём сервер), qr (ждём сканирования), password (ждём облачный пароль),
+  // on (читаем), idle (вход есть, читалка не работает или чатов нет), silent (сервер молчит). Решает бот; страница только показывает.
+  const WAIT_TITLE = { request: 'Телеграм: ждём сервер', qr: 'Телеграм: ждём сканирования', password: 'Телеграм: нужен облачный пароль' };
   function tgView() {
-    const t = st.tg ? st.tg.state : 'off';
-    const quiet = st.err === 'net' || st.err === 'server' || st.err === 'format' || st.err === 'empty' || isStale();
+    const tg = st.tg, t = tg ? tg.state : 'off';
+    const quiet = st.err === 'net' || st.err === 'server' || st.err === 'format' || isStale();
     if (st.err === 'key') return { dot: '', kind: 'off', title: 'Телеграм: ключ не действует' };
-    if (!st.snap) return quiet ? { dot: 'wait', kind: 'silent', title: 'Телеграм: сервер молчит' } : { dot: '', kind: 'off', title: 'Телеграм: ещё нет данных' };
-    if (t === 'on') return quiet ? { dot: 'wait', kind: 'silent', title: 'Телеграм: сервер молчит' } : { dot: 'on', kind: 'on', title: 'Телеграм: читаем рабочие чаты' };
-    if (t === 'wait') return { dot: 'wait', kind: 'wait', title: 'Телеграм: ждём сканирования' };
+    if (t === 'wait') { const step = tg.step || 'request'; return { dot: 'wait', kind: step, title: WAIT_TITLE[step] }; }
+    if (!st.snap) return quiet ? { dot: 'wait', kind: 'silent', title: 'Телеграм: сервер молчит' } : { dot: '', kind: 'off', title: tg ? 'Телеграм не подключён' : 'Телеграм: ещё нет данных' };
+    if (t === 'on') {
+      if (quiet) return { dot: 'wait', kind: 'silent', title: 'Телеграм: сервер молчит' };
+      const idle = { dot: 'wait', kind: 'idle', title: 'Телеграм: подключено, чтение не включено' };
+      if (tg.reason === 'reader_off') return idle;
+      if (tg.sel === 0) return { dot: 'wait', kind: 'idle', title: 'Телеграм: выберите рабочие чаты' };
+      if (tg.ht > 0) return { dot: 'wait', kind: 'on', title: `Телеграм: подтягиваю историю, ${tg.hd} из ${tg.ht}` };
+      if (tg.reason === 'whitelist_empty' || !(tg.chats > 0)) return tg.sel > 0 ? { dot: 'wait', kind: 'apply', title: 'Телеграм: подключаем выбранные чаты' } : idle;   // выбор сохранён, сервер ещё не подхватил
+      return { dot: 'on', kind: 'on', title: 'Телеграм: читаем рабочие чаты' };
+    }
     return { dot: '', kind: 'off', title: 'Телеграм не подключён' };
+  }
+  const WHY = {
+    stale: 'Вход на сервере завис и был остановлен.',
+    qr_timeout: 'Время на сканирование вышло — код действует всего несколько минут.',
+    password_timeout: 'Время на ввод облачного пароля вышло.',
+    password_attempts: 'Облачный пароль не подошёл несколько раз подряд.',
+    wrong_password: 'Облачный пароль не подошёл.',
+    not_authorized: 'Телеграм не подтвердил вход.',
+    cancelled: 'Вход был прерван.',
+    session_revoked: 'Сеанс завершён в Телеграме (Настройки → Устройства), чтение остановлено. Данные, которые уже прочитаны, остались.',
+    no_session: 'На сервере нет сохранённого входа в Телеграм.',
+    req_timeout: 'Сервер не откликнулся на запрос за 3 минуты.',
+    server_not_ready: 'Сервер ещё не готов к входу в Телеграм. Скажите администратору.',
+    busy: 'Вход уже идёт на сервере. Подождите минуту.',
+    parol_tunnel_failed: 'Не удалось открыть защищённую страницу входа.',
+    login_crashed: 'Вход оборвался на сервере.',
+    disconnected: 'Сервер потерял связь с Телеграмом.',
+  };
+  const whyText = r => (r && WHY[r]) || (r && /^connection:/.test(r) ? WHY.disconnected : r ? 'Подключиться не получилось.' : '');
+  // Список рабочих чатов: кнопки-переключатели («Дело в списке»: .btn.btn-sm + <i class="tick"> + aria-pressed), поиск — .hsearch
+  const KIND_WORD = { u: 'личный', g: 'группа', c: 'канал' };
+  const chatDate = d => { if (!d) return ''; const x = new Date(d * 1000); return p2(x.getDate()) + '.' + p2(x.getMonth() + 1); };
+  function chatsShown() {
+    const c = st.ch, q = c.q.trim().toLowerCase();
+    const all = (c.list || []).slice().sort((a, b) => b.d - a.d);          // самые свежие первыми
+    const found = q ? all.filter(r => r.t.toLowerCase().includes(q)) : all;
+    return { all, found, shown: found.slice(0, c.limit) };
+  }
+  const rowsHtml = () => chatsShown().shown.map(r => {
+    const dt = chatDate(r.d), on = st.ch.draft.has(r.id);
+    return `<button class="btn btn-sm" data-dl="ch" data-chat="${r.id}" data-todo="tg${r.id}" aria-pressed="${on}" title="${E(KIND_WORD[r.k] + (dt ? ' · последнее сообщение ' + dt : ''))}"><i class="tick"></i><span>${E(r.t)} · ${KIND_WORD[r.k]}${dt ? ' · ' + dt : ''}</span></button>`;
+  }).join('');
+  function countText() {
+    const c = st.ch, s = chatsShown(), inList = new Set(s.all.map(r => r.id));
+    let n = 0, out = 0; c.draft.forEach(id => (inList.has(id) ? n++ : out++));
+    return `Отмечено ${n} из ${s.all.length}${out ? ` · ещё ${out} ${plural(out, 'чат', 'чата', 'чатов')} вне списка` : ''}${c.q.trim() ? (s.found.length ? ` · найдено ${s.found.length}` : ' · ничего не найдено') : ''}`;
+  }
+  const moreHtml = () => { const s = chatsShown(), rest = s.found.length - s.shown.length; return rest > 0 ? `<button class="btn btn-quiet btn-sm" data-dl="ch-more">Показать ещё ${Math.min(CHAT_PAGE, rest)}</button>` : ''; };
+  function pickerHtml() {
+    const c = st.ch, head = '<span class="eyebrow">Рабочие чаты</span>';
+    if (!c.list) {
+      if (c.err) return `${head}<p class="tgc-lead"><b>${c.err === 'key' ? 'Ключ не действует.' : 'Нет связи с ботом — список чатов не загрузился.'}</b></p><div class="r-ctas"><button class="btn btn-sm" data-dl="ch-retry">Попробовать снова</button></div>`;
+      return `${head}<p class="tgc-lead">Загружаем список чатов…</p>`;
+    }
+    if (!c.list.length) return `${head}<p class="tgc-lead">Сервер готовит список ваших чатов — обычно это минута. Он появится здесь сам.</p>`;
+    return `<div class="tgc-pick">${head}<div class="hsearch"><input id="tgc-q" type="search" placeholder="Найти чат по названию" aria-label="Найти рабочий чат" autocomplete="off" spellcheck="false" value="${E(c.q)}"></div>` +
+      `<p class="c2-sub" id="tgc-count">${E(countText())}</p><div class="r-ctas todo" id="tgc-list">${rowsHtml()}</div><div id="tgc-more">${moreHtml()}</div></div>`;
+  }
+  function pickFoot() {
+    const c = st.ch, can = !!(c.list && c.list.length);
+    const msg = c.msg || (c.dirty ? (c.draft.size ? 'Есть несохранённые изменения' : 'Все галочки сняты — после сохранения чтение остановится') : 'Читаем только отмеченные чаты, сами ничего не пишем.');
+    return `<div class="tgc-foot"><span class="tgc-off" id="tgc-msg">${E(can ? msg : 'Читаем только рабочие чаты, сами ничего не пишем.')}</span><button class="btn btn-quiet" data-dl="close">Закрыть</button>` +
+      (can ? `<button class="btn btn-primary" id="tgc-save" data-dl="ch-save"${c.dirty && !c.busy ? '' : ' disabled'}>${c.busy ? 'Сохраняем…' : 'Сохранить'}</button>` : '') + '</div>';
   }
   function modalHtml() {
     const v = tgView(), c = st.tg || {};
     const facts = `<ul class="tgc-facts"><li><i>${IC.eye}</i><span><b>Читаем только рабочие чаты</b> — те, что вы отметите. Личные переписки не трогаем.</span></li>` +
       `<li><i>${IC.mute}</i><span><b>Сами ничего не пишем</b> и не отправляем — только читаем и собираем дела.</span></li>` +
-      `<li><i>${IC.gear}</i><span><b>Отключить</b> — в Телеграме: Настройки → Устройства → «Сверка · сервер» → Завершить сеанс.</span></li></ul>`;
+      `<li><i>${IC.gear}</i><span><b>Отключить</b> — в Телеграме: Настройки → Устройства → «${E(DEVICE)}» → Завершить сеанс.</span></li></ul>`;
     const chats = c.chats != null ? `читаем ${c.chats} ${plural(c.chats, 'рабочий чат', 'рабочих чата', 'рабочих чатов')}` : 'читаем рабочие чаты';
     const last = c.last ? `Последнее чтение — ${hhmm(c.last)}` : 'Последнее чтение — нет данных';
+    const steps = `<ol><li>Откройте <b>Телеграм</b> на телефоне.</li><li><b>Настройки → Устройства → Подключить устройство</b>.</li><li>Наведите камеру на код на экране.</li></ol>`;
+    const link = (url, text) => `<a class="btn btn-primary" href="${E(url)}" target="_blank" rel="noopener noreferrer">${text}</a>`;
     let pill, body, title = 'Подключить Телеграм';
-    if (v.kind === 'on') {
-      title = 'Телеграм подключён'; pill = ['on', `Подключено · ${chats}`];
-      body = `<p class="tgc-lead">${c.since ? `С ${new Date(c.since).getDate()} ${MONTHS[new Date(c.since).getMonth()]}, ${hhmm(c.since)}. ` : ''}${last}, дела обновляются каждые 3 минуты.</p>${facts}<div class="tgc-foot"><button class="btn btn-primary" data-dl="close">Закрыть</button></div>`;
+    if (v.kind === 'on' || v.kind === 'apply') {
+      title = 'Телеграм подключён';
+      pill = v.kind === 'apply' ? ['wait', 'Выбор сохранён · подключаем чаты…'] : c.ht > 0 ? ['wait', `Подтягиваю историю: ${c.hd} из ${c.ht} ${plural(c.ht, 'чата', 'чатов', 'чатов')}`] : ['on', `Подключено · ${chats}`];
+      const lead = v.kind === 'apply' ? 'Выбор сохранён — сервер подключает чаты и подтягивает историю за 30 дней. Это занимает минуту-две.' : `${c.since ? `С ${new Date(c.since).getDate()} ${MONTHS[new Date(c.since).getMonth()]}, ${hhmm(c.since)}. ` : ''}${last}, дела обновляются каждые 3 минуты.`;
+      body = `<p class="tgc-lead">${lead}</p>${pickerHtml()}${facts}${pickFoot()}`;
+    } else if (v.kind === 'idle') {
+      title = 'Телеграм подключён'; pill = ['wait', 'Подключено · чтение не включено'];
+      const why = c.sel === 0 || c.reason === 'whitelist_empty' || (c.reason !== 'reader_off' && c.chats === 0) ? 'Рабочие чаты ещё не выбраны — отметьте их ниже, пока читать нечего.' : 'Сервер пока не читает чаты — читалка не запущена.';
+      body = `<p class="tgc-lead">Вход в Телеграм выполнен. ${why} Список дел появится, когда чтение заработает.</p>${pickerHtml()}${facts}${pickFoot()}`;
     } else if (v.kind === 'silent') {
       title = 'Телеграм подключён'; pill = ['wait', st.snap ? `Сервер молчит · данные от ${hhmm(st.at)}` : 'Сервер молчит'];
       body = `<p class="tgc-lead">${last}. Пока сервер не ответит, список дел может быть устаревшим.</p>${facts}<div class="tgc-foot"><button class="btn btn-primary" data-dl="close">Закрыть</button></div>`;
-    } else if (v.kind === 'wait') {
-      pill = ['wait', 'Ждём сканирования…'];
-      body = `<div class="tgc-qr"><div class="code">QR-код появится здесь, когда его пришлёт сервер</div><div><ol><li>Откройте <b>Телеграм</b> на телефоне.</li><li><b>Настройки → Устройства → Подключить устройство</b>.</li><li>Наведите камеру на этот код.</li></ol></div></div>` +
+    } else if (v.kind === 'request') {
+      pill = ['wait', 'Ждём сервер…'];
+      body = `<div class="tgc-qr"><div class="code">Просим сервер подготовить вход…</div><div>${steps}</div></div>` +
+        `<p class="tgc-lead">Сервер откликается за полминуты. Кнопка «Открыть QR для входа» появится здесь сама.</p>` +
         `<div class="tgc-foot"><span class="tgc-off">Читаем только рабочие чаты, сами ничего не пишем.</span><button class="btn" data-dl="close">Закрыть</button></div>`;
+    } else if (v.kind === 'qr') {
+      pill = ['wait', 'Ждём сканирования…'];
+      const code = c.pw ? link(c.pw, 'Открыть QR для входа') : 'Страница входа готовится…';
+      body = `<div class="tgc-qr"><div class="code">${code}</div><div>${steps}</div></div>` +
+        `<p class="tgc-lead">Код на странице обновляется сам. Ссылка одноразовая и работает несколько минут.</p>` +
+        `<div class="tgc-foot"><span class="tgc-off">Читаем только рабочие чаты, сами ничего не пишем.</span><button class="btn" data-dl="close">Закрыть</button></div>`;
+    } else if (v.kind === 'password') {
+      pill = ['wait', 'Нужен облачный пароль'];
+      body = `<p class="tgc-lead">QR принят. Телеграм просит облачный пароль (двухэтапная проверка). Введите его <b>на открывшейся странице</b> — не здесь и не в чате.${c.reason === 'wrong_password' ? ' Прошлый пароль не подошёл.' : ''}</p>` +
+        `<div class="tgc-foot"><span class="tgc-off">Пароль нигде не сохраняется.</span><button class="btn" data-dl="close">Закрыть</button>${c.pw ? link(c.pw, 'Открыть страницу для пароля') : ''}</div>`;
     } else {
-      pill = ['', 'Не подключено'];
-      body = `<p class="tgc-lead">Сервер будет читать рабочие чаты и собирать «Мои дела»: что просрочено, кто чего ждёт, вопросы без ответа. У каждого дела — ссылка на сообщение.</p>${facts}` +
-        `<div class="tgc-foot"><span class="tgc-off">QR-код появится после подключения сервера</span><button class="btn btn-quiet" data-dl="close">Закрыть</button><button class="btn btn-primary" disabled>Показать QR-код</button></div>`;
+      const why = (st.err === 'net' || st.err === 'server' || st.err === 'format') ? 'Нет связи с ботом — запрос не ушёл. Попробуйте ещё раз.' : whyText(c.reason);
+      pill = ['', c.reason === 'session_revoked' ? 'Сеанс завершён' : 'Не подключено'];
+      body = (why ? `<p class="tgc-lead"><b>${E(why)}</b></p>` : `<p class="tgc-lead">Сервер будет читать рабочие чаты и собирать «Мои дела»: что просрочено, кто чего ждёт, вопросы без ответа. У каждого дела — ссылка на сообщение.</p>`) + facts +
+        `<div class="tgc-foot"><span class="tgc-off">Нужен телефон с Телеграмом под рукой</span><button class="btn btn-quiet" data-dl="close">Закрыть</button><button class="btn btn-primary" data-dl="tg-connect">${why ? 'Попробовать снова' : 'Подключить'}</button></div>`;
     }
     return `<div class="modal-card tgc-card"><div class="modal-head"><h2>${title}</h2><button class="icon-btn" data-dl="close" aria-label="Закрыть">${IC.x}</button></div>` +
       `<span class="tgc-state ${pill[0]}"><i></i>${pill[1]}</span>${body}</div>`;
@@ -6513,10 +6685,58 @@ SverkaFx.changed('.btn', el => {
     const v = tgView();
     tgBtn.className = 'icon-btn tgc ' + v.dot; tgBtn.title = v.title; tgBtn.setAttribute('aria-label', v.title);
   }
+  // Окно перерисовывается, только если его разметка изменилась; фокус (поле поиска с позицией курсора, кнопка чата) возвращается на место.
+  let modalSig = '';
+  const focusKey = () => {
+    const a = document.activeElement;
+    if (!a || !modal || !modal.contains(a)) return null;
+    if (a.id === 'tgc-q') return { q: 1, s: a.selectionStart, e: a.selectionEnd };
+    if (a.dataset.chat) return { chat: a.dataset.chat };
+    return a.dataset.dl ? { dl: a.dataset.dl } : null;
+  };
+  const focusBack = k => {
+    if (!k) return;
+    const el = k.q ? $('#tgc-q', modal) : k.chat ? $(`[data-chat="${k.chat}"]`, modal) : $(`[data-dl="${k.dl}"]`, modal);
+    if (!el || document.activeElement === el) return;
+    el.focus();
+    if (k.q) { try { el.setSelectionRange(k.s, k.e); } catch (e) { /* поле без выделения */ } }
+  };
+  function paintModal(force) {
+    if (!modal || !st.modal) return;
+    const h = modalHtml();
+    if (!force && h === modalSig) return;
+    const fk = focusKey(), top = modal.scrollTop;
+    modal.innerHTML = h; modalSig = h; modal.scrollTop = top; focusBack(fk);
+  }
+  // галочка / поиск / «Показать ещё» / «Сохранить»: обновляется только список, счётчик и нижняя строка — поле поиска не пересоздаётся
+  function renderPick() {
+    const list = modal && st.modal ? $('#tgc-list', modal) : null;
+    if (!list) { paintModal(); return; }
+    const fk = focusKey();
+    list.innerHTML = rowsHtml();
+    $('#tgc-count', modal).textContent = countText();
+    $('#tgc-more', modal).innerHTML = moreHtml();
+    const f = $('.tgc-foot', modal); if (f) f.outerHTML = pickFoot();
+    modalSig = modalHtml();
+    focusBack(fk);
+  }
+  function ensureChats() {                               // список чатов нужен, пока окно открыто и вход есть; пустой список — ждём сервер и спрашиваем снова
+    const c = st.ch;
+    if (!st.alive || !st.modal || c.loading || !PICK_KINDS.includes(tgView().kind)) return;
+    const empty = c.loaded && !c.err && c.list && !c.list.length;
+    if (!c.loaded || (empty && Date.now() - c.lastTry >= FAST_MS - 500)) loadChats();
+  }
+  function toggleChat(idStr) {
+    const c = st.ch, id = Number(idStr);
+    if (c.busy || chatId(id) == null) return;
+    if (c.draft.has(id)) c.draft.delete(id); else c.draft.add(id);
+    c.dirty = !sameIds(c.draft, c.sel); c.msg = '';
+    renderPick();
+  }
   // Список перерисовывается, только если изменилось то, что на нём видно (дела, счётчики, статус, фильтр); иначе — только
   // строка времени и счётчики запросов: каждые 3 минуты список не мигает и не теряет прокрутку.
   let lastSig = '';
-  const sigNow = () => JSON.stringify([st.secs, st.done, st.snap && st.snap.счётчики, st.snap && st.snap.пусто, st.snap && hdrBits(), st.tg && [st.tg.state, st.tg.chats], st.err, isStale(), st.filter, st.loaded]);
+  const sigNow = () => JSON.stringify([st.secs, st.done, st.snap && st.snap.счётчики, st.snap && st.snap.пусто, st.snap && hdrBits(), st.tg && [st.tg.state, st.tg.chats, st.tg.step, st.tg.reason, !!st.tg.pw, st.tg.sel, st.tg.hd, st.tg.ht], st.err, isStale(), st.filter, st.loaded]);
   function paint(force) {
     if (!st.alive) return;
     paintHead();
@@ -6526,7 +6746,18 @@ SverkaFx.changed('.btn', el => {
       const u = screen.querySelector('.dl-hr'); if (u) u.innerHTML = updHtml();
       const c = screen.querySelector('#dl-counters'); if (c) c.textContent = (c.textContent || '').replace(/^Запросов[^.]*\./, `Запросов к боту: ${st.stats.req}, ответов: ${st.stats.ok}${st.stats.req - st.stats.ok ? `, сбоев: ${st.stats.req - st.stats.ok}` : ''}.`);
     } else screen.innerHTML = screenHtml();
-    if (modal && st.modal) modal.innerHTML = modalHtml();
+    paintModal(); ensureChats();
+  }
+  // «Подключить»: сразу показываем «ждём сервер» (не ждём ответа бота), заявка уходит в теле запроса; не дошла — возвращаем как было
+  let connecting = false;
+  async function connectTg() {
+    if (connecting) return;
+    connecting = true;
+    const prev = st.tg, now = { state: 'wait', since: null, last: null, chats: null, reason: '', step: 'request', pw: '' };
+    st.tg = now; paint(true); schedule(FAST_MS);
+    try { await refresh(true); } finally { connecting = false; }
+    if (st.tg === now) { st.tg = prev; paint(true); }     // ответа нет (сеть, сбой) — окно снова предлагает «Попробовать снова»
+    schedule();
   }
   function setTab(t) {
     st.tab = t; root.classList.toggle('dl-mode', t === 'dela');
@@ -6534,12 +6765,14 @@ SverkaFx.changed('.btn', el => {
     if (t === 'dela') { window.scrollTo(0, 0); paint(true); }
   }
   function openModal() {
-    st.modal = true; modal.innerHTML = modalHtml(); modal.classList.add('open'); document.body.style.overflow = 'hidden';
+    st.modal = true; st.ch.loaded = false; st.ch.msg = ''; paintModal(true); modal.classList.add('open'); document.body.style.overflow = 'hidden';
     const b = $('.icon-btn', modal); if (b) b.focus();
+    ensureChats();                                        // свежий список чатов при каждом открытии
+    if (wantFast()) schedule(FAST_MS);                    // окно открыто, а Телеграм не подключён — спрашиваем чаще
   }
   function closeModal() {
     if (!st.modal) return;
-    st.modal = false; modal.classList.remove('open'); document.body.style.overflow = ''; if (tgBtn) tgBtn.focus();
+    st.modal = false; modal.classList.remove('open'); document.body.style.overflow = ''; if (tgBtn) tgBtn.focus(); schedule();
   }
   function forget() {
     st.alive = false; clearTimeout(timer); timer = null;
@@ -6555,7 +6788,12 @@ SverkaFx.changed('.btn', el => {
     else if (b.dataset.dl === 'tab-dela') setTab('dela');
     else if (b.dataset.dl === 'close') closeModal();
     else if (b.dataset.dl === 'forget') forget();
-    else if (b.dataset.dl === 'retry') { refresh().then(() => schedule(POLL_MS)); }
+    else if (b.dataset.dl === 'retry') { refresh().then(() => schedule()); }
+    else if (b.dataset.dl === 'tg-connect') connectTg();
+    else if (b.dataset.dl === 'ch') toggleChat(b.dataset.chat);
+    else if (b.dataset.dl === 'ch-save') saveChats();
+    else if (b.dataset.dl === 'ch-more') { st.ch.limit += CHAT_PAGE; renderPick(); }
+    else if (b.dataset.dl === 'ch-retry') { st.ch.err = ''; st.ch.loaded = false; paintModal(true); ensureChats(); }
     else if (b.dataset.dl === 'done') { st.doneOpen = !st.doneOpen; b.parentElement.classList.toggle('open', st.doneOpen); b.setAttribute('aria-expanded', String(st.doneOpen)); }
     else if (b.dataset.g) { st.filter = st.filter === b.dataset.g ? null : b.dataset.g; paint(true); }
   }
@@ -6571,12 +6809,13 @@ SverkaFx.changed('.btn', el => {
   document.body.append(modal);
   root.classList.add('dl-on');
   sw.addEventListener('click', onClick); screen.addEventListener('click', onClick); modal.addEventListener('click', e => { if (e.target === modal) closeModal(); else onClick(e); });
+  modal.addEventListener('input', e => { if (e.target.id !== 'tgc-q') return; st.ch.q = e.target.value; st.ch.limit = CHAT_PAGE; renderPick(); });
   tgBtn.addEventListener('click', () => (st.modal ? closeModal() : openModal()));
   document.addEventListener('keydown', e => { if (e.key === 'Escape' && st.modal) closeModal(); });
   window.SverkaDela = { on: true, refresh, forget, setTab, stats: () => Object.assign({}, st.stats),
     state: () => ({ tab: st.tab, err: st.err, stale: isStale(), age: Math.floor(age() / 1000), tg: tgView().dot || 'off', filter: st.filter, rows: st.secs ? ALL.reduce((n, [k]) => n + st.secs[k].length, 0) : 0 }) };
   setTab(st.tab);
-  refresh().then(() => schedule(POLL_MS));
+  refresh().then(() => schedule());
 })();
 </script>
 </body>
