@@ -574,12 +574,10 @@ span.dl-src:hover { color: var(--ink-2); border-color: transparent; }
   background: color-mix(in srgb, var(--ok-ink) 16%, transparent); }
 .dl-empty b { display: block; font: 600 20px/1.15 var(--display); letter-spacing: -0.01em; }
 .dl-empty span { display: block; margin-top: 4px; color: var(--ink-2); font-size: 13px; }
-/* переключатель «Сверка / Мои дела» в шапке */
-.dl-switch { height: 40px; align-items: center; }
-.dl-switch button { display: inline-flex; align-items: center; gap: 8px; height: 32px; }
-.dl-switch .cnt { min-width: 20px; height: 20px; padding: 0 4px; border-radius: var(--r-s); display: inline-grid; place-items: center;
-  font: 600 11.5px/1 var(--mono); background: var(--bad-ink); color: var(--sheet); }
-@media (max-width: 700px) { .dl-switch { display: flex; width: 100%; } .dl-switch button { flex: 1; justify-content: center; } }
+/* значок Телеграма в шапке заменил вкладки «Сверка / Мои дела» (22.10.2026): число горящих дел сидит на значке */
+.tgc .cnt { position: absolute; top: -8px; right: -8px; min-width: 20px; height: 20px; padding: 0 4px; border-radius: var(--r-s); display: inline-grid; place-items: center;
+  font: 600 11.5px/1 var(--mono); background: var(--bad-ink); color: var(--sheet); box-shadow: 0 0 0 2px var(--paper); pointer-events: none; }
+.dl-bar { display: flex; justify-content: flex-end; align-items: center; gap: 8px; }
 /* на вкладке «Мои дела» сверка спрятана (ничего не стирается: таблицы, итог и выбор остаются) */
 html.dl-mode #stage, html.dl-mode #out { display: none; }
 /* шаги сверки на «Моих делах» прячем, но место держим — шапка одна и та же на обеих вкладках, ничего не прыгает */
@@ -617,7 +615,8 @@ html.dl-mode .dl-screen { display: grid; }
 @media (max-width: 700px) { html.dl-on .top-r { gap: 8px 4px; justify-content: space-between; } }
 /* значок подключения Телеграма + окно. Точка сидит на углу значка и не пульсирует — не путается с «живой» точкой «Бота» */
 .tgc { position: relative; }
-.tgc .tgc-dot { position: absolute; right: -3px; bottom: -3px; width: 12px; height: 12px; border-radius: 50%; background: var(--ink-3); box-shadow: 0 0 0 2px var(--paper); }
+.tgc .tgc-dot { position: absolute; right: -3px; bottom: -3px; width: 12px; height: 12px; border-radius: 50%; background: var(--ink-3); box-shadow: 0 0 0 2px var(--paper); transition: background-color var(--t-slow) var(--ease-out); }
+.tgc .cnt[hidden] { display: none; }
 .tgc.on .tgc-dot { background: var(--ok-ink); }
 .tgc.wait .tgc-dot { background: var(--warn-ink); }
 .tgc-card { width: min(520px, 100%); padding: 20px 24px 24px; }
@@ -641,6 +640,12 @@ html.dl-mode .dl-screen { display: grid; }
 .tgc-qr { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 20px; align-items: center; margin: 12px 0 20px; }
 .tgc-qr .code { width: 188px; height: 188px; padding: 12px; border-radius: var(--r-l); background: var(--head); box-shadow: 0 0 0 1px var(--rule-strong);
   display: grid; place-items: center; text-align: center; color: var(--ink-2); font-size: 13px; line-height: 1.4; }
+.tgc-qr .code img { display: block; width: 100%; height: 100%; border-radius: var(--r-s); }
+.tgc-qr .code img[hidden] { display: none; }
+.qr-img.fresh { animation: fxFadeIn var(--t-slow) var(--ease-out); }
+/* смена вида окна и появление списка чатов — готовые движения страницы (fadeUp, rowIn); при «уменьшить движение» их глушит общее правило */
+.tgc-card.swap > :not(.modal-head) { animation: fadeUp var(--t-slow) var(--ease-out) backwards; }
+.tgc-pick.fresh [data-chat] { animation: rowIn var(--t-slow) var(--ease-out) backwards; animation-delay: calc(var(--i, 0) * 16ms); }
 .tgc-qr ol { margin: 0; padding-left: 20px; display: grid; gap: 8px; font-size: 13.5px; line-height: 1.45; }
 .tgc-qr ol b { font-weight: 600; }
 .tgc-foot { display: flex; justify-content: flex-end; gap: 8px; flex-wrap: wrap; }
@@ -725,7 +730,7 @@ html.dl-mode .dl-screen { display: grid; }
   </section>
 
   <div id="out"></div>
-  <footer class="app-foot"><svg width="14" height="14" viewBox="0 0 28 28" aria-hidden="true"><ellipse cx="14" cy="14" rx="5.2" ry="11" fill="none" stroke="currentColor" stroke-width="2" transform="rotate(28 14 14)"/><path d="M10.2 6.8c3 4.6 4.6 9.4 7.6 14.4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>Сверка рейсов · версия <span id="app-ver"><!--ВЕРСИЯ-->22.10.2026 · ac8979<!--/ВЕРСИЯ--></span></footer>
+  <footer class="app-foot"><svg width="14" height="14" viewBox="0 0 28 28" aria-hidden="true"><ellipse cx="14" cy="14" rx="5.2" ry="11" fill="none" stroke="currentColor" stroke-width="2" transform="rotate(28 14 14)"/><path d="M10.2 6.8c3 4.6 4.6 9.4 7.6 14.4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>Сверка рейсов · версия <span id="app-ver"><!--ВЕРСИЯ-->22.10.2026 · e386d2<!--/ВЕРСИЯ--></span></footer>
 </main>
 
 <div class="modal" id="report" role="dialog" aria-modal="true" aria-labelledby="report-title">
@@ -6278,8 +6283,8 @@ SverkaFx.changed('.btn', el => {
   const KEY_STORE = 'dela.key.v1';
   const KEY_RE = /^[A-Za-z0-9_-]{16,64}$/;
   const POLL_MS = 3 * 60 * 1000, STALE_MS = 15 * 60 * 1000, FETCH_MS = 20000;
-  const FAST_MS = 4000;                                  // пока окно Телеграма открыто или идёт подключение — спрашиваем чаще
-  const HIST_MS = 20000;                                 // пока сервер подтягивает историю выбранных чатов — раз в 20 секунд
+  const FAST_MS = 6000;                                  // переходные состояния (вход, история, применение выбора, окно открыто без входа) — раз в 6 с,
+  const FAST_CAP_MS = 10 * 60 * 1000;                    // но не дольше 10 минут подряд: квота Apps Script
   const CHAT_PAGE = 40;                                  // сколько чатов показывать в списке за раз («Показать ещё» — следующие)
   const PW_RE = /^https:\/\/[a-z0-9-]+\.trycloudflare\.com\/[A-Za-z0-9_-]{43}$/;   // разовая страница сервера (как у бота); любой другой адрес не принимаем
   const DEVICE = 'Сверка — читалка';                    // как сеанс называется в Телеграме → Настройки → Устройства
@@ -6449,7 +6454,7 @@ SverkaFx.changed('.btn', el => {
     c.busy = false;
     if (!st.alive) return;
     if (j && j.ok === true && Array.isArray(j.sel)) {
-      c.sel = j.sel.map(chatId).filter(v => v != null); c.draft = new Set(c.sel); c.dirty = false; c.savedAt = Date.now();
+      c.sel = j.sel.map(chatId).filter(v => v != null); c.draft = new Set(c.sel); c.dirty = false; c.savedAt = Date.now(); fastSince = 0;
       c.msg = c.sel.length ? 'Сохранено. Сервер подхватит выбор за минуту-две и подтянет историю за 30 дней.' : 'Сохранено. Ни один чат не выбран — чтение остановится.';
       if (st.tg && st.tg.state === 'on') st.tg = Object.assign({}, st.tg, { sel: c.sel.length, reason: c.sel.length ? st.tg.reason : '' });
       paint(); schedule(FAST_MS);
@@ -6462,12 +6467,19 @@ SverkaFx.changed('.btn', el => {
     }
   }
   // раз в 3 минуты, пока страница видна; пока идёт подключение Телеграма (или окно открыто, а Телеграм не подключён, или сохранённый выбор ещё
-  // применяется, или ждём список чатов) — раз в 4 секунды; пока идёт подтягивание истории — раз в 20 секунд; скрыта — не стучим, при возвращении — сразу, если пора
+  // применяется, или ждём список чатов, или подтягивается история) — раз в 6 секунд, но не дольше 10 минут подряд в одном состоянии;
+  // скрыта — не стучим, при возвращении — сразу, если пора
   const PICK_KINDS = ['on', 'apply', 'idle'];
   const histOn = () => !!st.tg && st.tg.state === 'on' && st.tg.ht > 0;
-  const wantFast = () => (!!st.tg && st.tg.state === 'wait') || (st.modal && !(st.tg && st.tg.state === 'on'))
+  const wantFast = () => (!!st.tg && st.tg.state === 'wait') || histOn() || tgView().kind === 'apply' || (st.modal && !(st.tg && st.tg.state === 'on'))
     || (st.modal && PICK_KINDS.includes(tgView().kind) && !(st.ch.list && st.ch.list.length)) || Date.now() - st.ch.savedAt < 3 * 60000;
-  const interval = () => (wantFast() ? FAST_MS : histOn() ? HIST_MS : POLL_MS);
+  let fastSince = 0, fastKey = '';
+  function interval() {
+    if (!wantFast()) { fastSince = 0; fastKey = ''; return POLL_MS; }
+    const key = tgView().kind + (st.modal ? '+окно' : '');
+    if (!fastSince || key !== fastKey) { fastSince = Date.now(); fastKey = key; }          // новое состояние (или действие владельца) — отсчёт заново
+    return Date.now() - fastSince < FAST_CAP_MS ? FAST_MS : POLL_MS;
+  }
   let timer = null;
   function schedule(ms) {
     clearTimeout(timer); timer = null;
@@ -6513,6 +6525,8 @@ SverkaFx.changed('.btn', el => {
     return `<div class="dl-done${open ? ' open' : ''}"><button class="dl-done-t" data-dl="done" aria-expanded="${open}"><i class="dl-tick"></i>Выполнено сегодня (${st.done.length})${IC.chev}</button>` +
       `<ul class="dl-list">${st.done.map(x => row(x, true)).join('')}</ul></div>`;
   };
+  // вход в Телеграм есть, а рабочие чаты не выбраны (или выбор не принят читалкой): читать нечего
+  const needChats = () => { const t = st.tg; return !!t && tgView().kind === 'idle' && t.reason !== 'reader_off' && !(t.sel > 0); };
   const tgNote = () => {
     const t = st.tg;
     if (!t || t.state !== 'on' || st.err || isStale()) return '';
@@ -6530,7 +6544,14 @@ SverkaFx.changed('.btn', el => {
     return '';
   };
   const hdrBits = () => `${st.snap ? dateLine(st.snap.now) : ''}`;
-  function screenHtml() {
+  // над экраном дел: «Рабочие чаты» (окно Телеграма — выбор чатов, отключение) и крестик «назад к сверке»
+  function barHtml() {
+    const k = tgView().kind, conn = k === 'on' || k === 'silent' || k === 'idle' || k === 'apply';
+    return `<div class="dl-bar"><button class="btn btn-quiet btn-sm" data-dl="tg-open">${conn ? 'Рабочие чаты' : 'Подключить Телеграм'}</button>` +
+      `<button class="icon-btn" data-dl="tab-sverka" title="Вернуться к сверке" aria-label="Вернуться к сверке">${IC.x}</button></div>`;
+  }
+  const screenHtml = () => barHtml() + screenBody();
+  function screenBody() {
     if (st.err === 'key') return `<div class="notice bad"><h3>Ключ не действует</h3><p>Бот его отозвал или ссылка с ошибкой. Спросите у бота новый ключ — он пришлёт свежую ссылку на «Мои дела».</p>` +
       `<div class="row"><a class="btn btn-primary btn-sm" href="https://t.me/zerno_sverka_bot" target="_blank" rel="noopener">Открыть бота</a><button class="btn btn-quiet btn-sm" data-dl="forget">Забыть ключ</button></div></div>`;
     if (!st.snap) {
@@ -6541,8 +6562,9 @@ SverkaFx.changed('.btn', el => {
     const all = cnt('всего') || ALL.reduce((n, [k]) => n + cnt(k), 0);
     const hot = cnt('просрочено') + cnt('ждут_от_Паши');
     const shown = ALL.reduce((n, [k]) => n + st.secs[k].length, 0);
+    const needPick = !all && needChats();            // вход есть, чаты не выбраны: пустой экран объясняет почему, а не «ничего не горит»
     const h1 = hot ? `<span class="n">${hot}</span> ${plural(hot, 'дело', 'дела', 'дел')} <em>${plural(hot, 'горит', 'горят', 'горят')}</em>`
-      : all ? 'Срочного <em>нет</em>' : 'Сегодня <em>ничего не горит</em>';
+      : needPick ? 'Выберите <em>рабочие чаты</em>' : all ? 'Срочного <em>нет</em>' : 'Сегодня <em>ничего не горит</em>';
     const tiles = CORE.map(([k, g, t]) => [g, cnt(k), t]).concat(st.done ? [['done', st.done.length, 'Выполнено сегодня']] : []);
     const allN = tiles.reduce((n, x) => n + (x[0] === 'done' ? 0 : x[1]), 0) + (st.done ? st.done.length : 0);
     const tally = tiles.map(([g, n, t]) => `<button data-g="${g}" aria-pressed="${st.filter === g}"${n ? '' : ' disabled'} style="--p:${allN ? (n / allN).toFixed(3) : 0};--c:var(${COLOR[g]})"><span class="n">${n}</span><span class="l">${t}</span></button>`).join('');
@@ -6554,15 +6576,17 @@ SverkaFx.changed('.btn', el => {
     const body = all ? `<div class="dl-split">` +
         (left ? `<section class="card2${stale}"><div class="c2-h"><h3>Горит</h3><span class="c2-sub">просрочено и ждут от меня</span></div>${left}</section>` : '') +
         (right ? `<section class="card2${stale}"><div class="c2-h"><h3>Ждём и вопросы</h3><span class="c2-sub">от других · блоки · без ответа</span></div>${right}</section>` : '') + `</div>`
+      : needPick ? `<section class="card2"><div class="dl-empty"><i class="ring">${IC.chats}</i><div><b>Выберите рабочие чаты — тогда появятся дела</b><span>Телеграм подключён, но пока не знает, какие чаты читать. Отметьте их галочками в окне.</span>` +
+        `<div class="r-ctas"><button class="btn btn-primary btn-sm" data-dl="tg-open">Выбрать чаты</button></div></div></div></section>`
       : `<section class="card2"><div class="dl-empty"><i class="ring">${IC.ok}</i><div><b>Дел, требующих внимания, нет</b><span>${reason ? E(reason) + ' · ' : ''}последняя проверка ${hhmm(st.at)}${chats}</span></div></div>${doneBlock()}</section>`;
     const s = st.stats, counters = `Запросов к боту: ${s.req}, ответов: ${s.ok}${s.req - s.ok ? `, сбоев: ${s.req - s.ok}` : ''}. Дел в снимке: ${all}, показано: ${shown}${shown !== all ? ' — бот прислал не все' : ''}.`;
     return `<div class="dl-hero${hot ? '' : ' calm'}"><div><span class="eyebrow">Мои дела · ${E(hdrBits())}</span><h1>${h1}</h1></div><div class="dl-hr">${updHtml()}</div></div>` +
-      staleNote() + `<div class="tally" style="--cols:${tiles.length}">${tally}</div>${body}` +
+      staleNote() + (needPick ? '' : `<div class="tally" style="--cols:${tiles.length}">${tally}</div>`) + body +
       `<div class="dl-foot-row"><span class="c2-sub" id="dl-counters">${E(counters)}</span><button class="btn btn-quiet btn-sm" data-dl="forget" title="Этот компьютер перестанет показывать дела, пока не получит новую ссылку от бота">Забыть ключ</button></div>`;
   }
 
-  // ---------- вкладки, значок, окно Телеграма ----------
-  let sw = null, tgBtn = null, screen = null, modal = null;
+  // ---------- значок Телеграма (он же переход «Сверка ⇄ Мои дела»), окно ----------
+  let tgBtn = null, screen = null, modal = null;
   // Виды окна: off (не подключено / ошибка с причиной), request (заявка ушла, ждём сервер), qr (ждём сканирования), password (ждём облачный пароль),
   // on (читаем), idle (вход есть, читалка не работает или чатов нет), silent (сервер молчит). Решает бот; страница только показывает.
   const WAIT_TITLE = { request: 'Телеграм: ждём сервер', qr: 'Телеграм: ждём сканирования', password: 'Телеграм: нужен облачный пароль' };
@@ -6587,7 +6611,7 @@ SverkaFx.changed('.btn', el => {
     stale: 'Вход на сервере завис и был остановлен.',
     qr_timeout: 'Время на сканирование вышло — код действует всего несколько минут.',
     password_timeout: 'Время на ввод облачного пароля вышло.',
-    password_attempts: 'Облачный пароль не подошёл несколько раз подряд.',
+    password_attempts: 'Пароль не подошёл 3 раза — начните заново.',
     wrong_password: 'Облачный пароль не подошёл.',
     not_authorized: 'Телеграм не подтвердил вход.',
     cancelled: 'Вход был прерван.',
@@ -6650,7 +6674,8 @@ SverkaFx.changed('.btn', el => {
       title = 'Телеграм подключён';
       pill = v.kind === 'apply' ? ['wait', 'Выбор сохранён · подключаем чаты…'] : c.ht > 0 ? ['wait', `Подтягиваю историю: ${c.hd} из ${c.ht} ${plural(c.ht, 'чата', 'чатов', 'чатов')}`] : ['on', `Подключено · ${chats}`];
       const lead = v.kind === 'apply' ? 'Выбор сохранён — сервер подключает чаты и подтягивает историю за 30 дней. Это занимает минуту-две.' : `${c.since ? `С ${new Date(c.since).getDate()} ${MONTHS[new Date(c.since).getMonth()]}, ${hhmm(c.since)}. ` : ''}${last}, дела обновляются каждые 3 минуты.`;
-      body = `<p class="tgc-lead">${lead}</p>${pickerHtml()}${facts}${pickFoot()}`;
+      const hist = c.ht > 0 ? `<div class="tg-top"><span class="eyebrow">История</span><span class="tg-bar" role="progressbar" aria-valuemin="0" aria-valuemax="${c.ht}" aria-valuenow="${c.hd}"><i data-to="${Math.max(4, Math.round(c.hd / c.ht * 100))}"></i></span><span class="c2-sub">${c.hd} из ${c.ht}</span></div>` : '';
+      body = `<p class="tgc-lead">${lead}</p>${hist}${pickerHtml()}${facts}${pickFoot()}`;
     } else if (v.kind === 'idle') {
       title = 'Телеграм подключён'; pill = ['wait', 'Подключено · чтение не включено'];
       const why = c.sel === 0 || c.reason === 'whitelist_empty' || (c.reason !== 'reader_off' && c.chats === 0) ? 'Рабочие чаты ещё не выбраны — отметьте их ниже, пока читать нечего.' : 'Сервер пока не читает чаты — читалка не запущена.';
@@ -6661,13 +6686,14 @@ SverkaFx.changed('.btn', el => {
     } else if (v.kind === 'request') {
       pill = ['wait', 'Ждём сервер…'];
       body = `<div class="tgc-qr"><div class="code">Просим сервер подготовить вход…</div><div>${steps}</div></div>` +
-        `<p class="tgc-lead">Сервер откликается за полминуты. Кнопка «Открыть QR для входа» появится здесь сама.</p>` +
+        `<p class="tgc-lead">Сервер откликается за полминуты. QR-код появится здесь сам.</p>` +
         `<div class="tgc-foot"><span class="tgc-off">Читаем только рабочие чаты, сами ничего не пишем.</span><button class="btn" data-dl="close">Закрыть</button></div>`;
     } else if (v.kind === 'qr') {
       pill = ['wait', 'Ждём сканирования…'];
-      const code = c.pw ? link(c.pw, 'Открыть QR для входа') : 'Страница входа готовится…';
+      const code = c.pw ? `<img class="qr-img" src="${E(qrBase())}" alt="QR-код для входа в Телеграм" width="164" height="164" referrerpolicy="no-referrer" hidden><span class="qr-fail">Готовим код…</span>` : 'Страница входа готовится…';
+      const alt = c.pw ? ` <a class="qr-alt" href="${E(c.pw)}" target="_blank" rel="noopener noreferrer" hidden>Код не виден? Открыть вход отдельной страницей.</a>` : '';
       body = `<div class="tgc-qr"><div class="code">${code}</div><div>${steps}</div></div>` +
-        `<p class="tgc-lead">Код на странице обновляется сам. Ссылка одноразовая и работает несколько минут.</p>` +
+        `<p class="tgc-lead">Код обновляется сам. Вход одноразовый и работает несколько минут.${alt}</p>` +
         `<div class="tgc-foot"><span class="tgc-off">Читаем только рабочие чаты, сами ничего не пишем.</span><button class="btn" data-dl="close">Закрыть</button></div>`;
     } else if (v.kind === 'password') {
       pill = ['wait', 'Нужен облачный пароль'];
@@ -6682,12 +6708,45 @@ SverkaFx.changed('.btn', el => {
     return `<div class="modal-card tgc-card"><div class="modal-head"><h2>${title}</h2><button class="icon-btn" data-dl="close" aria-label="Закрыть">${IC.x}</button></div>` +
       `<span class="tgc-state ${pill[0]}"><i></i>${pill[1]}</span>${body}</div>`;
   }
+  // Значок ведёт: подключено (зелёный, «сервер молчит») — на «Мои дела» и обратно; не подключено, идёт вход или нужно выбрать чаты — в окно.
+  // Ключ не действует — тоже на «Мои дела»: там объяснение и кнопка «Открыть бота».
+  const toDela = () => { const k = tgView().kind; return st.err === 'key' || k === 'on' || k === 'silent'; };
+  let headSig = '';
   function paintHead() {
-    if (!sw) return;
-    const hot = st.snap && !st.err ? cnt('просрочено') + cnt('ждут_от_Паши') : (st.snap ? cnt('просрочено') + cnt('ждут_от_Паши') : 0);
-    sw.innerHTML = `<button role="tab" data-dl="tab-sverka" aria-selected="${st.tab === 'sverka'}">Сверка</button><button role="tab" data-dl="tab-dela" aria-selected="${st.tab === 'dela'}">Мои дела${hot ? `<span class="cnt">${hot}</span>` : ''}</button>`;
-    const v = tgView();
-    tgBtn.className = 'icon-btn tgc ' + v.dot; tgBtn.title = v.title; tgBtn.setAttribute('aria-label', v.title);
+    if (!tgBtn) return;
+    const hot = st.snap ? cnt('просрочено') + cnt('ждут_от_Паши') : 0;
+    const v = tgView(), go = toDela(), inDela = st.tab === 'dela';
+    const hint = go ? (inDela ? ' · нажмите, чтобы вернуться к сверке' : ' · нажмите, чтобы открыть «Мои дела»') : '';
+    const label = v.title + (hot ? `, горящих дел: ${hot}` : '') + hint;
+    const sig = [v.dot, label, go, inDela, hot].join('|');
+    if (sig === headSig) return;
+    headSig = sig;
+    tgBtn.className = 'icon-btn tgc ' + v.dot; tgBtn.title = label; tgBtn.setAttribute('aria-label', label);
+    if (go) { tgBtn.setAttribute('aria-pressed', String(inDela)); tgBtn.removeAttribute('aria-haspopup'); }
+    else { tgBtn.removeAttribute('aria-pressed'); tgBtn.setAttribute('aria-haspopup', 'dialog'); }
+    const b = $('.cnt', tgBtn); if (b) { b.hidden = !hot; b.textContent = hot || ''; }
+  }
+  // QR в окне: картинку рисует сервер на той же разовой странице (<pw>/qr.svg), раз в QR_MS перезапрашиваем — код живёт 30 с
+  const QR_MS = 4000;
+  let qrTimer = null, qrFails = 0;
+  const qrBase = () => (st.tg && st.tg.pw ? st.tg.pw + '/qr.svg' : '');
+  function qrTick() {
+    const im = modal && st.modal ? $('.qr-img', modal) : null, b = qrBase();
+    if (im && b) im.src = b + '?t=' + Date.now();
+  }
+  function syncQr() {
+    const want = st.alive && st.modal && tgView().kind === 'qr' && !!qrBase();
+    if (want && !qrTimer) qrTimer = setInterval(qrTick, QR_MS);
+    else if (!want && qrTimer) { clearInterval(qrTimer); qrTimer = null; qrFails = 0; }
+  }
+  function qrState(img, ok) {                              // картинка загрузилась / не загрузилась: показать код или запасной текст
+    const fail = $('.qr-fail', modal), alt = $('.qr-alt', modal);
+    qrFails = ok ? 0 : qrFails + 1;
+    const first = ok && img.hidden;
+    img.hidden = !ok;
+    if (first) { img.classList.remove('fresh'); void img.offsetWidth; img.classList.add('fresh'); }   // первый показ кода — плавно; смена кода каждые 4 с без мигания (картинка подменяется на месте)
+    if (fail) { fail.hidden = ok; fail.textContent = 'Код не загрузился — пробуем ещё раз…'; }
+    if (alt) alt.hidden = qrFails < 3;
   }
   // Окно перерисовывается, только если его разметка изменилась; фокус (поле поиска с позицией курсора, кнопка чата) возвращается на место.
   let modalSig = '';
@@ -6706,11 +6765,28 @@ SverkaFx.changed('.btn', el => {
     if (k.q) { try { el.setSelectionRange(k.s, k.e); } catch (e) { /* поле без выделения */ } }
   };
   function paintModal(force) {
-    if (!modal || !st.modal) return;
+    if (!modal || !st.modal) { syncQr(); return; }
     const h = modalHtml();
-    if (!force && h === modalSig) return;
+    if (!force && h === modalSig) { syncQr(); return; }
     const fk = focusKey(), top = modal.scrollTop;
-    modal.innerHTML = h; modalSig = h; modal.scrollTop = top; focusBack(fk);
+    const kind = tgView().kind, hadPick = !!$('.tgc-pick', modal), hadBar = $('.tg-bar i', modal), prevPct = hadBar ? parseFloat(hadBar.style.width) || 0 : 0;
+    const swapped = !!modalSig && kind !== modalKind;
+    modal.innerHTML = h; modalSig = h; modalKind = kind; modal.scrollTop = top; focusBack(fk); syncQr();
+    animateModal(swapped, hadPick, prevPct);
+  }
+  // Смены состояния в окне — готовыми движениями страницы: новый вид выплывает (fadeUp), полоса истории растёт от прежнего значения,
+  // список чатов въезжает строками (rowIn). При «уменьшить движение» всё это глушит общее правило страницы.
+  let modalKind = '', swapTimer = null, listTimer = null;
+  function animateModal(swapped, hadPick, prevPct) {
+    const card = $('.tgc-card', modal);
+    if (card && swapped) { card.classList.add('swap'); clearTimeout(swapTimer); swapTimer = setTimeout(() => card.classList.remove('swap'), 700); }
+    const bar = $('.tg-bar i', modal);
+    if (bar) { bar.style.width = prevPct + '%'; void bar.offsetWidth; bar.style.width = bar.dataset.to + '%'; }
+    const pick = $('.tgc-pick', modal);
+    if (pick && !hadPick) {
+      pick.querySelectorAll('[data-chat]').forEach((b, i) => b.style.setProperty('--i', Math.min(i, 20)));
+      pick.classList.add('fresh'); clearTimeout(listTimer); listTimer = setTimeout(() => pick.classList.remove('fresh'), 1200);
+    }
   }
   // галочка / поиск / «Показать ещё» / «Сохранить»: обновляется только список, счётчик и нижняя строка — поле поиска не пересоздаётся
   function renderPick() {
@@ -6758,7 +6834,7 @@ SverkaFx.changed('.btn', el => {
     if (connecting) return;
     connecting = true;
     const prev = st.tg, now = { state: 'wait', since: null, last: null, chats: null, reason: '', step: 'request', pw: '' };
-    st.tg = now; paint(true); schedule(FAST_MS);
+    st.tg = now; fastSince = 0; paint(true); schedule(FAST_MS);
     try { await refresh(true); } finally { connecting = false; }
     if (st.tg === now) { st.tg = prev; paint(true); }     // ответа нет (сеть, сбой) — окно снова предлагает «Попробовать снова»
     schedule();
@@ -6769,27 +6845,27 @@ SverkaFx.changed('.btn', el => {
     if (t === 'dela') { window.scrollTo(0, 0); paint(true); }
   }
   function openModal() {
-    st.modal = true; st.ch.loaded = false; st.ch.msg = ''; paintModal(true); modal.classList.add('open'); document.body.style.overflow = 'hidden';
+    st.modal = true; fastSince = 0; st.ch.loaded = false; st.ch.msg = ''; paintModal(true); modal.classList.add('open'); document.body.style.overflow = 'hidden';
     const b = $('.icon-btn', modal); if (b) b.focus();
     ensureChats();                                        // свежий список чатов при каждом открытии
     if (wantFast()) schedule(FAST_MS);                    // окно открыто, а Телеграм не подключён — спрашиваем чаще
   }
   function closeModal() {
     if (!st.modal) return;
-    st.modal = false; modal.classList.remove('open'); document.body.style.overflow = ''; if (tgBtn) tgBtn.focus(); schedule();
+    st.modal = false; modal.classList.remove('open'); document.body.style.overflow = ''; syncQr(); if (tgBtn) tgBtn.focus(); schedule();
   }
   function forget() {
     st.alive = false; clearTimeout(timer); timer = null;
     try { localStorage.removeItem(KEY_STORE); } catch (e) { /* нет памяти */ }
     closeModal();
-    [sw, tgBtn, screen, modal].forEach(e => e && e.remove());
+    [tgBtn, screen, modal].forEach(e => e && e.remove());
     root.classList.remove('dl-on', 'dl-mode');
     window.SverkaDela = { on: false, forgotten: true };
   }
   function onClick(e) {
     const b = e.target.closest('[data-dl], .tally button[data-g]'); if (!b) return;
     if (b.dataset.dl === 'tab-sverka') setTab('sverka');
-    else if (b.dataset.dl === 'tab-dela') setTab('dela');
+    else if (b.dataset.dl === 'tg-open') openModal();
     else if (b.dataset.dl === 'close') closeModal();
     else if (b.dataset.dl === 'forget') forget();
     else if (b.dataset.dl === 'retry') { refresh().then(() => schedule()); }
@@ -6805,19 +6881,25 @@ SverkaFx.changed('.btn', el => {
   // ---------- сборка на странице ----------
   const brand = $('.top .brand'), help = $('#btn-help'), stage = $('#stage');
   if (!brand || !help || !stage) return;   // страница другая (не наша) — молча выходим
-  sw = document.createElement('div'); sw.className = 'tabs dl-switch'; sw.setAttribute('role', 'tablist'); brand.after(sw);
   tgBtn = document.createElement('button'); tgBtn.id = 'btn-tgc'; tgBtn.setAttribute('aria-haspopup', 'dialog');
-  tgBtn.innerHTML = IC.chats + '<i class="tgc-dot"></i>'; help.before(tgBtn);
+  tgBtn.innerHTML = IC.chats + '<i class="tgc-dot"></i><span class="cnt" aria-hidden="true" hidden></span>'; help.before(tgBtn);
   screen = document.createElement('section'); screen.className = 'dl-screen'; screen.setAttribute('aria-label', 'Мои дела'); stage.before(screen);
   modal = document.createElement('div'); modal.className = 'modal'; modal.id = 'tgc-modal'; modal.setAttribute('role', 'dialog'); modal.setAttribute('aria-modal', 'true'); modal.setAttribute('aria-label', 'Телеграм');
   document.body.append(modal);
   root.classList.add('dl-on');
-  sw.addEventListener('click', onClick); screen.addEventListener('click', onClick); modal.addEventListener('click', e => { if (e.target === modal) closeModal(); else onClick(e); });
+  screen.addEventListener('click', onClick); modal.addEventListener('click', e => { if (e.target === modal) closeModal(); else onClick(e); });
   modal.addEventListener('input', e => { if (e.target.id !== 'tgc-q') return; st.ch.q = e.target.value; st.ch.limit = CHAT_PAGE; renderPick(); });
-  tgBtn.addEventListener('click', () => (st.modal ? closeModal() : openModal()));
+  tgBtn.addEventListener('click', () => {
+    if (st.modal) closeModal();
+    else if (toDela()) setTab(st.tab === 'dela' ? 'sverka' : 'dela');      // подключено: «Мои дела» и обратно
+    else openModal();                                                      // не подключено: сразу окно подключения
+  });
+  // картинка QR в окне: загрузилась — показываем, нет — запасной текст (а после трёх неудач — ссылка на страницу входа)
+  modal.addEventListener('load', e => { if (e.target.classList && e.target.classList.contains('qr-img')) qrState(e.target, true); }, true);
+  modal.addEventListener('error', e => { if (e.target.classList && e.target.classList.contains('qr-img')) qrState(e.target, false); }, true);
   document.addEventListener('keydown', e => { if (e.key === 'Escape' && st.modal) closeModal(); });
   window.SverkaDela = { on: true, refresh, forget, setTab, stats: () => Object.assign({}, st.stats),
-    state: () => ({ tab: st.tab, err: st.err, stale: isStale(), age: Math.floor(age() / 1000), tg: tgView().dot || 'off', filter: st.filter, rows: st.secs ? ALL.reduce((n, [k]) => n + st.secs[k].length, 0) : 0 }) };
+    state: () => ({ tab: st.tab, kind: tgView().kind, err: st.err, stale: isStale(), age: Math.floor(age() / 1000), tg: tgView().dot || 'off', filter: st.filter, rows: st.secs ? ALL.reduce((n, [k]) => n + st.secs[k].length, 0) : 0 }) };
   setTab(st.tab);
   refresh().then(() => schedule());
 })();
