@@ -580,7 +580,7 @@ tr.just .n-ok { display: inline-block; animation: popIn .45s cubic-bezier(.3, 1.
   </section>
 
   <div id="out"></div>
-  <footer class="app-foot"><svg width="14" height="14" viewBox="0 0 28 28" aria-hidden="true"><ellipse cx="14" cy="14" rx="5.2" ry="11" fill="none" stroke="currentColor" stroke-width="2" transform="rotate(28 14 14)"/><path d="M10.2 6.8c3 4.6 4.6 9.4 7.6 14.4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>Сверка рейсов · версия <span id="app-ver"><!--ВЕРСИЯ-->15.10.2026 · d4bc07<!--/ВЕРСИЯ--></span></footer>
+  <footer class="app-foot"><svg width="14" height="14" viewBox="0 0 28 28" aria-hidden="true"><ellipse cx="14" cy="14" rx="5.2" ry="11" fill="none" stroke="currentColor" stroke-width="2" transform="rotate(28 14 14)"/><path d="M10.2 6.8c3 4.6 4.6 9.4 7.6 14.4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>Сверка рейсов · версия <span id="app-ver"><!--ВЕРСИЯ-->22.10.2026 · b9349f<!--/ВЕРСИЯ--></span></footer>
 </main>
 
 <div class="modal" id="report" role="dialog" aria-modal="true" aria-labelledby="report-title">
@@ -725,7 +725,8 @@ const Sverka = (() => {
   const LAT = { 'А': 'A', 'В': 'B', 'Е': 'E', 'Ё': 'E', 'К': 'K', 'М': 'M', 'Н': 'H', 'О': 'O', 'Р': 'P', 'С': 'C', 'Т': 'T', 'У': 'Y', 'Х': 'X', 'І': 'I', 'Ї': 'I' };
   const cyr2lat = s => s.replace(/[А-ЯЁІЇ]/g, c => LAT[c] || c);
   const normText = s => String(s == null ? '' : s).replace(/[   ]/g, ' ').replace(/\s+/g, ' ').trim();
-  const normPlate = s => cyr2lat(normText(s).toUpperCase().replace(/[\s\-–—.]/g, ''));
+  // «И» вместо украинской «І» (по-русски «і» звучит как «и»: ВН1234ИЕ = BH1234IE, таблица Паши 19.10.2026) — в номерах «И» не бывает
+  const normPlate = s => cyr2lat(normText(s).toUpperCase().replace(/[\s\-–—.]/g, '')).replace(/И/g, 'I');
   // «бн», «б/н», «без номера», прочерк — номера нет (реестр «ТАБЛИЦА ДАННЫХ ПО МАШИНАМ», 12.10.2026)
   const NO_TTN_RE = /^(бн|б\/н|без\s*номера?|нет|н\/д|-+|—+|–+)$/i;
   function normTtn(s) {
@@ -735,6 +736,16 @@ const Sverka = (() => {
     if (/^\d+$/.test(t)) t = t.replace(/^0+(?=\d)/, '');   // 0464 и 464 — одна ТТН
     return t;
   }
+  // ТТН с буквой серии и без: «М10» в порту и «10» у Паши — одна ТТН (у Паши буква не всегда, 19.10.2026);
+  // в ячейке два номера («Р124#М34») — совпадает, если совпал любой. «М10» и «Р10» — разные; «22/1» и «22» — тоже
+  // (дробь — довоз той же машины, отдельный рейс), поэтому «/» не разделитель.
+  const ttnEq = (a, b) => {
+    if (a === b) return true;
+    if (!a || !b) return false;
+    const parts = t => t.split(/[#,;]+/).filter(Boolean);
+    const bare = t => t.replace(/^[A-Z]+(?=\d+$)/, '').replace(/^0+(?=\d)/, '');
+    return parts(a).some(x => parts(b).some(y => x === y || (bare(x) === bare(y) && (bare(x) === x || bare(y) === y))));
+  };
   const PLATE_RE = /^[A-ZА-ЯЁІЇЄ]{1,3}\d{3,4}[A-ZА-ЯЁІЇЄ]{1,3}\d{0,3}$/;
   // «AA1234BB / AA5678CC» — тягач и прицеп в одной ячейке, тягач всегда первый (владелец, 12.10.2026)
   const splitPlate = s => String(s == null ? '' : s).split('/').map(normText);
@@ -1170,7 +1181,7 @@ const Sverka = (() => {
     switch (f) {
       case 'plate': return a.plate === b.plate;
       case 'trailer': return a.trailer === b.trailer;
-      case 'ttn': return a.ttn === b.ttn;
+      case 'ttn': return ttnEq(a.ttn, b.ttn);
       case 'weight': case 'price': case 'sum': {
         const x = a[f], y = b[f];
         if (x == null && y == null) return normText(a.raw[f]) === normText(b.raw[f]);
@@ -1405,7 +1416,7 @@ const Sverka = (() => {
         const m = mine.live[j];
         const eq = {
           plate: !!p.plate && shared.includes('plate') && p.plate === m.plate,
-          ttn: !!p.ttn && shared.includes('ttn') && p.ttn === m.ttn,
+          ttn: !!p.ttn && shared.includes('ttn') && ttnEq(p.ttn, m.ttn),
           weight: p.weight != null && shared.includes('weight') && m.weight != null && numEq(p.weight, m.weight),
           sum: !!p.sum && shared.includes('sum') && m.sum != null && numEq(p.sum, m.sum),
         };
@@ -1455,13 +1466,16 @@ const Sverka = (() => {
         if (fieldEq(p, m, f)) continue;
         let note = '';
         const missingMine = (f === 'price' || f === 'sum') && !(m[f] > 0) && p[f] > 0;
+        // ТТН у вас не записан, а в порту есть — подсказка, расхождением строку не делает (таблица Паши, 19.10.2026)
+        const hint = f === 'ttn' && !normText(m.raw.ttn) && !!p.ttn;
         if (missingMine) note = 'у вас нет — проставить из порта';
+        else if (hint) note = 'у вас не записан';
         else if (['weight', 'price', 'sum'].includes(f) && p[f] != null && m[f] != null) note = 'разница ' + (m[f] - p[f] > 0 ? '+' : '') + fmtNum(m[f] - p[f]);
-        m.diffs.push({ f, port: p.raw[f], mine: m.raw[f], note, missingMine });
+        m.diffs.push({ f, port: p.raw[f], mine: m.raw[f], note, missingMine, hint });
         flag(mine, m, f, 'diff', 'в порту: ' + (p.raw[f] || 'пусто') + (note ? ' (' + note + ')' : ''));
         flag(port, p, f, 'diff', 'у вас: ' + (m.raw[f] || 'пусто') + (note ? ' (' + note + ')' : ''));
         // нет цены/суммы у вас — пометка остаётся (подсказка), но расхождением строку не делает (14.10.2026)
-        if (missingMine) for (const [t, r] of [[mine, m], [port, p]]) { const c = t.col[f]; if (c >= 0) (r.fillOnly = r.fillOnly || {})[c] = true; }
+        if (missingMine || hint) for (const [t, r] of [[mine, m], [port, p]]) { const c = t.col[f]; if (c >= 0) (r.fillOnly = r.fillOnly || {})[c] = true; }
       }
       if (shared.includes('crop') && !fieldEq(p, m, 'crop')) {
         m.diffs.push({ f: 'crop', port: p.raw.crop, mine: m.raw.crop, note: '' });
@@ -1568,7 +1582,7 @@ const Sverka = (() => {
     });
     const summary = { port: stage(port), mine: Object.assign(stage(mine), { noPrice, fillable }), pairs: usedP.size, shared, defYear };
     const diffByField = {};
-    mine.live.forEach(m => (m.diffs || []).forEach(d => { diffByField[d.f] = (diffByField[d.f] || 0) + 1; }));
+    mine.live.forEach(m => (m.diffs || []).filter(d => !d.hint).forEach(d => { diffByField[d.f] = (diffByField[d.f] || 0) + 1; }));
     summary.diffByField = diffByField;
 
     // --- защита от перепутанных таблиц
@@ -1853,7 +1867,7 @@ const Sverka = (() => {
     const lines = [];
     for (const m of res.mine.live) {
       if (!m.pair || !m.diffs) continue;
-      const parts = m.diffs.filter(d => !d.missingMine).map(d => NAMES[d.f] + ' — в порту ' + (d.port || 'пусто') + ', в таблице ' + (d.mine || 'пусто'));
+      const parts = m.diffs.filter(d => !d.missingMine && !d.hint).map(d => NAMES[d.f] + ' — в порту ' + (d.port || 'пусто') + ', в таблице ' + (d.mine || 'пусто'));
       if (parts.length) lines.push((m.raw.plate || '—') + (m.raw.ttn ? ' (ТТН ' + m.raw.ttn + ')' : '') + ': ' + parts.join('; '));
     }
     return lines.length ? ['Расхождения с реестром порта:'].concat(lines).join('\n') : '';
