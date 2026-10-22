@@ -730,7 +730,7 @@ html.dl-mode .dl-screen { display: grid; }
   </section>
 
   <div id="out"></div>
-  <footer class="app-foot"><svg width="14" height="14" viewBox="0 0 28 28" aria-hidden="true"><ellipse cx="14" cy="14" rx="5.2" ry="11" fill="none" stroke="currentColor" stroke-width="2" transform="rotate(28 14 14)"/><path d="M10.2 6.8c3 4.6 4.6 9.4 7.6 14.4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>Сверка рейсов · версия <span id="app-ver"><!--ВЕРСИЯ-->22.10.2026 · e386d2<!--/ВЕРСИЯ--></span></footer>
+  <footer class="app-foot"><svg width="14" height="14" viewBox="0 0 28 28" aria-hidden="true"><ellipse cx="14" cy="14" rx="5.2" ry="11" fill="none" stroke="currentColor" stroke-width="2" transform="rotate(28 14 14)"/><path d="M10.2 6.8c3 4.6 4.6 9.4 7.6 14.4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>Сверка рейсов · версия <span id="app-ver"><!--ВЕРСИЯ-->22.10.2026 · a615e1<!--/ВЕРСИЯ--></span></footer>
 </main>
 
 <div class="modal" id="report" role="dialog" aria-modal="true" aria-labelledby="report-title">
@@ -6727,26 +6727,32 @@ SverkaFx.changed('.btn', el => {
     const b = $('.cnt', tgBtn); if (b) { b.hidden = !hot; b.textContent = hot || ''; }
   }
   // QR в окне: картинку рисует сервер на той же разовой странице (<pw>/qr.svg), раз в QR_MS перезапрашиваем — код живёт 30 с
-  const QR_MS = 4000;
-  let qrTimer = null, qrFails = 0;
+  // Запрос, который не ответил за QR_WAIT_MS, не обрываем новым (иначе на медленной сети не бывает ни кода, ни ошибки — вечное «Готовим код…»,
+  // так было у Паши в Safari 22.10.2026), а считаем неудачей: после двух — запасная ссылка на страницу входа.
+  const QR_MS = 4000, QR_WAIT_MS = 8000;
+  let qrTimer = null, qrFails = 0, qrSent = 0;             // qrSent — когда ушёл ещё не ответивший запрос картинки (0 — ответил)
   const qrBase = () => (st.tg && st.tg.pw ? st.tg.pw + '/qr.svg' : '');
   function qrTick() {
     const im = modal && st.modal ? $('.qr-img', modal) : null, b = qrBase();
-    if (im && b) im.src = b + '?t=' + Date.now();
+    if (!im || !b) return;
+    if (qrSent && Date.now() - qrSent < QR_WAIT_MS) return;
+    if (qrSent) qrState(im, false);
+    qrSent = Date.now(); im.src = b + '?t=' + Date.now();
   }
   function syncQr() {
     const want = st.alive && st.modal && tgView().kind === 'qr' && !!qrBase();
-    if (want && !qrTimer) qrTimer = setInterval(qrTick, QR_MS);
-    else if (!want && qrTimer) { clearInterval(qrTimer); qrTimer = null; qrFails = 0; }
+    if (want && !qrTimer) { qrSent = Date.now(); qrTimer = setInterval(qrTick, QR_MS); }   // первую картинку уже грузит разметка окна
+    else if (!want && qrTimer) { clearInterval(qrTimer); qrTimer = null; qrFails = 0; qrSent = 0; }
   }
   function qrState(img, ok) {                              // картинка загрузилась / не загрузилась: показать код или запасной текст
     const fail = $('.qr-fail', modal), alt = $('.qr-alt', modal);
+    qrSent = 0;
     qrFails = ok ? 0 : qrFails + 1;
     const first = ok && img.hidden;
     img.hidden = !ok;
     if (first) { img.classList.remove('fresh'); void img.offsetWidth; img.classList.add('fresh'); }   // первый показ кода — плавно; смена кода каждые 4 с без мигания (картинка подменяется на месте)
     if (fail) { fail.hidden = ok; fail.textContent = 'Код не загрузился — пробуем ещё раз…'; }
-    if (alt) alt.hidden = qrFails < 3;
+    if (alt) alt.hidden = qrFails < 2;
   }
   // Окно перерисовывается, только если его разметка изменилась; фокус (поле поиска с позицией курсора, кнопка чата) возвращается на место.
   let modalSig = '';
