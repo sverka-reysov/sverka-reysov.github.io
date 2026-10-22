@@ -508,6 +508,147 @@ tr.just .n-ok { display: inline-block; animation: popIn .45s cubic-bezier(.3, 1.
 .result-note .r-ctas { gap: 8px; }
 @media (max-width: 700px) { .hsearch { order: -1; width: 100%; } .hsearch input { width: 100%; } .top-r { flex-wrap: wrap; } .top { position: static; margin: -6px 0 18px; } .hello .x { position: static; justify-self: start; order: 3; } }
 </style>
+<style id="dela-style">
+/* «Мои дела» (шаг F3, 22.10.2026): вкладки в шапке, экран дел, значок Телеграма. Все правила — под классами .dl-* / .tgc,
+   которых без личного ключа на странице нет: без ключа страница не меняется. Только токены страницы. Шкала отступов
+   добавок: 4 · 8 · 12 · 16 · 20 · 24. */
+.dl-g { --c: var(--ink-2); }
+.dl-g[data-g="over"] { --c: var(--bad-ink); }
+.dl-g[data-g="me"] { --c: var(--warn-ink); }
+.dl-g[data-g="they"] { --c: var(--sea); }
+.dl-g[data-g="block"] { --c: var(--wheat); }
+.dl-g[data-g="q"] { --c: var(--tg); }
+.dl-g + .dl-g { margin-top: 16px; }
+.dl-gh { display: flex; align-items: center; gap: 8px; margin: 0 0 4px; padding: 0 8px; }
+.dl-gh .eyebrow { color: var(--c); }
+.dl-gh b { font: 600 11.5px/1 var(--mono); color: var(--ink-2); }
+.dl-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.dl-row { position: relative; display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 4px 12px;
+  padding: 8px 8px 8px 16px; border-radius: var(--r-s); transition: background-color var(--t-fast) var(--ease-out); }
+.dl-row::before { content: ""; position: absolute; left: 4px; top: 8px; bottom: 8px; width: 3px; border-radius: 2px; background: var(--c); }
+.dl-row:hover { background: color-mix(in srgb, var(--c) 9%, transparent); }
+.dl-what { display: block; font-weight: 600; font-size: 14px; line-height: 1.35; color: var(--ink); }
+.dl-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; margin-top: 4px; color: var(--ink-2); font-size: 12.5px; line-height: 1.3; }
+.dl-meta .plate { transform: scale(.86); transform-origin: left center; margin-right: -1.3em; }
+.dl-due { font: 600 12.5px/1 var(--mono); color: var(--ink-2); white-space: nowrap; }
+.dl-g[data-g="over"] .dl-due { color: var(--bad-ink); }
+.dl-g[data-g="me"] .dl-due { color: var(--warn-ink); }
+.dl-src { display: inline-flex; align-items: center; gap: 4px; height: 30px; padding: 0 8px; border-radius: var(--r-s); color: var(--ink-2);
+  text-decoration: none; font-size: 12.5px; white-space: nowrap; border: 1px solid transparent; }
+.dl-src:hover { color: var(--ink); border-color: var(--rule-strong); }
+span.dl-src:hover { color: var(--ink-2); border-color: transparent; }
+.dl-src svg { flex: none; }
+@media (max-width: 700px) {
+  .dl-row { grid-template-columns: minmax(0, 1fr) auto; }
+  .dl-row > div { grid-column: 1 / -1; }
+  .dl-src { justify-self: end; }
+}
+/* выполненные: свёрнутая строка «Выполнено сегодня (N)» и зачёркнутые дела с зелёной галочкой */
+.dl-done { border-top: 1px solid var(--rule); padding-top: 8px; }
+.dl-done-t { all: unset; box-sizing: border-box; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; height: 36px; padding: 0 8px; border-radius: var(--r-s); color: var(--ink-2); font-size: 13.5px; font-weight: 500; }
+.dl-done-t:hover { background: color-mix(in srgb, var(--ink) 5%, transparent); color: var(--ink); }
+.dl-done-t:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+.dl-done-t .chev { transition: transform var(--t) var(--ease-out); }
+.dl-done.open .dl-done-t .chev { transform: rotate(180deg); }
+.dl-tick { position: relative; flex: none; width: 17px; height: 17px; border-radius: 50%; background: var(--ok-ink); }
+.dl-tick::after { content: ""; position: absolute; left: 6px; top: 3px; width: 4px; height: 8px; border: solid var(--sheet); border-width: 0 2px 2px 0; transform: rotate(45deg); }
+.dl-done .dl-list { display: none; margin-top: 4px; }
+.dl-done.open .dl-list { display: grid; }
+.dl-done .dl-row::before { background: var(--ok-ink); opacity: .6; }
+.dl-done .dl-what { color: var(--ink-2); font-weight: 500; text-decoration: line-through; text-decoration-color: color-mix(in srgb, var(--ink-2) 55%, transparent); }
+.dl-done .dl-due { color: var(--ok-ink); }
+/* строка «обновлено» и честная строка «сервер молчит» */
+.dl-upd { display: inline-flex; align-items: center; gap: 8px; color: var(--ink-2); font: 500 12px/1.3 var(--mono); white-space: nowrap; }
+.dl-upd .live { margin: 0 4px; }
+.dl-upd .dot-w { width: 8px; height: 8px; border-radius: 50%; background: var(--warn-ink); }
+.dl-stale { display: flex; align-items: center; gap: 12px; padding: 12px 16px; margin: 0; border-radius: var(--r-l);
+  background: var(--warn-bg); border: 1px solid color-mix(in srgb, var(--warn-ink) 35%, transparent); color: var(--ink); font-size: 13.5px; }
+.dl-stale b { font-weight: 600; }
+.dl-stale .dot { flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--warn-ink); }
+.dl-stale span { color: var(--ink-2); }
+.is-stale .dl-list:not(.dl-done .dl-list) { opacity: .62; }
+/* пусто: «Сегодня ничего не горит» */
+.dl-empty { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 16px; padding: 16px; border-radius: var(--r-l);
+  background: color-mix(in srgb, var(--ok-ink) 9%, transparent); border: 1px solid color-mix(in srgb, var(--ok-ink) 28%, transparent); }
+.dl-empty .ring { width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; color: var(--ok-ink);
+  background: color-mix(in srgb, var(--ok-ink) 16%, transparent); }
+.dl-empty b { display: block; font: 600 20px/1.15 var(--display); letter-spacing: -0.01em; }
+.dl-empty span { display: block; margin-top: 4px; color: var(--ink-2); font-size: 13px; }
+/* переключатель «Сверка / Мои дела» в шапке */
+.dl-switch { height: 40px; align-items: center; }
+.dl-switch button { display: inline-flex; align-items: center; gap: 8px; height: 32px; }
+.dl-switch .cnt { min-width: 20px; height: 20px; padding: 0 4px; border-radius: var(--r-s); display: inline-grid; place-items: center;
+  font: 600 11.5px/1 var(--mono); background: var(--bad-ink); color: var(--sheet); }
+@media (max-width: 700px) { .dl-switch { display: flex; width: 100%; } .dl-switch button { flex: 1; justify-content: center; } }
+/* на вкладке «Мои дела» сверка спрятана (ничего не стирается: таблицы, итог и выбор остаются) */
+html.dl-mode .top .steps, html.dl-mode #stage, html.dl-mode #out { display: none; }
+.dl-screen { display: none; gap: 24px; margin: 0 0 24px; }
+html.dl-mode .dl-screen { display: grid; }
+.dl-hero { position: relative; isolation: isolate; overflow: hidden; border-radius: var(--r-xxl); padding: 24px; border: 1px solid var(--rule);
+  background: radial-gradient(60% 80% at 82% 0%, color-mix(in srgb, var(--bad-ink) 14%, transparent), transparent 70%), radial-gradient(55% 60% at 12% 100%, var(--glow-b), transparent 70%), color-mix(in srgb, var(--sheet) 35%, var(--paper));
+  display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 16px 24px; align-items: end; }
+.dl-hero h1 { margin: 8px 0 0; font: 600 clamp(40px, 6vw, 76px)/.95 var(--display); letter-spacing: -0.02em; }
+.dl-hero h1 em { font-style: italic; font-weight: 500; color: var(--ink-2); }
+.dl-hero h1 .n { color: var(--bad-ink); font-variant-numeric: lining-nums; }
+.dl-hero.calm { background: radial-gradient(60% 80% at 82% 0%, color-mix(in srgb, var(--ok-ink) 16%, transparent), transparent 70%), radial-gradient(55% 60% at 12% 100%, var(--glow-b), transparent 70%), color-mix(in srgb, var(--sheet) 35%, var(--paper)); }
+.dl-hero.calm h1 .n { color: var(--ok-ink); }
+.dl-hero .dl-hr { display: grid; justify-items: end; gap: 8px; }
+.dl-screen .tally { grid-template-columns: repeat(var(--cols, 6), minmax(0, 1fr)); }
+.dl-screen .tally button[data-g="over"] .n { color: var(--bad-ink); } .dl-screen .tally button[data-g="me"] .n { color: var(--warn-ink); }
+.dl-screen .tally button[data-g="done"] .n { color: var(--ok-ink); }
+.dl-screen .tally .l { display: block; margin-top: 4px; color: var(--ink-2); font-size: 12.5px; }
+.dl-split { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; align-items: stretch; }
+.dl-split .card2 { gap: 12px; align-content: start; }
+.dl-screen a.btn, #tgc-modal a.btn { text-decoration: none; display: inline-flex; align-items: center; }
+.dl-foot-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; padding: 0 8px; }
+@media (max-width: 960px) { .dl-split { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 900px) { .dl-screen .tally { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 700px) {
+  .dl-screen { gap: 16px; margin-bottom: 18px; }
+  .dl-hero { grid-template-columns: minmax(0, 1fr); padding: 20px 16px 16px; border-radius: 22px; }
+  .dl-hero .dl-hr { justify-items: start; }
+  .dl-split .card2 { padding: 16px 12px; }
+}
+/* шапка на телефоне с ключом: значок Телеграма — седьмой в строке; кнопки встают по всей ширине, промежуток не меньше 4 */
+@media (max-width: 700px) { html.dl-on .top-r { gap: 8px 4px; justify-content: space-between; } }
+/* значок подключения Телеграма + окно. Точка сидит на углу значка и не пульсирует — не путается с «живой» точкой «Бота» */
+.tgc { position: relative; }
+.tgc .tgc-dot { position: absolute; right: -3px; bottom: -3px; width: 12px; height: 12px; border-radius: 50%; background: var(--ink-3); box-shadow: 0 0 0 2px var(--paper); }
+.tgc.on .tgc-dot { background: var(--ok-ink); }
+.tgc.wait .tgc-dot { background: var(--warn-ink); }
+.tgc-card { width: min(520px, 100%); padding: 20px 24px 24px; }
+.tgc-card .modal-head { margin-bottom: 16px; }
+.tgc-card .modal-head h2 { font: 600 24px/1.1 var(--display); margin: 0; }
+.tgc-state { display: inline-flex; align-items: center; gap: 8px; height: 30px; padding: 0 12px; border-radius: var(--r-s); font-size: 13px; font-weight: 600;
+  background: color-mix(in srgb, var(--ink-3) 14%, transparent); color: var(--ink-2); }
+.tgc-state i { width: 8px; height: 8px; border-radius: 50%; background: var(--ink-3); }
+.tgc-state.on { background: color-mix(in srgb, var(--ok-ink) 14%, transparent); color: var(--ok-ink); }
+.tgc-state.on i { background: var(--ok-ink); }
+.tgc-state.wait { background: color-mix(in srgb, var(--warn-ink) 14%, transparent); color: var(--warn-ink); }
+.tgc-state.wait i { background: var(--warn-ink); animation: tgcBlink 1.2s var(--ease-out) infinite alternate; }
+@keyframes tgcBlink { to { opacity: .25; } }
+@media (prefers-reduced-motion: reduce) { .tgc-state.wait i { animation: none; } }
+.tgc-lead { margin: 12px 0 16px; color: var(--ink-2); font-size: 14px; line-height: 1.5; }
+.tgc-facts { list-style: none; margin: 0 0 20px; padding: 0; display: grid; gap: 8px; }
+.tgc-facts li { display: grid; grid-template-columns: 32px minmax(0, 1fr); gap: 12px; align-items: center; padding: 8px 12px 8px 8px; border-radius: var(--r-m); background: var(--head); font-size: 13.5px; line-height: 1.4; }
+.tgc-facts li > i { width: 32px; height: 32px; border-radius: var(--r-s); display: grid; place-items: center; background: var(--sheet); color: var(--sea); }
+.tgc-facts li b { font-weight: 600; }
+.tgc-facts li span { color: var(--ink-2); }
+.tgc-qr { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 20px; align-items: center; margin: 12px 0 20px; }
+.tgc-qr .code { width: 188px; height: 188px; padding: 12px; border-radius: var(--r-l); background: var(--head); box-shadow: 0 0 0 1px var(--rule-strong);
+  display: grid; place-items: center; text-align: center; color: var(--ink-2); font-size: 13px; line-height: 1.4; }
+.tgc-qr ol { margin: 0; padding-left: 20px; display: grid; gap: 8px; font-size: 13.5px; line-height: 1.45; }
+.tgc-qr ol b { font-weight: 600; }
+.tgc-foot { display: flex; justify-content: flex-end; gap: 8px; flex-wrap: wrap; }
+.tgc-foot .tgc-off { margin-right: auto; color: var(--ink-2); font-size: 12.5px; align-self: center; }
+@media (max-width: 700px) {
+  .tgc-card { padding: 16px 16px 20px; }
+  .tgc-qr { grid-template-columns: minmax(0, 1fr); justify-items: center; }
+  .tgc-qr ol { justify-self: stretch; }
+  .tgc-foot .btn { flex: 1; }
+  .tgc-foot .tgc-off { flex: 1 0 100%; }
+}
+</style>
 </head>
 <body>
 <main>
@@ -580,7 +721,7 @@ tr.just .n-ok { display: inline-block; animation: popIn .45s cubic-bezier(.3, 1.
   </section>
 
   <div id="out"></div>
-  <footer class="app-foot"><svg width="14" height="14" viewBox="0 0 28 28" aria-hidden="true"><ellipse cx="14" cy="14" rx="5.2" ry="11" fill="none" stroke="currentColor" stroke-width="2" transform="rotate(28 14 14)"/><path d="M10.2 6.8c3 4.6 4.6 9.4 7.6 14.4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>Сверка рейсов · версия <span id="app-ver"><!--ВЕРСИЯ-->22.10.2026 · b9349f<!--/ВЕРСИЯ--></span></footer>
+  <footer class="app-foot"><svg width="14" height="14" viewBox="0 0 28 28" aria-hidden="true"><ellipse cx="14" cy="14" rx="5.2" ry="11" fill="none" stroke="currentColor" stroke-width="2" transform="rotate(28 14 14)"/><path d="M10.2 6.8c3 4.6 4.6 9.4 7.6 14.4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>Сверка рейсов · версия <span id="app-ver"><!--ВЕРСИЯ-->22.10.2026 · db651d<!--/ВЕРСИЯ--></span></footer>
 </main>
 
 <div class="modal" id="report" role="dialog" aria-modal="true" aria-labelledby="report-title">
@@ -3824,7 +3965,7 @@ SverkaFx.changed('.btn', el => {
       return out.map(o => new DOMRect(o.left, o.top, o.right - o.left, o.bottom - o.top));
     };
     const head = [...document.querySelectorAll('.stage-head > *')].filter(el => !el.hidden && vis(el)).flatMap(lines);
-    const avoid = [...document.querySelectorAll('header, #hello, .pane, .actions, #out > *')].map(vis).filter(Boolean).concat(head);
+    const avoid = [...document.querySelectorAll('header, #hello, .pane, .actions, #out > *, .dl-screen > :not(.dl-split), .dl-split > *, #tgc-modal.open .modal-card')].map(vis).filter(Boolean).concat(head);
     let lastRow = null;
     if (S.nlast && S.nlast.length) lastRow = vis(document.querySelector(`#res-grid tr[data-nkey="${nKey(S.nlast[S.nlast.length - 1])}"]`));
     // buttons — кнопки, которые голубь «клюёт» на своём слое (сами кнопки не трогает): «Вставить», «Очистить», «Сверить»
@@ -4915,7 +5056,9 @@ SverkaFx.changed('.btn', el => {
   // Прямо в бота (14.10.2026): страница шлёт отчёт на веб-приложение бота, бот — администратору, в лист «Ошибки» и на
   // Диск. Только с настоящего сайта или из файла программы: проверки на машине разработки ничего не шлют (для них —
   // window.SverkaReportSink: подменяет отправку и показывает, что ушло бы). Ответа нет (no-cors) — «ушло» = запрос ушёл.
-  const REPORT_URL = 'https://script.google.com/macros/s/AKfycbyk5EH_q4X9dfb1eQzju2cnrvB4kfKzFZ7gAW6kRGvyCLk-cqdHBovDF9VP2MaPKjiz3A/exec?r=report';
+  const BOT_EXEC = 'https://script.google.com/macros/s/AKfycbyk5EH_q4X9dfb1eQzju2cnrvB4kfKzFZ7gAW6kRGvyCLk-cqdHBovDF9VP2MaPKjiz3A/exec';   // веб-приложение бота: одно; «Мои дела» берут его адрес отсюда
+  window.SverkaBotExec = BOT_EXEC;
+  const REPORT_URL = BOT_EXEC + '?r=report';
   const REPORT_ON = location.hostname === 'sverka-reysov.github.io' || location.protocol === 'file:';
   const appVer = () => (($('#app-ver') || {}).textContent || '').trim();
   function sendReport(p) {
@@ -6117,6 +6260,323 @@ SverkaFx.changed('.btn', el => {
   };
 
   renderPane('port'); renderPane('mine');
+})();
+</script>
+<script id="dela-script">
+// «Мои дела» (шаг F3, 22.10.2026). БЕЗ личного ключа этот блок ничего не делает: нет вкладок, нет значка Телеграма,
+// ни одного запроса — страница та же, что была. Ключ приходит ссылкой из бота: https://…/#dela=<ключ>. Фрагмент (#…)
+// браузер на сервер не отправляет; страница запоминает ключ в этом браузере (localStorage, ключ вне резервной копии
+// «sverka.*»), убирает его из адресной строки и шлёт боту в ТЕЛЕ запроса, никогда не в адресе.
+// Запрос: POST на веб-приложение бота (window.SverkaBotExec), text/plain, {"dela":"<ключ>"}; ответ — контракт в
+// ТЗ/2026-10-22-F3-контракт.md. Раз в 3 минуты, пока страница видна. Сверку не трогает: вкладка «Мои дела» только прячет её.
+(() => {
+  'use strict';
+  const KEY_STORE = 'dela.key.v1';
+  const KEY_RE = /^[A-Za-z0-9_-]{16,64}$/;
+  const POLL_MS = 3 * 60 * 1000, STALE_MS = 15 * 60 * 1000, FETCH_MS = 20000;
+  const root = document.documentElement;
+  const $ = (s, r = document) => r.querySelector(s);
+  const E = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const lsGet = k => { try { return localStorage.getItem(k); } catch (e) { return null; } };
+
+  // ---------- ключ: из адреса → в память браузера → из адресной строки долой ----------
+  let key = null, fromLink = false;
+  if (location.hash.startsWith('#dela=')) {
+    const v = location.hash.slice(6);
+    try { history.replaceState(null, '', location.pathname + location.search); } catch (e) { /* адрес не поменять — не страшно */ }
+    if (KEY_RE.test(v)) { key = v; fromLink = true; try { localStorage.setItem(KEY_STORE, v); } catch (e) { /* без памяти — ключ живёт до закрытия страницы */ } }
+  }
+  if (!key) { const s = lsGet(KEY_STORE); if (s && KEY_RE.test(s)) key = s; else if (s) { try { localStorage.removeItem(KEY_STORE); } catch (e) { /* нет памяти */ } } }
+  window.SverkaDela = { on: false };
+  if (!key) return;
+
+  // ---------- небольшие помощники ----------
+  const p2 = n => String(n).padStart(2, '0');
+  const hhmm = ms => { const d = new Date(ms); return p2(d.getHours()) + ':' + p2(d.getMinutes()); };
+  const ddmm = iso => /^\d{4}-\d{2}-\d{2}/.test(iso || '') ? iso.slice(8, 10) + '.' + iso.slice(5, 7) : '';
+  const MONTHS = ['января', 'февраля', 'марта', 'апреля', 'мая', 'июня', 'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря'];
+  const DAYS = ['воскресенье', 'понедельник', 'вторник', 'среда', 'четверг', 'пятница', 'суббота'];
+  const dateLine = iso => { const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso || ''); if (!m) return ''; const d = new Date(+m[1], +m[2] - 1, +m[3]); return DAYS[d.getDay()] + ', ' + (+m[3]) + ' ' + MONTHS[+m[2] - 1]; };
+  const plural = (n, a, b, c) => n % 10 === 1 && n % 100 !== 11 ? a : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 >= 20) ? b : c;
+  const svg = (w, body, cls) => `<svg${cls ? ` class="${cls}"` : ''} width="${w}" height="${w}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${body}</svg>`;
+  const IC = {
+    src: svg(14, '<path d="M7 17 17 7M9 7h8v8"/>'),
+    chev: svg(16, '<path d="m6 9 6 6 6-6"/>', 'chev'),
+    ok: svg(22, '<path d="m5 12.5 4.5 4.5L19 7.5"/>'),
+    x: svg(16, '<path d="M6.5 6.5l11 11M17.5 6.5l-11 11"/>', 'bi'),
+    chats: svg(18, '<path d="M14.5 4h-9A2.5 2.5 0 0 0 3 6.5v6A2.5 2.5 0 0 0 5.5 15H6v3l3.5-3h5a2.5 2.5 0 0 0 2.5-2.5v-6A2.5 2.5 0 0 0 14.5 4Z"/><path d="M17 8.5h1.5A2.5 2.5 0 0 1 21 11v5a2.5 2.5 0 0 1-2.5 2.5H18v2.5l-3-2.5h-3"/>'),
+    eye: svg(18, '<path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z"/><circle cx="12" cy="12" r="2.8"/>'),
+    mute: svg(18, '<path d="M4 20 20 4"/><path d="M16.5 4.5h-11A2.5 2.5 0 0 0 3 7v6a2.5 2.5 0 0 0 2.5 2.5H6V19l3.5-3.5h3"/><path d="M19 8.5V13a2.5 2.5 0 0 1-2.5 2.5"/>'),
+    gear: svg(18, '<circle cx="12" cy="12" r="3"/><path d="M12 2.8v2.4M12 18.8v2.4M2.8 12h2.4M18.8 12h2.4M5.5 5.5l1.7 1.7M16.8 16.8l1.7 1.7M5.5 18.5l1.7-1.7M16.8 7.2l1.7-1.7"/>'),
+  };
+
+  // ---------- разделы снимка F1 → группы экрана ----------
+  // Ключи — как в snapshot (система/worksys/snimok.py). Первые пять — плашки и две карточки, остальные — только списком.
+  const CORE = [['просрочено', 'over', 'Просрочено'], ['ждут_от_Паши', 'me', 'Ждут от меня'], ['ждём_от_других', 'they', 'Ждём от других'],
+    ['заблокировано', 'block', 'Заблокировано'], ['вопросы_без_ответа', 'q', 'Вопросы без ответа']];
+  const MORE = [['без_срока', 'none', 'Без срока'], ['на_подтверждении', 'confirm', 'На подтверждении'], ['противоречия', 'conflict', 'Противоречия']];
+  const ALL = CORE.concat(MORE);
+  const COLOR = { over: '--bad-ink', me: '--warn-ink', they: '--sea', block: '--wheat', q: '--tg', done: '--ok-ink' };
+  const ERR = { net: 'Нет связи с ботом', server: 'Бот не отдал дела', format: 'Бот прислал непонятный ответ', empty: 'Бот пока не получил данных от сервера' };
+
+  // ---------- состояние ----------
+  const st = {
+    snap: null, secs: null, done: null, at: 0, now: 0, okLocal: 0, tg: null,   // последний принятый снимок
+    err: null,                                                                  // net | server | format | empty | key | null — итог последнего запроса
+    tab: fromLink ? 'dela' : 'sverka', filter: null, doneOpen: false, modal: false, loaded: false,
+    stats: { req: 0, ok: 0, net: 0, server: 0, format: 0, empty: 0, key: 0 },
+    alive: true, lastTry: 0,
+  };
+  const age = () => (st.snap ? st.now - st.at + (st.okLocal ? Date.now() - st.okLocal : 0) : 0);
+  const isStale = () => !!st.snap && age() > STALE_MS;
+  const num = v => (typeof v === 'number' && isFinite(v) ? v : null);
+  const cnt = k => { const c = st.snap && st.snap.счётчики && num(st.snap.счётчики[k]); return c != null ? c : (st.secs && st.secs[k] ? st.secs[k].length : 0); };
+
+  // ---------- разбор ответа бота (ничему не верим: форма, типы, длины) ----------
+  function parse(resp) {
+    if (!resp || typeof resp !== 'object') return { err: 'format' };
+    if (resp.ok !== true) return { err: resp.err === 'key' ? 'key' : resp.err === 'empty' ? 'empty' : 'server' };
+    const s = resp.snap, at = Number(resp.at);
+    if (!s || typeof s !== 'object' || !s.разделы || typeof s.разделы !== 'object' || !s.счётчики || typeof s.счётчики !== 'object' || !isFinite(at) || at <= 0) return { err: 'format' };
+    const rows = a => (Array.isArray(a) ? a.filter(x => x && typeof x === 'object' && typeof x.что === 'string' && x.что).slice(0, 300) : []);
+    const secs = {}; ALL.forEach(([k]) => { secs[k] = rows(s.разделы[k]); });
+    const now = Number(resp.now);
+    const t = resp.tg && typeof resp.tg === 'object' ? resp.tg : null;
+    return { ok: true, snap: s, secs, done: Array.isArray(s.выполнено) ? rows(s.выполнено) : null, at, now: isFinite(now) && now > 0 ? now : Date.now(),
+      tg: t && ['on', 'wait', 'off'].includes(t.state) ? { state: t.state, since: num(t.since), last: num(t.last), chats: num(t.chats) } : null };
+  }
+
+  // ---------- запрос ----------
+  async function fetchOnce() {
+    st.stats.req++; st.lastTry = Date.now();
+    const ctl = typeof AbortController === 'function' ? new AbortController() : null;
+    const timer = setTimeout(() => { try { ctl && ctl.abort(); } catch (e) { /* уже закончился */ } }, FETCH_MS);
+    try {
+      // text/plain — «простой» запрос: у веб-приложения Google нет ответа на предварительный OPTIONS
+      const r = await fetch(window.SverkaBotExec, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ dela: key }),
+        redirect: 'follow', cache: 'no-store', credentials: 'omit', referrerPolicy: 'no-referrer', signal: ctl ? ctl.signal : undefined });
+      if (!r.ok) return { err: 'net' };
+      let j = null; try { j = await r.json(); } catch (e) { return { err: 'format' }; }
+      return parse(j);
+    } catch (e) { return { err: 'net' }; }
+    finally { clearTimeout(timer); }
+  }
+  let inflight = null;
+  function refresh() {
+    if (!st.alive) return Promise.resolve();
+    if (inflight) return inflight;
+    inflight = (async () => {
+      let res; try { res = await fetchOnce(); } catch (e) { res = { err: 'net' }; }
+      if (!st.alive) return;
+      st.loaded = true;
+      if (res.ok) {
+        st.stats.ok++; st.err = null;
+        Object.assign(st, { snap: res.snap, secs: res.secs, done: res.done, at: res.at, now: res.now, okLocal: Date.now(), tg: res.tg });
+        paint();
+      } else {
+        st.stats[res.err] = (st.stats[res.err] || 0) + 1; st.err = res.err;
+        if (res.err === 'key') { st.snap = null; st.secs = null; }
+        paint();
+      }
+    })().finally(() => { inflight = null; });
+    return inflight;
+  }
+  // раз в 3 минуты, пока страница видна; скрыта — не стучим, при возвращении — сразу, если пора
+  let timer = null;
+  function schedule(ms) {
+    clearTimeout(timer); timer = null;
+    if (!st.alive || st.err === 'key' || document.visibilityState === 'hidden') return;
+    timer = setTimeout(async () => { await refresh(); schedule(POLL_MS); }, ms == null ? POLL_MS : ms);
+  }
+  document.addEventListener('visibilitychange', () => {
+    if (!st.alive) return;
+    if (document.visibilityState === 'visible') { const left = POLL_MS - (Date.now() - st.lastTry); if (left <= 0) refresh().then(() => schedule(POLL_MS)); else schedule(left); }
+    else { clearTimeout(timer); timer = null; }
+  });
+
+  // ---------- разметка экрана ----------
+  const plate = v => { const p = window.SverkaPlate ? window.SverkaPlate(v) : ''; return /class="plate/.test(p) ? p : `<span>${E(v)}</span>`; };
+  const today = () => (st.snap && /^\d{4}-\d{2}-\d{2}/.test(st.snap.now || '') ? st.snap.now.slice(0, 10) : '');
+  const dueText = iso => {
+    if (!/^\d{4}-\d{2}-\d{2}/.test(iso || '')) return 'без срока';
+    const t = today(), d = iso.slice(0, 10);
+    if (t) { const y = new Date(Date.UTC(+t.slice(0, 4), +t.slice(5, 7) - 1, +t.slice(8, 10) - 1)).toISOString().slice(0, 10); if (d === t) return 'сегодня'; if (d === y) return 'вчера'; }
+    return ddmm(d);
+  };
+  const SAFE_LINK = /^(https:\/\/t\.me\/|tg:\/\/)[^\s"<>]*$/;
+  function row(x, isDone) {
+    const mine = x.раздел === 'ждут_от_Паши';   // в «Ждут от меня» исполнитель — он сам, имя лишнее (и имени в коде страницы быть не должно)
+    const meta = [x.кто && !mine && `<span>${E(x.кто)}</span>`, x.машина && plate(String(x.машина)), x.ттн && `<span>ТТН ${E(x.ттн)}</span>`,
+      num(x.напоминаний) > 0 && `<span>напоминали ${x.напоминаний}</span>`,
+      typeof x.причина === 'string' && x.причина && !/^срок /.test(x.причина) && `<span>${E(x.причина)}</span>`].filter(Boolean).join('');
+    const due = isDone ? E(x.когда || '') : dueText(x.срок);
+    const msg = Array.isArray(x.источник) && x.источник.length > 1 ? x.источник[1] : null;
+    const label = [x.чат || (msg != null ? '№' + msg : ''), ddmm(x.дата)].filter(Boolean).join(' · ');
+    const src = !label || isDone ? '' : typeof x.ссылка === 'string' && SAFE_LINK.test(x.ссылка)
+      ? `<a class="dl-src" href="${E(x.ссылка)}" target="_blank" rel="noopener" title="Открыть сообщение в Телеграме">${IC.src}${E(label)}</a>`
+      : `<span class="dl-src" title="${msg != null ? 'Сообщение №' + E(msg) : ''}">${IC.src}${E(label)}</span>`;
+    return `<li class="dl-row"><div><span class="dl-what">${E(x.что)}</span><span class="dl-meta">${meta}</span></div><span class="dl-due">${due}</span>${src}</li>`;
+  }
+  const group = ([k, g, title]) => {
+    const a = st.secs[k]; if (!a.length || (st.filter && st.filter !== g)) return '';
+    return `<div class="dl-g" data-g="${g}"><div class="dl-gh"><span class="eyebrow">${title}</span><b>${a.length}</b></div><ul class="dl-list">${a.map(x => row(x, false)).join('')}</ul></div>`;
+  };
+  const doneBlock = () => {
+    if (!st.done || !st.done.length || (st.filter && st.filter !== 'done')) return '';
+    const open = st.doneOpen || st.filter === 'done';
+    return `<div class="dl-done${open ? ' open' : ''}"><button class="dl-done-t" data-dl="done" aria-expanded="${open}"><i class="dl-tick"></i>Выполнено сегодня (${st.done.length})${IC.chev}</button>` +
+      `<ul class="dl-list">${st.done.map(x => row(x, true)).join('')}</ul></div>`;
+  };
+  const updHtml = () => isStale() || st.err ? `<span class="dl-upd"><i class="dot-w"></i>данные от ${hhmm(st.at)}</span>`
+    : `<span class="dl-upd"><i class="live"></i>обновлено ${hhmm(st.at)} · каждые 3 мин</span>`;
+  const staleNote = () => {
+    if (st.err && st.err !== 'key') {
+      const lead = st.snap ? `${ERR[st.err]} — данные от ${hhmm(st.at)}, ${Math.max(0, Math.floor(age() / 60000))} мин назад.` : `${ERR[st.err]}.`;
+      return `<p class="dl-stale"><i class="dot"></i><span><b>${lead}</b> ${st.snap ? 'Список мог устареть, проверьте в чатах. ' : ''}Пробуем снова каждые 3 мин.</span></p>`;
+    }
+    if (isStale()) return `<p class="dl-stale"><i class="dot"></i><span><b>Данные от ${hhmm(st.at)} — сервер молчит ${Math.floor(age() / 60000)} мин.</b> Список мог устареть, проверьте в чатах.</span></p>`;
+    return '';
+  };
+  const hdrBits = () => `${st.snap ? dateLine(st.snap.now) : ''}`;
+  function screenHtml() {
+    if (st.err === 'key') return `<div class="notice bad"><h3>Ключ не действует</h3><p>Бот его отозвал или ссылка с ошибкой. Спросите у бота новый ключ — он пришлёт свежую ссылку на «Мои дела».</p>` +
+      `<div class="row"><a class="btn btn-primary btn-sm" href="https://t.me/zerno_sverka_bot" target="_blank" rel="noopener">Открыть бота</a><button class="btn btn-quiet btn-sm" data-dl="forget">Забыть ключ</button></div></div>`;
+    if (!st.snap) {
+      const wait = !st.loaded;
+      return `<div class="dl-hero${wait ? ' calm' : ''}"><div><span class="eyebrow">Мои дела</span><h1>${wait ? 'Загружаем <em>дела…</em>' : 'Дела <em>не загрузились</em>'}</h1></div></div>` +
+        (wait ? '' : staleNote() + `<div class="dl-foot-row"><button class="btn btn-sm" data-dl="retry">Попробовать сейчас</button><button class="btn btn-quiet btn-sm" data-dl="forget">Забыть ключ</button></div>`);
+    }
+    const all = cnt('всего') || ALL.reduce((n, [k]) => n + cnt(k), 0);
+    const hot = cnt('просрочено') + cnt('ждут_от_Паши');
+    const shown = ALL.reduce((n, [k]) => n + st.secs[k].length, 0);
+    const h1 = hot ? `<span class="n">${hot}</span> ${plural(hot, 'дело', 'дела', 'дел')} <em>${plural(hot, 'горит', 'горят', 'горят')}</em>`
+      : all ? 'Срочного <em>нет</em>' : 'Сегодня <em>ничего не горит</em>';
+    const tiles = CORE.map(([k, g, t]) => [g, cnt(k), t]).concat(st.done ? [['done', st.done.length, 'Выполнено сегодня']] : []);
+    const allN = tiles.reduce((n, x) => n + (x[0] === 'done' ? 0 : x[1]), 0) + (st.done ? st.done.length : 0);
+    const tally = tiles.map(([g, n, t]) => `<button data-g="${g}" aria-pressed="${st.filter === g}"${n ? '' : ' disabled'} style="--p:${allN ? (n / allN).toFixed(3) : 0};--c:var(${COLOR[g]})"><span class="n">${n}</span><span class="l">${t}</span></button>`).join('');
+    const stale = (st.err || isStale()) ? ' is-stale' : '';
+    const left = ['over', 'me'].map(g => group(CORE.find(c => c[1] === g))).join('');
+    const right = ['they', 'block', 'q'].map(g => group(CORE.find(c => c[1] === g))).join('') + MORE.map(group).join('') + doneBlock();
+    const reason = typeof st.snap.пусто === 'string' && st.snap.пусто ? st.snap.пусто : '';
+    const chats = st.tg && st.tg.chats != null ? ` · ${st.tg.chats} ${plural(st.tg.chats, 'рабочий чат', 'рабочих чата', 'рабочих чатов')}` : '';
+    const body = all ? `<div class="dl-split">` +
+        (left ? `<section class="card2${stale}"><div class="c2-h"><h3>Горит</h3><span class="c2-sub">просрочено и ждут от меня</span></div>${left}</section>` : '') +
+        (right ? `<section class="card2${stale}"><div class="c2-h"><h3>Ждём и вопросы</h3><span class="c2-sub">от других · блоки · без ответа</span></div>${right}</section>` : '') + `</div>`
+      : `<section class="card2"><div class="dl-empty"><i class="ring">${IC.ok}</i><div><b>Дел, требующих внимания, нет</b><span>${reason ? E(reason) + ' · ' : ''}последняя проверка ${hhmm(st.at)}${chats}</span></div></div>${doneBlock()}</section>`;
+    const s = st.stats, counters = `Запросов к боту: ${s.req}, ответов: ${s.ok}${s.req - s.ok ? `, сбоев: ${s.req - s.ok}` : ''}. Дел в снимке: ${all}, показано: ${shown}${shown !== all ? ' — бот прислал не все' : ''}.`;
+    return `<div class="dl-hero${hot ? '' : ' calm'}"><div><span class="eyebrow">Мои дела · ${E(hdrBits())}</span><h1>${h1}</h1></div><div class="dl-hr">${updHtml()}</div></div>` +
+      staleNote() + `<div class="tally" style="--cols:${tiles.length}">${tally}</div>${body}` +
+      `<div class="dl-foot-row"><span class="c2-sub" id="dl-counters">${E(counters)}</span><button class="btn btn-quiet btn-sm" data-dl="forget" title="Этот компьютер перестанет показывать дела, пока не получит новую ссылку от бота">Забыть ключ</button></div>`;
+  }
+
+  // ---------- вкладки, значок, окно Телеграма ----------
+  let sw = null, tgBtn = null, screen = null, modal = null;
+  function tgView() {
+    const t = st.tg ? st.tg.state : 'off';
+    const quiet = st.err === 'net' || st.err === 'server' || st.err === 'format' || st.err === 'empty' || isStale();
+    if (st.err === 'key') return { dot: '', kind: 'off', title: 'Телеграм: ключ не действует' };
+    if (!st.snap) return quiet ? { dot: 'wait', kind: 'silent', title: 'Телеграм: сервер молчит' } : { dot: '', kind: 'off', title: 'Телеграм: ещё нет данных' };
+    if (t === 'on') return quiet ? { dot: 'wait', kind: 'silent', title: 'Телеграм: сервер молчит' } : { dot: 'on', kind: 'on', title: 'Телеграм: читаем рабочие чаты' };
+    if (t === 'wait') return { dot: 'wait', kind: 'wait', title: 'Телеграм: ждём сканирования' };
+    return { dot: '', kind: 'off', title: 'Телеграм не подключён' };
+  }
+  function modalHtml() {
+    const v = tgView(), c = st.tg || {};
+    const facts = `<ul class="tgc-facts"><li><i>${IC.eye}</i><span><b>Читаем только рабочие чаты</b> — те, что вы отметите. Личные переписки не трогаем.</span></li>` +
+      `<li><i>${IC.mute}</i><span><b>Сами ничего не пишем</b> и не отправляем — только читаем и собираем дела.</span></li>` +
+      `<li><i>${IC.gear}</i><span><b>Отключить</b> — в Телеграме: Настройки → Устройства → «Сверка · сервер» → Завершить сеанс.</span></li></ul>`;
+    const chats = c.chats != null ? `читаем ${c.chats} ${plural(c.chats, 'рабочий чат', 'рабочих чата', 'рабочих чатов')}` : 'читаем рабочие чаты';
+    const last = c.last ? `Последнее чтение — ${hhmm(c.last)}` : 'Последнее чтение — нет данных';
+    let pill, body, title = 'Подключить Телеграм';
+    if (v.kind === 'on') {
+      title = 'Телеграм подключён'; pill = ['on', `Подключено · ${chats}`];
+      body = `<p class="tgc-lead">${c.since ? `С ${new Date(c.since).getDate()} ${MONTHS[new Date(c.since).getMonth()]}, ${hhmm(c.since)}. ` : ''}${last}, дела обновляются каждые 3 минуты.</p>${facts}<div class="tgc-foot"><button class="btn btn-primary" data-dl="close">Закрыть</button></div>`;
+    } else if (v.kind === 'silent') {
+      title = 'Телеграм подключён'; pill = ['wait', st.snap ? `Сервер молчит · данные от ${hhmm(st.at)}` : 'Сервер молчит'];
+      body = `<p class="tgc-lead">${last}. Пока сервер не ответит, список дел может быть устаревшим.</p>${facts}<div class="tgc-foot"><button class="btn btn-primary" data-dl="close">Закрыть</button></div>`;
+    } else if (v.kind === 'wait') {
+      pill = ['wait', 'Ждём сканирования…'];
+      body = `<div class="tgc-qr"><div class="code">QR-код появится здесь, когда его пришлёт сервер</div><div><ol><li>Откройте <b>Телеграм</b> на телефоне.</li><li><b>Настройки → Устройства → Подключить устройство</b>.</li><li>Наведите камеру на этот код.</li></ol></div></div>` +
+        `<div class="tgc-foot"><span class="tgc-off">Читаем только рабочие чаты, сами ничего не пишем.</span><button class="btn" data-dl="close">Закрыть</button></div>`;
+    } else {
+      pill = ['', 'Не подключено'];
+      body = `<p class="tgc-lead">Сервер будет читать рабочие чаты и собирать «Мои дела»: что просрочено, кто чего ждёт, вопросы без ответа. У каждого дела — ссылка на сообщение.</p>${facts}` +
+        `<div class="tgc-foot"><span class="tgc-off">QR-код появится после подключения сервера</span><button class="btn btn-quiet" data-dl="close">Закрыть</button><button class="btn btn-primary" disabled>Показать QR-код</button></div>`;
+    }
+    return `<div class="modal-card tgc-card"><div class="modal-head"><h2>${title}</h2><button class="icon-btn" data-dl="close" aria-label="Закрыть">${IC.x}</button></div>` +
+      `<span class="tgc-state ${pill[0]}"><i></i>${pill[1]}</span>${body}</div>`;
+  }
+  function paintHead() {
+    if (!sw) return;
+    const hot = st.snap && !st.err ? cnt('просрочено') + cnt('ждут_от_Паши') : (st.snap ? cnt('просрочено') + cnt('ждут_от_Паши') : 0);
+    sw.innerHTML = `<button role="tab" data-dl="tab-sverka" aria-selected="${st.tab === 'sverka'}">Сверка</button><button role="tab" data-dl="tab-dela" aria-selected="${st.tab === 'dela'}">Мои дела${hot ? `<span class="cnt">${hot}</span>` : ''}</button>`;
+    const v = tgView();
+    tgBtn.className = 'icon-btn tgc ' + v.dot; tgBtn.title = v.title; tgBtn.setAttribute('aria-label', v.title);
+  }
+  // Список перерисовывается, только если изменилось то, что на нём видно (дела, счётчики, статус, фильтр); иначе — только
+  // строка времени и счётчики запросов: каждые 3 минуты список не мигает и не теряет прокрутку.
+  let lastSig = '';
+  const sigNow = () => JSON.stringify([st.secs, st.done, st.snap && st.snap.счётчики, st.snap && st.snap.пусто, st.snap && hdrBits(), st.tg && [st.tg.state, st.tg.chats], st.err, isStale(), st.filter, st.loaded]);
+  function paint(force) {
+    if (!st.alive) return;
+    paintHead();
+    const sig = sigNow(), same = sig === lastSig && !force && screen.firstElementChild;
+    lastSig = sig;
+    if (same) {
+      const u = screen.querySelector('.dl-hr'); if (u) u.innerHTML = updHtml();
+      const c = screen.querySelector('#dl-counters'); if (c) c.textContent = (c.textContent || '').replace(/^Запросов[^.]*\./, `Запросов к боту: ${st.stats.req}, ответов: ${st.stats.ok}${st.stats.req - st.stats.ok ? `, сбоев: ${st.stats.req - st.stats.ok}` : ''}.`);
+    } else screen.innerHTML = screenHtml();
+    if (modal && st.modal) modal.innerHTML = modalHtml();
+  }
+  function setTab(t) {
+    st.tab = t; root.classList.toggle('dl-mode', t === 'dela');
+    paintHead();
+    if (t === 'dela') { window.scrollTo(0, 0); paint(true); }
+  }
+  function openModal() {
+    st.modal = true; modal.innerHTML = modalHtml(); modal.classList.add('open'); document.body.style.overflow = 'hidden';
+    const b = $('.icon-btn', modal); if (b) b.focus();
+  }
+  function closeModal() {
+    if (!st.modal) return;
+    st.modal = false; modal.classList.remove('open'); document.body.style.overflow = ''; if (tgBtn) tgBtn.focus();
+  }
+  function forget() {
+    st.alive = false; clearTimeout(timer); timer = null;
+    try { localStorage.removeItem(KEY_STORE); } catch (e) { /* нет памяти */ }
+    closeModal();
+    [sw, tgBtn, screen, modal].forEach(e => e && e.remove());
+    root.classList.remove('dl-on', 'dl-mode');
+    window.SverkaDela = { on: false, forgotten: true };
+  }
+  function onClick(e) {
+    const b = e.target.closest('[data-dl], .tally button[data-g]'); if (!b) return;
+    if (b.dataset.dl === 'tab-sverka') setTab('sverka');
+    else if (b.dataset.dl === 'tab-dela') setTab('dela');
+    else if (b.dataset.dl === 'close') closeModal();
+    else if (b.dataset.dl === 'forget') forget();
+    else if (b.dataset.dl === 'retry') { refresh().then(() => schedule(POLL_MS)); }
+    else if (b.dataset.dl === 'done') { st.doneOpen = !st.doneOpen; b.parentElement.classList.toggle('open', st.doneOpen); b.setAttribute('aria-expanded', String(st.doneOpen)); }
+    else if (b.dataset.g) { st.filter = st.filter === b.dataset.g ? null : b.dataset.g; paint(true); }
+  }
+
+  // ---------- сборка на странице ----------
+  const brand = $('.top .brand'), help = $('#btn-help'), stage = $('#stage');
+  if (!brand || !help || !stage) return;   // страница другая (не наша) — молча выходим
+  sw = document.createElement('div'); sw.className = 'tabs dl-switch'; sw.setAttribute('role', 'tablist'); brand.after(sw);
+  tgBtn = document.createElement('button'); tgBtn.id = 'btn-tgc'; tgBtn.setAttribute('aria-haspopup', 'dialog');
+  tgBtn.innerHTML = IC.chats + '<i class="tgc-dot"></i>'; help.before(tgBtn);
+  screen = document.createElement('section'); screen.className = 'dl-screen'; screen.setAttribute('aria-label', 'Мои дела'); stage.before(screen);
+  modal = document.createElement('div'); modal.className = 'modal'; modal.id = 'tgc-modal'; modal.setAttribute('role', 'dialog'); modal.setAttribute('aria-modal', 'true'); modal.setAttribute('aria-label', 'Телеграм');
+  document.body.append(modal);
+  root.classList.add('dl-on');
+  sw.addEventListener('click', onClick); screen.addEventListener('click', onClick); modal.addEventListener('click', e => { if (e.target === modal) closeModal(); else onClick(e); });
+  tgBtn.addEventListener('click', () => (st.modal ? closeModal() : openModal()));
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && st.modal) closeModal(); });
+  window.SverkaDela = { on: true, refresh, forget, setTab, stats: () => Object.assign({}, st.stats),
+    state: () => ({ tab: st.tab, err: st.err, stale: isStale(), age: Math.floor(age() / 1000), tg: tgView().dot || 'off', filter: st.filter, rows: st.secs ? ALL.reduce((n, [k]) => n + st.secs[k].length, 0) : 0 }) };
+  setTab(st.tab);
+  refresh().then(() => schedule(POLL_MS));
 })();
 </script>
 </body>
