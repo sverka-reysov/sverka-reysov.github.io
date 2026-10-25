@@ -730,7 +730,7 @@ html.dl-mode .dl-screen { display: grid; }
   </section>
 
   <div id="out"></div>
-  <footer class="app-foot"><svg width="14" height="14" viewBox="0 0 28 28" aria-hidden="true"><ellipse cx="14" cy="14" rx="5.2" ry="11" fill="none" stroke="currentColor" stroke-width="2" transform="rotate(28 14 14)"/><path d="M10.2 6.8c3 4.6 4.6 9.4 7.6 14.4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>Сверка рейсов · версия <span id="app-ver"><!--ВЕРСИЯ-->22.10.2026 · a615e1<!--/ВЕРСИЯ--></span></footer>
+  <footer class="app-foot"><svg width="14" height="14" viewBox="0 0 28 28" aria-hidden="true"><ellipse cx="14" cy="14" rx="5.2" ry="11" fill="none" stroke="currentColor" stroke-width="2" transform="rotate(28 14 14)"/><path d="M10.2 6.8c3 4.6 4.6 9.4 7.6 14.4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>Сверка рейсов · версия <span id="app-ver"><!--ВЕРСИЯ-->25.10.2026 · 6f28a8<!--/ВЕРСИЯ--></span></footer>
 </main>
 
 <div class="modal" id="report" role="dialog" aria-modal="true" aria-labelledby="report-title">
@@ -6623,6 +6623,8 @@ SverkaFx.changed('.btn', el => {
     parol_tunnel_failed: 'Не удалось открыть защищённую страницу входа.',
     login_crashed: 'Вход оборвался на сервере.',
     disconnected: 'Сервер потерял связь с Телеграмом.',
+    user_off: 'Телеграм отключён по вашей просьбе. Прочитанное осталось.',
+    user_off_unconfirmed: 'Отключено на сервере, но Телеграм не подтвердил. Завершите «Сверка — читалка» в Настройки → Устройства.',
   };
   const whyText = r => (r && WHY[r]) || (r && /^connection:/.test(r) ? WHY.disconnected : r ? 'Подключиться не получилось.' : '');
   // Список рабочих чатов: кнопки-переключатели («Дело в списке»: .btn.btn-sm + <i class="tick"> + aria-pressed), поиск — .hsearch
@@ -6701,9 +6703,10 @@ SverkaFx.changed('.btn', el => {
         `<div class="tgc-foot"><span class="tgc-off">Пароль нигде не сохраняется.</span><button class="btn" data-dl="close">Закрыть</button>${c.pw ? link(c.pw, 'Открыть страницу для пароля') : ''}</div>`;
     } else {
       const why = (st.err === 'net' || st.err === 'server' || st.err === 'format') ? 'Нет связи с ботом — запрос не ушёл. Попробуйте ещё раз.' : whyText(c.reason);
-      pill = ['', c.reason === 'session_revoked' ? 'Сеанс завершён' : 'Не подключено'];
+      const off = /^user_off/.test(c.reason || '');                     // отключили сами («отключи телеграм») — это не ошибка
+      pill = ['', c.reason === 'session_revoked' ? 'Сеанс завершён' : off ? 'Отключено' : 'Не подключено'];
       body = (why ? `<p class="tgc-lead"><b>${E(why)}</b></p>` : `<p class="tgc-lead">Сервер будет читать рабочие чаты и собирать «Мои дела»: что просрочено, кто чего ждёт, вопросы без ответа. У каждого дела — ссылка на сообщение.</p>`) + facts +
-        `<div class="tgc-foot"><span class="tgc-off">Нужен телефон с Телеграмом под рукой</span><button class="btn btn-quiet" data-dl="close">Закрыть</button><button class="btn btn-primary" data-dl="tg-connect">${why ? 'Попробовать снова' : 'Подключить'}</button></div>`;
+        `<div class="tgc-foot"><span class="tgc-off">Нужен телефон с Телеграмом под рукой</span><button class="btn btn-quiet" data-dl="close">Закрыть</button><button class="btn btn-primary" data-dl="tg-connect">${why && !off ? 'Попробовать снова' : 'Подключить'}</button></div>`;
     }
     return `<div class="modal-card tgc-card"><div class="modal-head"><h2>${title}</h2><button class="icon-btn" data-dl="close" aria-label="Закрыть">${IC.x}</button></div>` +
       `<span class="tgc-state ${pill[0]}"><i></i>${pill[1]}</span>${body}</div>`;
