@@ -730,7 +730,7 @@ html.dl-mode .dl-screen { display: grid; }
   </section>
 
   <div id="out"></div>
-  <footer class="app-foot"><svg width="14" height="14" viewBox="0 0 28 28" aria-hidden="true"><ellipse cx="14" cy="14" rx="5.2" ry="11" fill="none" stroke="currentColor" stroke-width="2" transform="rotate(28 14 14)"/><path d="M10.2 6.8c3 4.6 4.6 9.4 7.6 14.4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>Сверка рейсов · версия <span id="app-ver"><!--ВЕРСИЯ-->25.10.2026 · 6f28a8<!--/ВЕРСИЯ--></span></footer>
+  <footer class="app-foot"><svg width="14" height="14" viewBox="0 0 28 28" aria-hidden="true"><ellipse cx="14" cy="14" rx="5.2" ry="11" fill="none" stroke="currentColor" stroke-width="2" transform="rotate(28 14 14)"/><path d="M10.2 6.8c3 4.6 4.6 9.4 7.6 14.4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>Сверка рейсов · версия <span id="app-ver"><!--ВЕРСИЯ-->26.10.2026 · a86504<!--/ВЕРСИЯ--></span></footer>
 </main>
 
 <div class="modal" id="report" role="dialog" aria-modal="true" aria-labelledby="report-title">
@@ -4016,15 +4016,93 @@ SverkaFx.changed('.btn', el => {
   const letter = c => { let s = ''; c++; while (c > 0) { const m = (c - 1) % 26; s = String.fromCharCode(65 + m) + s; c = Math.floor((c - 1) / 26); } return s; };
   const startOf = which => +$('#start-' + which).value || 1;
 
+  // ---------- внутри Телеграма (кнопка меню бота «Открыть Сверку», 26.10.2026) ----------
+  // Телеграм кладёт данные запуска в адрес: #tgWebAppData=…&tgWebAppThemeParams=…&tgWebAppPlatform=… (или объект Telegram.WebApp, если его скрипт есть).
+  // Скрипт telegram.org не грузим (чужие серверы странице запрещены) — те же события по открытому протоколу мини-приложений.
+  // Адрес чистим (данные входа не должны висеть в адресной строке), запуск помним до закрытия окна (sessionStorage) — на случай перезагрузки.
+  // initData уходит боту вместо ключа «Моих дел» (dela-script), бот проверяет подпись своим токеном. Вне Телеграма SverkaTg = null — страница как была.
+  const TG = (() => {
+    const W = window.Telegram && window.Telegram.WebApp;
+    let p = null;
+    try {
+      if (location.hash.indexOf('tgWebAppData=') >= 0) {
+        const h = location.hash.slice(1);
+        p = new URLSearchParams(h);
+        try { sessionStorage.setItem('tg.launch.v1', h); } catch (e) { /* без памяти — живёт до перезагрузки */ }
+        try { history.replaceState(null, '', location.pathname + location.search); } catch (e) { /* адрес не поменять — не страшно */ }
+      } else { const s = sessionStorage.getItem('tg.launch.v1'); if (s) p = new URLSearchParams(s); }
+    } catch (e) { p = null; }
+    const data = (W && typeof W.initData === 'string' && W.initData) || (p && p.get('tgWebAppData')) || '';
+    if (!data || data.length > 4096) return null;
+    let theme = W && W.themeParams && typeof W.themeParams === 'object' ? W.themeParams : null;
+    if (!theme && p) { try { theme = JSON.parse(p.get('tgWebAppThemeParams') || 'null'); } catch (e) { theme = null; } }
+    const platform = String((W && W.platform) || (p && p.get('tgWebAppPlatform')) || '');
+    const proxy = () => window.TelegramWebviewProxy && typeof window.TelegramWebviewProxy.postEvent === 'function';
+    const notify = () => { try { return !!window.external && 'notify' in window.external; } catch (e) { return false; } };
+    const framed = (() => { try { return window.parent !== window; } catch (e) { return true; } })();
+    const wired = () => proxy() || notify() || framed;   // есть ли кому слать события (иначе — обычный браузер, ссылки работают как всегда)
+    // как post в telegram-web-app.js: пустые данные — строка ''
+    const post = (type, data) => {
+      if (data === undefined) data = '';
+      try {
+        if (proxy()) window.TelegramWebviewProxy.postEvent(type, JSON.stringify(data));
+        else if (notify()) window.external.notify(JSON.stringify({ eventType: type, eventData: data }));
+        else if (framed) window.parent.postMessage(JSON.stringify({ eventType: type, eventData: data }), '*');
+      } catch (e) { /* клиент не принял — страница работает и так */ }
+    };
+    const lum = hex => { const m = /^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(String(hex || '')); if (!m) return null; const [r, g, b] = m.slice(1).map(x => parseInt(x, 16) / 255); return 0.2126 * r + 0.7152 * g + 0.0722 * b; };
+    const schemeOf = t => { if (W && (W.colorScheme === 'dark' || W.colorScheme === 'light') && t === W.themeParams) return W.colorScheme; const l = lum(t && t.bg_color); return l == null ? '' : l < 0.5 ? 'dark' : 'light'; };
+    return { W, data, theme, platform, post, wired, schemeOf };
+  })();
+  window.SverkaTg = TG;
+
   // ---------- тема ----------
   const root = document.documentElement;
   const savedTheme = store.get('sverka.theme');
-  root.dataset.theme = savedTheme || 'dark';
+  // в Телеграме — светлая или тёмная, как у Телеграма; свой выбор на сайте не трогаем (в память не пишем)
+  root.dataset.theme = (TG && TG.schemeOf(TG.theme)) || savedTheme || 'dark';
+  if (TG) {
+    const hex = c => { const m = /rgba?\((\d+),\s*(\d+),\s*(\d+)/.exec(c || ''); return m ? '#' + m.slice(1, 4).map(x => (+x).toString(16).padStart(2, '0')).join('') : ''; };
+    // шапка и фон окна Телеграма — цветом нашей бумаги (--paper), чтобы окно и страница были одним листом
+    const paintTg = () => {
+      const c = hex(getComputedStyle(document.body).backgroundColor);
+      if (!c) return;
+      const m = document.querySelector('meta[name="theme-color"]'); if (m) m.content = c;
+      if (TG.W && typeof TG.W.setHeaderColor === 'function') { try { TG.W.setHeaderColor(c); TG.W.setBackgroundColor(c); } catch (e) { /* старый клиент */ } }
+      else { TG.post('web_app_set_header_color', { color: c }); TG.post('web_app_set_background_color', { color: c }); }
+    };
+    const onTheme = t => {
+      const s = TG.schemeOf(t); if (!s || s === root.dataset.theme) { paintTg(); return; }
+      root.dataset.theme = s; try { Orb.recolor(); Field.recolor(); } catch (e) { /* ещё не собраны — возьмут цвет сами */ } paintTg();
+    };
+    TG.repaint = paintTg;
+    if (TG.W) {
+      try { TG.W.ready(); TG.W.expand(); } catch (e) { /* старый клиент */ }
+      try { TG.W.onEvent('themeChanged', () => onTheme(TG.W.themeParams)); } catch (e) { /* нет событий — тема с запуска */ }
+    } else {
+      // события Телеграма → странице: родные клиенты зовут Telegram.WebView.receiveEvent, веб-версия шлёт postMessage
+      const recv = (type, data) => { if (type === 'theme_changed' && data && data.theme_params) onTheme(data.theme_params); };
+      if (!window.Telegram) window.Telegram = {};
+      if (!window.Telegram.WebView) window.Telegram.WebView = { receiveEvent: recv };
+      window.addEventListener('message', e => { let d = null; try { d = JSON.parse(e.data); } catch (x) { return; } if (d && typeof d.eventType === 'string') recv(d.eventType, d.eventData); });
+      TG.post('web_app_ready'); TG.post('web_app_expand'); TG.post('web_app_request_theme');
+    }
+    requestAnimationFrame(paintTg);
+    // ссылки «в новой вкладке» открывает сам Телеграм: t.me — у себя, остальные (страница пароля) — во внешнем браузере
+    if (TG.W || TG.wired()) document.addEventListener('click', e => {
+      const a = e.target.closest && e.target.closest('a[target="_blank"][href^="https://"]'); if (!a) return;
+      let u; try { u = new URL(a.href); } catch (x) { return; }
+      e.preventDefault();
+      if (u.hostname === 't.me') { if (TG.W && TG.W.openTelegramLink) TG.W.openTelegramLink(u.href); else TG.post('web_app_open_tg_link', { path_full: u.pathname + u.search }); }
+      else if (TG.W && TG.W.openLink) TG.W.openLink(u.href); else TG.post('web_app_open_link', { url: u.href });
+    }, true);
+  }
   $('#btn-theme').onclick = () => {
     const cur = root.dataset.theme || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
     root.dataset.theme = cur === 'dark' ? 'light' : 'dark';
     store.set('sverka.theme', root.dataset.theme);
     Orb.recolor(); Field.recolor();
+    if (TG) TG.repaint();
     Snd.play('pop');
   };
 
@@ -6301,8 +6379,13 @@ SverkaFx.changed('.btn', el => {
     if (KEY_RE.test(v)) { key = v; fromLink = true; try { localStorage.setItem(KEY_STORE, v); } catch (e) { /* без памяти — ключ живёт до закрытия страницы */ } }
   }
   if (!key) { const s = lsGet(KEY_STORE); if (s && KEY_RE.test(s)) key = s; else if (s) { try { localStorage.removeItem(KEY_STORE); } catch (e) { /* нет памяти */ } } }
+  // Внутри Телеграма (кнопка меню бота) ключ не нужен: вместо него — initData, подпись проверяет бот (SverkaTg в основном скрипте, 26.10.2026).
+  // Тот же экран, те же запросы; «Забыть ключ» не показываем — забывать нечего.
+  const TG = window.SverkaTg || null;
+  const auth = extra => Object.assign(TG ? { tgi: TG.data } : { dela: key }, extra || {});
+  const KEY_BAD = TG ? 'Вход не принят' : 'Ключ не действует';
   window.SverkaDela = { on: false };
-  if (!key) return;
+  if (!key && !TG) return;
 
   // ---------- небольшие помощники ----------
   const p2 = n => String(n).padStart(2, '0');
@@ -6337,7 +6420,7 @@ SverkaFx.changed('.btn', el => {
   const st = {
     snap: null, secs: null, done: null, at: 0, now: 0, okLocal: 0, tg: null,   // последний принятый снимок
     err: null,                                                                  // net | server | format | empty | key | null — итог последнего запроса
-    tab: fromLink ? 'dela' : 'sverka', filter: null, doneOpen: false, modal: false, loaded: false,
+    tab: fromLink || TG ? 'dela' : 'sverka', filter: null, doneOpen: false, modal: false, loaded: false,
     stats: { req: 0, ok: 0, net: 0, server: 0, format: 0, empty: 0, key: 0 },
     alive: true, lastTry: 0,
     // выбор рабочих чатов (окно Телеграма): list — чаты от бота, sel — сохранённый выбор, draft — то, что отмечено сейчас
@@ -6379,7 +6462,7 @@ SverkaFx.changed('.btn', el => {
     const timer = setTimeout(() => { try { ctl && ctl.abort(); } catch (e) { /* уже закончился */ } }, FETCH_MS);
     try {
       // text/plain — «простой» запрос: у веб-приложения Google нет ответа на предварительный OPTIONS
-      const r = await fetch(window.SverkaBotExec, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(connect ? { dela: key, tg: 'connect' } : { dela: key }),
+      const r = await fetch(window.SverkaBotExec, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(auth(connect ? { tg: 'connect' } : null)),
         redirect: 'follow', cache: 'no-store', credentials: 'omit', referrerPolicy: 'no-referrer', signal: ctl ? ctl.signal : undefined });
       if (!r.ok) return { err: 'net' };
       let j = null; try { j = await r.json(); } catch (e) { return { err: 'format' }; }
@@ -6396,13 +6479,16 @@ SverkaFx.changed('.btn', el => {
       if (!st.alive) return;
       st.loaded = true;
       if (res.ok) {
-        st.stats.ok++; st.err = null;
+        st.stats.ok++; st.err = null; st.authOk = true;
         Object.assign(st, { snap: res.snap, secs: res.secs, done: res.done, at: res.at, now: res.now, okLocal: Date.now(), tg: res.tg });
         paint();
       } else {
         st.stats[res.err] = (st.stats[res.err] || 0) + 1; st.err = res.err;
         if (res.err === 'empty' && res.tg) st.tg = res.tg;     // снимка ещё нет, но заявка и вход идут — статус Телеграма всё равно показываем
         if (res.err === 'key') { st.snap = null; st.secs = null; }
+        // кнопкой меню открыл тот, кому «Мои дела» не выданы, — остаётся обычная Сверка, отказ виден только значком Телеграма
+        if (res.err === 'key' && TG && !st.authOk && st.tab === 'dela') setTab('sverka');
+        if (res.err === 'empty') st.authOk = true;
         paint();
       }
     })().finally(() => { inflight = null; });
@@ -6435,7 +6521,7 @@ SverkaFx.changed('.btn', el => {
     const c = st.ch;
     if (c.loading || !st.alive) return;
     c.loading = true; c.lastTry = Date.now();
-    const res = parseList(await botPost({ dela: key, tg: 'list' }));
+    const res = parseList(await botPost(auth({ tg: 'list' })));
     c.loading = false;
     if (!st.alive) return;
     c.loaded = true;
@@ -6450,7 +6536,7 @@ SverkaFx.changed('.btn', el => {
     const c = st.ch;
     if (c.busy || !c.dirty) return;
     c.busy = true; c.msg = ''; renderPick();
-    const j = await botPost({ dela: key, tg: 'chats', ids: [...c.draft] });
+    const j = await botPost(auth({ tg: 'chats', ids: [...c.draft] }));
     c.busy = false;
     if (!st.alive) return;
     if (j && j.ok === true && Array.isArray(j.sel)) {
@@ -6460,7 +6546,7 @@ SverkaFx.changed('.btn', el => {
       paint(); schedule(FAST_MS);
     } else {
       c.msg = j && j.err === 'nolist' ? 'Список чатов ещё не пришёл с сервера — подождите минуту и нажмите ещё раз.'
-        : j && j.err === 'key' ? 'Ключ не действует — выбор не сохранён.'
+        : j && j.err === 'key' ? KEY_BAD + ' — выбор не сохранён.'
         : j && j.err === 'busy' ? 'Бот занят — нажмите «Сохранить» ещё раз.'
         : j && j.err === 'ids' ? 'Бот не принял выбор (слишком много чатов?).' : 'Нет связи с ботом — выбор не сохранён.';
       renderPick();
@@ -6551,13 +6637,15 @@ SverkaFx.changed('.btn', el => {
       `<button class="icon-btn" data-dl="tab-sverka" title="Вернуться к сверке" aria-label="Вернуться к сверке">${IC.x}</button></div>`;
   }
   const screenHtml = () => barHtml() + screenBody();
+  const forgetBtn = attrs => (TG ? '' : `<button class="btn btn-quiet btn-sm" data-dl="forget"${attrs || ''}>Забыть ключ</button>`);
   function screenBody() {
+    if (st.err === 'key' && TG) return `<div class="notice bad"><h3>Вход не принят</h3><p>Телеграм не подтвердил, что это вы, или окно открыто больше суток. Закройте Сверку и откройте снова кнопкой меню бота.</p></div>`;
     if (st.err === 'key') return `<div class="notice bad"><h3>Ключ не действует</h3><p>Бот его отозвал или ссылка с ошибкой. Спросите у бота новый ключ — он пришлёт свежую ссылку на «Мои дела».</p>` +
       `<div class="row"><a class="btn btn-primary btn-sm" href="https://t.me/zerno_sverka_bot" target="_blank" rel="noopener">Открыть бота</a><button class="btn btn-quiet btn-sm" data-dl="forget">Забыть ключ</button></div></div>`;
     if (!st.snap) {
       const wait = !st.loaded;
       return `<div class="dl-hero${wait ? ' calm' : ''}"><div><span class="eyebrow">Мои дела</span><h1>${wait ? 'Загружаем <em>дела…</em>' : 'Дела <em>не загрузились</em>'}</h1></div></div>` +
-        (wait ? '' : staleNote() + `<div class="dl-foot-row"><button class="btn btn-sm" data-dl="retry">Попробовать сейчас</button><button class="btn btn-quiet btn-sm" data-dl="forget">Забыть ключ</button></div>`);
+        (wait ? '' : staleNote() + `<div class="dl-foot-row"><button class="btn btn-sm" data-dl="retry">Попробовать сейчас</button>${forgetBtn()}</div>`);
     }
     const all = cnt('всего') || ALL.reduce((n, [k]) => n + cnt(k), 0);
     const hot = cnt('просрочено') + cnt('ждут_от_Паши');
@@ -6582,7 +6670,7 @@ SverkaFx.changed('.btn', el => {
     const s = st.stats, counters = `Запросов к боту: ${s.req}, ответов: ${s.ok}${s.req - s.ok ? `, сбоев: ${s.req - s.ok}` : ''}. Дел в снимке: ${all}, показано: ${shown}${shown !== all ? ' — бот прислал не все' : ''}.`;
     return `<div class="dl-hero${hot ? '' : ' calm'}"><div><span class="eyebrow">Мои дела · ${E(hdrBits())}</span><h1>${h1}</h1></div><div class="dl-hr">${updHtml()}</div></div>` +
       staleNote() + (needPick ? '' : `<div class="tally" style="--cols:${tiles.length}">${tally}</div>`) + body +
-      `<div class="dl-foot-row"><span class="c2-sub" id="dl-counters">${E(counters)}</span><button class="btn btn-quiet btn-sm" data-dl="forget" title="Этот компьютер перестанет показывать дела, пока не получит новую ссылку от бота">Забыть ключ</button></div>`;
+      `<div class="dl-foot-row"><span class="c2-sub" id="dl-counters">${E(counters)}</span>${forgetBtn(' title="Этот компьютер перестанет показывать дела, пока не получит новую ссылку от бота"')}</div>`;
   }
 
   // ---------- значок Телеграма (он же переход «Сверка ⇄ Мои дела»), окно ----------
@@ -6593,7 +6681,7 @@ SverkaFx.changed('.btn', el => {
   function tgView() {
     const tg = st.tg, t = tg ? tg.state : 'off';
     const quiet = st.err === 'net' || st.err === 'server' || st.err === 'format' || isStale();
-    if (st.err === 'key') return { dot: '', kind: 'off', title: 'Телеграм: ключ не действует' };
+    if (st.err === 'key') return { dot: '', kind: 'off', title: TG ? 'Телеграм: вход не принят' : 'Телеграм: ключ не действует' };
     if (t === 'wait') { const step = tg.step || 'request'; return { dot: 'wait', kind: step, title: WAIT_TITLE[step] }; }
     if (!st.snap) return quiet ? { dot: 'wait', kind: 'silent', title: 'Телеграм: сервер молчит' } : { dot: '', kind: 'off', title: tg ? 'Телеграм не подключён' : 'Телеграм: ещё нет данных' };
     if (t === 'on') {
@@ -6649,7 +6737,7 @@ SverkaFx.changed('.btn', el => {
   function pickerHtml() {
     const c = st.ch, head = '<span class="eyebrow">Рабочие чаты</span>';
     if (!c.list) {
-      if (c.err) return `${head}<p class="tgc-lead"><b>${c.err === 'key' ? 'Ключ не действует.' : 'Нет связи с ботом — список чатов не загрузился.'}</b></p><div class="r-ctas"><button class="btn btn-sm" data-dl="ch-retry">Попробовать снова</button></div>`;
+      if (c.err) return `${head}<p class="tgc-lead"><b>${c.err === 'key' ? KEY_BAD + '.' : 'Нет связи с ботом — список чатов не загрузился.'}</b></p><div class="r-ctas"><button class="btn btn-sm" data-dl="ch-retry">Попробовать снова</button></div>`;
       return `${head}<p class="tgc-lead">Загружаем список чатов…</p>`;
     }
     if (!c.list.length) return `${head}<p class="tgc-lead">Сервер готовит список ваших чатов — обычно это минута. Он появится здесь сам.</p>`;
