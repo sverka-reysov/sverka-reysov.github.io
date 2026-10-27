@@ -730,7 +730,7 @@ html.dl-mode .dl-screen { display: grid; }
   </section>
 
   <div id="out"></div>
-  <footer class="app-foot"><svg width="14" height="14" viewBox="0 0 28 28" aria-hidden="true"><ellipse cx="14" cy="14" rx="5.2" ry="11" fill="none" stroke="currentColor" stroke-width="2" transform="rotate(28 14 14)"/><path d="M10.2 6.8c3 4.6 4.6 9.4 7.6 14.4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>Сверка рейсов · версия <span id="app-ver"><!--ВЕРСИЯ-->26.10.2026 · a86504<!--/ВЕРСИЯ--></span></footer>
+  <footer class="app-foot"><svg width="14" height="14" viewBox="0 0 28 28" aria-hidden="true"><ellipse cx="14" cy="14" rx="5.2" ry="11" fill="none" stroke="currentColor" stroke-width="2" transform="rotate(28 14 14)"/><path d="M10.2 6.8c3 4.6 4.6 9.4 7.6 14.4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>Сверка рейсов · версия <span id="app-ver"><!--ВЕРСИЯ-->27.10.2026 · cbb46b<!--/ВЕРСИЯ--></span></footer>
 </main>
 
 <div class="modal" id="report" role="dialog" aria-modal="true" aria-labelledby="report-title">
@@ -2034,7 +2034,229 @@ const Sverka = (() => {
     return out.slice(0, limit || 40);
   }
 
-  return { reconcile, prepare, parseTable, cellClass, mineLikeness, splitPlate, totals, clientMessage, fmtNum, parseNum, parseDate, normPlate, normTtn, workdaysBetween, dateDiff, numbersEdits, numbersPayload, plateInStyle, NUMBERS_MARK, historyEntry, historyCheck, historySave, historySearch, historyMerge, historyFold, tripKeyOf, registryPrint, registryCompare, historyTails, tailsMessage, clientSessions, daysBreakdown, portQuestion, diffsMessage, ROLE_NAMES, ROLE_LIST };
+  // ---------- тень (27.10.2026, ТЗ/2026-10-27-ии-рядом.md) ----------
+  // ИИ молча сверяет реестр с таблицей Паши «до», пользователь работает как всегда; потом его таблица «после» сравнивается с тем, что
+  // предложил бы ИИ (numbersEdits + «нет у вас — внести»), по ячейкам. Паше ничего не показывается и ни о чём не спрашивается:
+  // ИИ сам учится на его решениях (shadowLearn) и сам снимает правило, если пользователь поступил наоборот. Показывать Паше — когда
+  // shadowReady скажет «готово» (подряд SHADOW_READY_RUNS сверок без единого расхождения).
+  // Вердикты по ячейке: «совпало» — пользователь сделал то же; «по правилу» — ИИ по выученному правилу не предлагал, пользователь тоже не менял;
+  // «пропуск» — пользователь поставил значение порта, а ИИ не предлагал; «не стал» — ИИ предлагал, пользователь оставил своё; «другое» — оба
+  // поменяли по-разному. Вне счёта: «своя правка» (пользователь поменял не на значение порта), «добавил сам» (строка, которой нет в порту),
+  // «убрал» (удалённая строка: без цвета ячеек не судим — цвет даст наблюдатель на Маке).
+  const SHADOW_FIELDS = ['plate', 'ttn', 'date', 'weight', 'price', 'sum', 'crop'];
+  const SHADOW_RULE_MIN = 3;        // «не стал» по полю у формата реестра 3 раза без обратного — ИИ перестаёт так предлагать (порог наш)
+  const SHADOW_READY_RUNS = 20;     // показать Паше — после 20 сверок подряд без расхождений (порог наш, решает владелец)
+  const SHADOW_READY_CELLS = 100;   // …и не меньше 100 решений в этой серии: двадцать пустых сверок — не доказательство (порог наш)
+  const SHADOW_KEEP = 500;          // строк журнала храним
+  // Поля, которые движок сам не правит (numbersEdits их не предлагает): тень наблюдает, берёт ли пользователь значение порта. Правило
+  // «брать из порта» (take) появляется само, если пользователь SHADOW_RULE_MIN раз взял портовое и ни разу не оставил своё; снимается
+  // при первом «оставил своё». На «Агролайн 19.10» это 20 из 22 вопросов Паше (ТТН) — учим, только если пользователь так и делает.
+  const SHADOW_TAKE_FIELDS = ['ttn', 'date', 'trailer', 'crop'];
+  const SHADOW_VERDICTS = ['совпало', 'по правилу', 'пропуск', 'не стал', 'другое', 'своя правка', 'добавил сам', 'убрал'];
+  function shadowEq(f, a, b) {
+    if (f === 'plate') return normPlate(splitPlate(a)[0]) === normPlate(splitPlate(b)[0]);
+    if (f === 'ttn') return ttnEq(normTtn(a), normTtn(b));
+    if (f === 'date') { const x = parseDate(a), y = parseDate(b); return x && y ? x.d === y.d && x.m === y.m && (x.y == null || y.y == null || x.y === y.y) : normText(a) === normText(b); }
+    if (f === 'crop') return normText(a).toLowerCase() === normText(b).toLowerCase();
+    const x = parseNum(a), y = parseNum(b);
+    return x == null || y == null ? normText(a) === normText(b) : Math.abs(x - y) < 1e-6;
+  }
+  // Таблица «до» и «после» → правки Паши по ячейкам. Строка ищется: тот же номер строки и та же машина или ТТН → тот же номер строки
+  // и вес → та же машина и ТТН → та же ТТН и вес (поменял номер) → та же машина и вес (поменял ТТН). Переставленные строки находятся.
+  function tableDiff(beforeText, afterText) {
+    const b = prepare(beforeText), a = prepare(afterText, b.roles);
+    const free = a.live.slice(), pairs = new Map();
+    const passes = [
+      (r, y) => y.line === r.line && (y.plate === r.plate || (!!r.ttn && y.ttn === r.ttn)),
+      (r, y) => y.line === r.line && r.weight != null && y.weight === r.weight,     // та же строка, без ТТН, поменял номер (Агролайн 19.10, стр. 44)
+      (r, y) => y.plate === r.plate && y.ttn === r.ttn,
+      (r, y) => !!r.ttn && y.ttn === r.ttn && r.weight != null && y.weight === r.weight,
+      (r, y) => y.plate === r.plate && r.weight != null && y.weight === r.weight];
+    for (const ok of passes) for (const r of b.live) {
+      if (pairs.has(r)) continue;
+      const i = free.findIndex(y => ok(r, y));
+      if (i >= 0) pairs.set(r, free.splice(i, 1)[0]);
+    }
+    const edits = [];
+    for (const [r, y] of pairs) for (const f of SHADOW_FIELDS) {
+      if (b.col[f] < 0) continue;
+      const old = r.raw[f] || '', nu = y.raw[f] || '';
+      if (old === nu || (old && nu && shadowEq(f, old, nu))) continue;
+      edits.push({ row: 1 + r.line, field: f, old, value: nu, ttn: r.raw.ttn || '', plate: r.raw.plate || '' });
+    }
+    return { edits, added: free, removed: b.live.filter(r => !pairs.has(r)).map(r => ({ row: 1 + r.line, ttn: r.raw.ttn || '', plate: r.raw.plate || '' })), weightUnit: b.weightUnit };
+  }
+  // Одна сверка в тени: реестр + таблица Паши до и после + выученные правила → вердикты по ячейкам и счёт.
+  function shadowRun(portText, beforeText, afterText, rules) {
+    const res = reconcile(portText, beforeText);
+    if (res.problems.length) return { error: res.problems.join('; ') };
+    const format = res.port.sig;
+    // правило — по полю и виду правки: «заполнить пустое из порта» (fill) и «заменить своё на портовое» (diff) — разные решения Паши
+    const skip = new Set((rules || []).filter(r => r && r.format === format && r.kind === 'skip').map(r => r.field + ':' + r.edit));
+    const all = numbersEdits(res), off = e => skip.has(e.field + ':' + e.kind), ai = all.filter(e => !off(e)), quiet = all.filter(off);
+    const d = tableDiff(beforeText, afterText), kg = d.weightUnit === 'кг';
+    const key = (row, f) => row + ':' + f, by = new Map(d.edits.map(e => [key(e.row, e.field), e]));
+    // наблюдения по полям, которые движок не правит: порт другой → пользователь взял портовое (taken) / оставил своё (left) / своё другое (other)
+    const takeOn = new Set((rules || []).filter(r => r && r.format === format && r.kind === 'take').map(r => r.field + ':' + r.edit));
+    const observe = {};
+    for (const m of res.mine.live) {
+      const p = m.pair;
+      if (!p) continue;
+      for (const f of SHADOW_TAKE_FIELDS) {
+        if (res.mine.col[f] < 0 || !p.raw[f]) continue;
+        const mv = m.raw[f] || '';
+        if (mv && shadowEq(f, mv, p.raw[f])) continue;
+        const edit = mv ? 'diff' : 'fill', row = res.rowNo(res.mine, m), pe = by.get(key(row, f));
+        const o = observe[f + ':' + edit] = observe[f + ':' + edit] || { taken: 0, left: 0, other: 0 };
+        if (!pe) o.left++; else if (shadowEq(f, pe.value, p.raw[f])) o.taken++; else o.other++;
+        if (takeOn.has(f + ':' + edit)) ai.push({ row, field: f, kind: edit, old: mv, value: p.raw[f], ttn: m.raw.ttn || '', plate: m.raw.plate || '', learned: true });
+      }
+    }
+    const cells = [];
+    const put = (e, v, pasha) => cells.push({ row: e.row, field: e.field, edit: e.kind, ttn: e.ttn, plate: e.plate, old: e.old, ai: e.value, pasha, verdict: v });
+    for (const e of ai) {
+      const p = by.get(key(e.row, e.field)); by.delete(key(e.row, e.field));
+      put(e, !p ? 'не стал' : shadowEq(e.field, p.value, e.value) ? 'совпало' : 'другое', p ? p.value : e.old);
+    }
+    for (const e of quiet) {
+      const p = by.get(key(e.row, e.field)); by.delete(key(e.row, e.field));
+      put(Object.assign({}, e, { value: '' }), !p ? 'по правилу' : shadowEq(e.field, p.value, e.value) ? 'пропуск' : 'другое', p ? p.value : e.old);
+    }
+    const recOf = new Map(res.mine.live.map(m => [res.rowNo(res.mine, m), m]));
+    for (const e of by.values()) {                        // пользователь поменял то, чего ИИ не предлагал: на значение порта — пропуск ИИ
+      const m = recOf.get(e.row), p = m && m.pair;
+      let toPort = false;
+      if (p && p.raw[e.field]) toPort = e.field === 'weight' ? p.weight != null && parseNum(e.value) != null && Math.abs(parseNum(e.value) / (kg ? 1000 : 1) - p.weight) < 1e-6
+        : shadowEq(e.field, e.value, p.raw[e.field]);
+      cells.push({ row: e.row, field: e.field, edit: e.old ? 'diff' : 'fill', ttn: e.ttn, plate: e.plate, old: e.old, ai: '', pasha: e.value, port: p ? p.raw[e.field] || '' : '', verdict: toPort ? 'пропуск' : 'своя правка' });
+    }
+    const want = res.port.live.filter(p => p.status === 'missing'), added = d.added.slice();   // «нет у вас» — ИИ внёс бы строку
+    for (const p of want) {
+      const i = added.findIndex(y => y.plate === p.plate && (!p.ttn || !y.ttn || ttnEq(y.ttn, p.ttn)));
+      if (i >= 0) added.splice(i, 1);
+      cells.push({ row: 'строка', field: 'row', edit: 'row', ttn: p.raw.ttn || '', plate: p.raw.plate || '', old: '', ai: 'внести', pasha: i >= 0 ? 'внёс' : '', verdict: i >= 0 ? 'совпало' : 'не стал' });
+    }
+    added.forEach(y => cells.push({ row: 'строка', field: 'row', edit: 'row', ttn: y.raw.ttn || '', plate: y.raw.plate || '', old: '', ai: '', pasha: 'внёс', verdict: 'добавил сам' }));
+    d.removed.forEach(r => cells.push(Object.assign({ field: 'row', edit: 'row', old: '', ai: '', pasha: 'убрал', verdict: 'убрал' }, r)));
+    const counts = {};
+    SHADOW_VERDICTS.forEach(v => { counts[v] = cells.filter(c => c.verdict === v).length; });
+    const decisions = counts['совпало'] + counts['по правилу'] + counts['пропуск'] + counts['не стал'] + counts['другое'];
+    return { format, cells, counts, decisions, matched: counts['совпало'] + counts['по правилу'], observe, aiSeconds: null };
+  }
+  // Самообучение: журнал решений Паши и правила «у этого формата реестра правку поля F такого вида не предлагать». Правило появляется
+  // само после SHADOW_RULE_MIN «не стал» подряд по полю и виду правки без единого «совпало»; снимается само при первом «пропуске» по этому полю (пользователь взял
+  // значение порта). Паше ничего не показывается. state = { journal, rules, stats, runs } — хранит бот; возвращается новый state.
+  function shadowLearn(state, run, at) {
+    const st = { journal: ((state && state.journal) || []).slice(), rules: ((state && state.rules) || []).slice(),
+      stats: Object.assign({}, (state && state.stats) || {}), runs: ((state && state.runs) || []).slice() };
+    const changes = [];
+    if (!run || run.error) return { state: st, changes };
+    const kinds = new Set(run.cells.filter(c => c.field !== 'row').map(c => c.field + ':' + c.edit));
+    for (const fe of kinds) {
+      const [f, edit] = fe.split(':'), k = run.format + '|' + fe, c = run.cells.filter(x => x.field === f && x.edit === edit);
+      const s = Object.assign({ notTaken: 0, taken: 0 }, st.stats[k]);
+      if (c.some(x => x.verdict === 'совпало' || x.verdict === 'пропуск' || x.verdict === 'другое')) { s.notTaken = 0; s.taken++; }
+      else if (c.some(x => x.verdict === 'не стал')) s.notTaken++;
+      const has = st.rules.findIndex(r => r.format === run.format && r.field === f && r.edit === edit && r.kind === 'skip');
+      if (has >= 0 && c.some(x => x.verdict === 'пропуск')) {
+        changes.push({ kind: 'снято', rule: st.rules[has], why: 'Пользователь взял значение порта' }); st.rules.splice(has, 1); s.notTaken = 0;
+      } else if (has < 0 && s.notTaken >= SHADOW_RULE_MIN) {
+        const rule = { kind: 'skip', format: run.format, field: f, edit, since: at || '' };
+        st.rules.push(rule); changes.push({ kind: 'новое', rule, why: SHADOW_RULE_MIN + ' раза подряд пользователь не взял значение порта' });
+      }
+      st.stats[k] = s;
+    }
+    for (const [fe, o] of Object.entries(run.observe || {})) {        // «брать из порта»: только если пользователь ни разу не оставил своё
+      const [f, edit] = fe.split(':'), k = run.format + '|take|' + fe, s = Object.assign({ taken: 0 }, st.stats[k]);
+      const has = st.rules.findIndex(r => r.format === run.format && r.field === f && r.edit === edit && r.kind === 'take');
+      if (o.left || o.other) {
+        s.taken = 0;
+        if (has >= 0) { changes.push({ kind: 'снято', rule: st.rules[has], why: 'Пользователь оставил своё значение' }); st.rules.splice(has, 1); }
+      } else {
+        s.taken += o.taken;
+        if (has < 0 && s.taken >= SHADOW_RULE_MIN) {
+          const rule = { kind: 'take', format: run.format, field: f, edit, since: at || '' };
+          st.rules.push(rule); changes.push({ kind: 'новое', rule, why: 'Пользователь ' + s.taken + ' раз взял значение порта и ни разу не оставил своё' });
+        }
+      }
+      st.stats[k] = s;
+    }
+    run.cells.filter(c => c.verdict !== 'совпало' && c.verdict !== 'по правилу')
+      .forEach(c => st.journal.push(Object.assign({ at: at || '', format: run.format }, c)));
+    if (st.journal.length > SHADOW_KEEP) st.journal = st.journal.slice(-SHADOW_KEEP);
+    st.runs.push({ at: at || '', format: run.format, decisions: run.decisions, matched: run.matched, source: run.source || '' });
+    if (st.runs.length > 200) st.runs = st.runs.slice(-200);
+    return { state: st, changes };
+  }
+  // Формат реестра (отпечаток шапки signature) → по-человечески: «реестр «№ ТТН, Дата, Машина…»» или «реестр без шапки, колонок 6».
+  function formatLabel(sig) {
+    const s = String(sig || '');
+    if (s.startsWith('h:')) { const h = s.slice(2).split('|').filter(Boolean); return 'реестр «' + h.slice(0, 3).join(', ') + (h.length > 3 ? '…' : '') + '»'; }
+    if (s.startsWith('n:')) return 'реестр без шапки, колонок ' + s.split(':')[1];
+    return 'реестр';
+  }
+  // Готов ли ИИ к показу Паше: подряд SHADOW_READY_RUNS сверок, где совпало всё (и решений в них не меньше SHADOW_READY_CELLS).
+  function shadowReady(state) {
+    const runs = ((state && state.runs) || []).filter(r => r.decisions > 0);
+    let streak = 0, cells = 0;
+    for (let i = runs.length - 1; i >= 0 && runs[i].matched === runs[i].decisions; i--) { streak++; cells += runs[i].decisions; }
+    const all = runs.reduce((n, r) => n + r.decisions, 0), ok = runs.reduce((n, r) => n + r.matched, 0);
+    const ready = streak >= SHADOW_READY_RUNS && cells >= SHADOW_READY_CELLS;
+    // «после подсказок» — пользователь видел сверку ИИ и потом поправил таблицу (бот); без подсказок — наблюдатель на Маке: считаем раздельно
+    const hinted = runs.filter(r => r.source === 'после подсказок').length;
+    const text = !runs.length ? 'Тень: сверок пока нет.'
+      : `Тень: сверок ${runs.length}` + (hinted ? ` (после подсказок ИИ ${hinted}, без подсказок ${runs.length - hinted})` : '') +
+        `, решений Паши ${all}, совпало с ИИ ${ok} (${Math.floor(ok / all * 100)} %). Подряд без расхождений: ${streak} из ${SHADOW_READY_RUNS} сверок, ${cells} из ${SHADOW_READY_CELLS} решений — ${ready ? 'можно показывать Паше' : 'рано показывать'}.`;
+    // готовность по частям (27.10.2026): каждый формат реестра считается сам по себе — автомат можно включать по одному формату
+    const formats = [...new Set(runs.map(r => r.format))];
+    const parts = formats.map(f => {
+      const rs = runs.filter(r => r.format === f);
+      let k = 0, c = 0;
+      for (let i = rs.length - 1; i >= 0 && rs[i].matched === rs[i].decisions; i--) { k++; c += rs[i].decisions; }
+      return { format: f, label: formatLabel(f), runs: rs.length, streak: k, streakCells: c, ready: k >= SHADOW_READY_RUNS && c >= SHADOW_READY_CELLS };
+    });
+    const partsText = parts.length > 1 || (parts.length === 1 && formats[0]) ? parts.map(p => `• ${p.label}: сверок ${p.runs}, подряд чисто ${p.streak} из ${SHADOW_READY_RUNS}, решений ${p.streakCells} из ${SHADOW_READY_CELLS} — ${p.ready ? 'можно автомат' : 'рано'}`).join('\n') : '';
+    return { runs: runs.length, hinted, decisions: all, matched: ok, streak, streakCells: cells, ready, text, parts, partsText, rules: ((state && state.rules) || []).length };
+  }
+
+  // ---------- эмуляция «всё делает ИИ» (27.10.2026, ТЗ/2026-10-27-ии-рядом.md) ----------
+  // Что из находок сверки ИИ закрыл бы сам, а что нет — без участия Паши, по самой сверке:
+  //   сам — правки в таблицу, которые движок выдаёт для Numbers (numbersEdits: цена и сумма из порта, вес, номер машины);
+  //   письмо порту — «нет в порту» (черновик portQuestion готов, отправка — решение человека);
+  //   спросить Пашу «да / нет» — всё остальное: нет у вас (внести?), повтор, перегруз, ТТН, дата, прицеп, культура, прочее.
+  // Сторож: «сам» обязан равняться числу правок numbersEdits плюс выученным тенью (learned) — иначе обещаем то, чего ИИ не делает.
+  // Точность — только на проверенных эталонах (ENGINE_PROOF, сторож в тесты/проверка.js): у живой сверки эталона нет.
+  const ENGINE_PROOF = { corpus: '233 из 233', real: 'Агролайн 19.10: 85 из 85' };
+  const EMU_AUTO = ['price', 'sum', 'weight', 'plate'];
+  const EMU_ASK = { 'missing-mine': 'нет у вас — внести', dup: 'повтор', split: 'перегруз', ttn: 'ТТН', date: 'дата', trailer: 'прицеп', crop: 'культура', other: 'прочее' };
+  const EMU_AUTO_NAMES = { price: 'цена', sum: 'сумма', weight: 'вес', plate: 'номер', ttn: 'ТТН — выучено', date: 'дата — выучено', trailer: 'прицеп — выучено', crop: 'культура — выучено' };
+  // rules — правила тени: «брать из порта» (take) этого формата реестра переводит находку из «спросить» в «сам» (learned)
+  function emulate(res, ms, rules) {
+    const autoBy = {}, askBy = {};
+    const take = new Set((rules || []).filter(r => r && r.kind === 'take' && r.format === res.port.sig).map(r => r.field + ':' + r.edit));
+    let auto = 0, letter = 0, ask = 0, learned = 0;
+    for (const i of res.issues) {
+      const learn = (i.kind === 'diff' || i.kind === 'ok') && take.has(i.f + ':' + (i.mine && i.mine !== 'пусто' ? 'diff' : 'fill'));
+      if ((i.kind === 'diff' || i.kind === 'ok') && (EMU_AUTO.includes(i.f) || learn)) { autoBy[i.f] = (autoBy[i.f] || 0) + 1; auto++; if (learn) learned++; }
+      else if (i.kind === 'missing') letter++;
+      else {
+        const k = ['missing-mine', 'dup', 'split'].includes(i.kind) ? i.kind : i.f && EMU_ASK[i.f] ? i.f : 'other';
+        askBy[k] = (askBy[k] || 0) + 1; ask++;
+      }
+    }
+    return { port: res.summary.port.read, mine: res.summary.mine.read, findings: res.issues.length, auto, autoBy, letter, ask, askBy, learned,
+      edits: numbersEdits(res).length, ms: ms == null ? null : ms };
+  }
+  function emulateText(e) {
+    const list = (by, names) => Object.entries(by).sort((a, b) => b[1] - a[1]).map(([k, n]) => names[k] + ' ' + n).join(', ');
+    const sec = e.ms == null ? '' : ' · за ' + fmtNum(Math.round(e.ms) / 1000).replace('.', ',') + ' с';
+    return `Порт ${e.port}, ваша ${e.mine} · находок ${e.findings}` +
+      ` · ИИ сам: ${e.auto} ${e.auto % 10 === 1 && e.auto % 100 !== 11 ? 'правка' : [2, 3, 4].includes(e.auto % 10) && ![12, 13, 14].includes(e.auto % 100) ? 'правки' : 'правок'} в таблицу${e.auto ? ' (' + list(e.autoBy, EMU_AUTO_NAMES) + ')' : ''}` +
+      ` · письмо порту: ${e.letter} маш.` +
+      ` · спросил бы «да / нет»: ${e.ask}${e.ask ? ' (' + list(e.askBy, EMU_ASK) + ')' : ''}${sec}`;
+  }
+
+  return { emulate, emulateText, ENGINE_PROOF, tableDiff, shadowRun, shadowLearn, shadowReady, SHADOW_VERDICTS, reconcile, prepare, parseTable, cellClass, mineLikeness, splitPlate, totals, clientMessage, fmtNum, parseNum, parseDate, normPlate, normTtn, workdaysBetween, dateDiff, numbersEdits, numbersPayload, plateInStyle, NUMBERS_MARK, historyEntry, historyCheck, historySave, historySearch, historyMerge, historyFold, tripKeyOf, registryPrint, registryCompare, historyTails, tailsMessage, clientSessions, daysBreakdown, portQuestion, diffsMessage, ROLE_NAMES, ROLE_LIST };
 })();
 if (typeof module !== 'undefined') module.exports = Sverka;
 /*ДВИЖОК-КОНЕЦ*/
@@ -3180,7 +3402,7 @@ addEventListener('DOMContentLoaded', () => { if (window.SverkaExtra) SverkaExtra
   });
 })();
 
-// ---------- отличие внутри значения: «6 6̲00 → 6 7̲00», «BE̲7503EP → BK̲7503EP» ----------
+// ---------- отличие внутри значения: «6 6̲00 → 6 7̲00», «BE̲1902EP → BK̲1902EP» ----------
 // Пары «порт / у вас»: вкладка «Итог» — колонки «Порт» и «У вас»; «В Numbers» — «Было» и «Станет»; вкладки таблиц —
 // значение ячейки и «в порту: …» / «у вас: …» в её подписи. Числа — по разрядам от запятой; номера машин — без
 // разницы кириллица/латиница (как в движке); остальное — посимвольно, если значения похожи хотя бы наполовину
@@ -4037,6 +4259,7 @@ SverkaFx.changed('.btn', el => {
     let theme = W && W.themeParams && typeof W.themeParams === 'object' ? W.themeParams : null;
     if (!theme && p) { try { theme = JSON.parse(p.get('tgWebAppThemeParams') || 'null'); } catch (e) { theme = null; } }
     const platform = String((W && W.platform) || (p && p.get('tgWebAppPlatform')) || '');
+    const version = String((W && W.version) || (p && p.get('tgWebAppVersion')) || '');
     const proxy = () => window.TelegramWebviewProxy && typeof window.TelegramWebviewProxy.postEvent === 'function';
     const notify = () => { try { return !!window.external && 'notify' in window.external; } catch (e) { return false; } };
     const framed = (() => { try { return window.parent !== window; } catch (e) { return true; } })();
@@ -4052,7 +4275,14 @@ SverkaFx.changed('.btn', el => {
     };
     const lum = hex => { const m = /^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(String(hex || '')); if (!m) return null; const [r, g, b] = m.slice(1).map(x => parseInt(x, 16) / 255); return 0.2126 * r + 0.7152 * g + 0.0722 * b; };
     const schemeOf = t => { if (W && (W.colorScheme === 'dark' || W.colorScheme === 'light') && t === W.themeParams) return W.colorScheme; const l = lum(t && t.bg_color); return l == null ? '' : l < 0.5 ? 'dark' : 'light'; };
-    return { W, data, theme, platform, post, wired, schemeOf };
+    // Значок на экране «Домой» (Bot API 8.0, 27.10.2026): спрашиваем у Телеграма, можно ли и есть ли уже; кнопку страница
+    // показывает только при «missed» (можно, ещё нет) — без догадок по платформе; на старых клиентах проверки нет — нет и кнопки
+    const atLeast = (v, need) => { const a = v.split('.').map(Number), b = need.split('.').map(Number); return (a[0] || 0) > b[0] || ((a[0] || 0) === b[0] && (a[1] || 0) >= b[1]); };
+    const home = { status: '', on: null, set(st) { this.status = String(st || ''); if (this.on) try { this.on(this.status); } catch (e) { /* страница ещё не готова */ } },
+      can() { return this.status === 'missed'; },
+      check() { if (!atLeast(version, '8.0')) return; if (W && W.checkHomeScreenStatus) { try { W.checkHomeScreenStatus(st => home.set(st)); } catch (e) { /* старый клиент */ } } else post('web_app_check_home_screen'); },
+      add() { if (W && W.addToHomeScreen) { try { W.addToHomeScreen(); } catch (e) { /* старый клиент */ } } else post('web_app_add_to_home_screen'); } };
+    return { W, data, theme, platform, version, post, wired, schemeOf, home };
   })();
   window.SverkaTg = TG;
 
@@ -4079,15 +4309,22 @@ SverkaFx.changed('.btn', el => {
     if (TG.W) {
       try { TG.W.ready(); TG.W.expand(); } catch (e) { /* старый клиент */ }
       try { TG.W.onEvent('themeChanged', () => onTheme(TG.W.themeParams)); } catch (e) { /* нет событий — тема с запуска */ }
+      try { TG.W.onEvent('homeScreenAdded', () => TG.home.set('added')); TG.W.onEvent('homeScreenChecked', e => TG.home.set(e && e.status)); } catch (e) { /* старый клиент */ }
     } else {
       // события Телеграма → странице: родные клиенты зовут Telegram.WebView.receiveEvent, веб-версия шлёт postMessage
-      const recv = (type, data) => { if (type === 'theme_changed' && data && data.theme_params) onTheme(data.theme_params); };
+      const recv = (type, data) => {
+        if (type === 'theme_changed' && data && data.theme_params) onTheme(data.theme_params);
+        else if (type === 'home_screen_checked') TG.home.set(data && data.status);
+        else if (type === 'home_screen_added') TG.home.set('added');
+        else if (type === 'home_screen_failed') TG.home.set(TG.home.status === 'added' ? 'added' : 'missed');
+      };
       if (!window.Telegram) window.Telegram = {};
       if (!window.Telegram.WebView) window.Telegram.WebView = { receiveEvent: recv };
       window.addEventListener('message', e => { let d = null; try { d = JSON.parse(e.data); } catch (x) { return; } if (d && typeof d.eventType === 'string') recv(d.eventType, d.eventData); });
       TG.post('web_app_ready'); TG.post('web_app_expand'); TG.post('web_app_request_theme');
     }
     requestAnimationFrame(paintTg);
+    TG.home.check();
     // ссылки «в новой вкладке» открывает сам Телеграм: t.me — у себя, остальные (страница пароля) — во внешнем браузере
     if (TG.W || TG.wired()) document.addEventListener('click', e => {
       const a = e.target.closest && e.target.closest('a[target="_blank"][href^="https://"]'); if (!a) return;
@@ -4105,6 +4342,10 @@ SverkaFx.changed('.btn', el => {
     if (TG) TG.repaint();
     Snd.play('pop');
   };
+  // Внутри Телеграма (27.10.2026, разбор мини-приложения): кнопка «Бот» ведёт туда, где пользователь уже сидит, а тему задаёт сам
+  // Телеграм (TG.repaint) — обе кнопки лишние в узкой шапке телефона. На телефоне считается «на этом телефоне», не «компьютере».
+  if (TG) { const b = $('.top .bot-btn'); if (b) b.remove(); $('#btn-theme').remove(); }
+  if (TG || matchMedia('(pointer: coarse)').matches) { const sub = $('.top .brand span'); if (sub) sub.textContent = 'всё считается на этом телефоне'; }
 
   // ---------- вставка ----------
   function rolesFor(which) {
@@ -6421,7 +6662,7 @@ SverkaFx.changed('.btn', el => {
     snap: null, secs: null, done: null, at: 0, now: 0, okLocal: 0, tg: null,   // последний принятый снимок
     err: null,                                                                  // net | server | format | empty | key | null — итог последнего запроса
     tab: fromLink || TG ? 'dela' : 'sverka', filter: null, doneOpen: false, modal: false, loaded: false,
-    stats: { req: 0, ok: 0, net: 0, server: 0, format: 0, empty: 0, key: 0 },
+    stats: { req: 0, ok: 0, net: 0, server: 0, format: 0, empty: 0, key: 0, deny: 0 },
     alive: true, lastTry: 0,
     // выбор рабочих чатов (окно Телеграма): list — чаты от бота, sel — сохранённый выбор, draft — то, что отмечено сейчас
     ch: { list: null, sel: [], draft: new Set(), dirty: false, q: '', limit: CHAT_PAGE, loaded: false, loading: false, busy: false, err: '', msg: '', lastTry: 0, savedAt: 0 },
@@ -6440,13 +6681,15 @@ SverkaFx.changed('.btn', el => {
     if (t.state === 'on' && hd != null && ht != null && ht > 0 && hd >= 0 && hd <= ht) { o.hd = hd; o.ht = ht; }     // «подтягиваю историю: N из M чатов
     if (t.state === 'wait') {
       o.step = ['request', 'qr', 'password'].includes(t.step) ? t.step : 'request';
+      const u = num(t.until); if (u != null && u > 0) o.until = u;                // конец ожидания по часам бота — обратный отсчёт в окне
       if (typeof t.pw === 'string' && PW_RE.test(t.pw)) o.pw = t.pw;
     }
     return o;
   }
   function parse(resp) {
     if (!resp || typeof resp !== 'object') return { err: 'format' };
-    if (resp.ok !== true) return resp.err === 'empty' ? { err: 'empty', tg: parseTg(resp.tg) } : { err: resp.err === 'key' ? 'key' : 'server' };
+    // deny — Телеграм подтвердил, кто это, но «Мои дела» ему не выданы (27.10.2026): не «вход не принят», а понятный отказ
+    if (resp.ok !== true) return resp.err === 'empty' ? { err: 'empty', tg: parseTg(resp.tg) } : { err: resp.err === 'key' || resp.err === 'deny' ? resp.err : 'server' };
     const s = resp.snap, at = Number(resp.at);
     if (!s || typeof s !== 'object' || !s.разделы || typeof s.разделы !== 'object' || !s.счётчики || typeof s.счётчики !== 'object' || !isFinite(at) || at <= 0) return { err: 'format' };
     const rows = a => (Array.isArray(a) ? a.filter(x => x && typeof x === 'object' && typeof x.что === 'string' && x.что).slice(0, 300) : []);
@@ -6485,9 +6728,9 @@ SverkaFx.changed('.btn', el => {
       } else {
         st.stats[res.err] = (st.stats[res.err] || 0) + 1; st.err = res.err;
         if (res.err === 'empty' && res.tg) st.tg = res.tg;     // снимка ещё нет, но заявка и вход идут — статус Телеграма всё равно показываем
-        if (res.err === 'key') { st.snap = null; st.secs = null; }
+        if (res.err === 'key' || res.err === 'deny') { st.snap = null; st.secs = null; }
         // кнопкой меню открыл тот, кому «Мои дела» не выданы, — остаётся обычная Сверка, отказ виден только значком Телеграма
-        if (res.err === 'key' && TG && !st.authOk && st.tab === 'dela') setTab('sverka');
+        if ((res.err === 'key' || res.err === 'deny') && TG && !st.authOk && st.tab === 'dela') setTab('sverka');
         if (res.err === 'empty') st.authOk = true;
         paint();
       }
@@ -6569,7 +6812,7 @@ SverkaFx.changed('.btn', el => {
   let timer = null;
   function schedule(ms) {
     clearTimeout(timer); timer = null;
-    if (!st.alive || st.err === 'key' || document.visibilityState === 'hidden') return;
+    if (!st.alive || st.err === 'key' || st.err === 'deny' || document.visibilityState === 'hidden') return;
     timer = setTimeout(async () => { await refresh(); schedule(); }, ms == null ? interval() : ms);
   }
   document.addEventListener('visibilitychange', () => {
@@ -6589,7 +6832,8 @@ SverkaFx.changed('.btn', el => {
   };
   const SAFE_LINK = /^(https:\/\/t\.me\/|tg:\/\/)[^\s"<>]*$/;
   function row(x, isDone) {
-    const mine = x.раздел === 'ждут_от_Паши';   // в «Ждут от меня» исполнитель — он сам, имя лишнее (и имени в коде страницы быть не должно)
+    // своё дело — имя лишнее (и имени в коде страницы быть не должно): «Ждут от меня» или пометка «моё» от сервера (27.10.2026)
+    const mine = x.раздел === 'ждут_от_Паши' || x.моё === true;
     const meta = [x.кто && !mine && `<span>${E(x.кто)}</span>`, x.машина && plate(String(x.машина)), x.ттн && `<span>ТТН ${E(x.ттн)}</span>`,
       num(x.напоминаний) > 0 && `<span>напоминали ${x.напоминаний}</span>`,
       typeof x.причина === 'string' && x.причина && !/^срок /.test(x.причина) && `<span>${E(x.причина)}</span>`].filter(Boolean).join('');
@@ -6599,7 +6843,12 @@ SverkaFx.changed('.btn', el => {
     const src = !label || isDone ? '' : typeof x.ссылка === 'string' && SAFE_LINK.test(x.ссылка)
       ? `<a class="dl-src" href="${E(x.ссылка)}" target="_blank" rel="noopener" title="Открыть сообщение в Телеграме">${IC.src}${E(label)}</a>`
       : `<span class="dl-src" title="${msg != null ? 'Сообщение №' + E(msg) : ''}">${IC.src}${E(label)}</span>`;
-    return `<li class="dl-row"><div><span class="dl-what">${E(x.что)}</span><span class="dl-meta">${meta}</span></div><span class="dl-due">${due}</span>${src}</li>`;
+    // готовые ответы на вопрос (27.10.2026, сервер — shablony.py): текст и кнопка «Скопировать»; бот от имени Паши ничего не пишет
+    const ans = !isDone && Array.isArray(x.ответы) ? x.ответы.filter(t => typeof t === 'string' && t).slice(0, 3) : [];
+    // факты чата (27.10.2026, сервер — fakty.py): «В чате за месяц: выгружено машин 2 · реестр 22.10 …» — Паше для себя, над ответами
+    const facts = !isDone && ans.length && typeof x.факты === 'string' && x.факты ? `<p><span class="dl-meta">📊 ${E(x.факты)}</span></p>` : '';
+    const ansHtml = ans.length ? `<div class="dl-ans">${facts}${ans.map(t => `<p><button class="btn btn-quiet btn-sm" data-dl="copy" data-copy="${E(t)}" title="Скопировать ответ — вставьте в чат">📋 Скопировать</button> <span class="dl-meta">${E(t)}</span></p>`).join('')}</div>` : '';
+    return `<li class="dl-row"><div><span class="dl-what">${E(x.что)}</span><span class="dl-meta">${meta}</span>${ansHtml}</div><span class="dl-due">${due}</span>${src}</li>`;
   }
   const group = ([k, g, title]) => {
     const a = st.secs[k]; if (!a.length || (st.filter && st.filter !== g)) return '';
@@ -6639,6 +6888,7 @@ SverkaFx.changed('.btn', el => {
   const screenHtml = () => barHtml() + screenBody();
   const forgetBtn = attrs => (TG ? '' : `<button class="btn btn-quiet btn-sm" data-dl="forget"${attrs || ''}>Забыть ключ</button>`);
   function screenBody() {
+    if (st.err === 'deny') return `<div class="notice warn"><h3>Доступ только для своих</h3><p>Попросите администратора добавить вас. Сверка рейсов работает как обычно — вкладка «Сверка».</p></div>`;
     if (st.err === 'key' && TG) return `<div class="notice bad"><h3>Вход не принят</h3><p>Телеграм не подтвердил, что это вы, или окно открыто больше суток. Закройте Сверку и откройте снова кнопкой меню бота.</p></div>`;
     if (st.err === 'key') return `<div class="notice bad"><h3>Ключ не действует</h3><p>Бот его отозвал или ссылка с ошибкой. Спросите у бота новый ключ — он пришлёт свежую ссылку на «Мои дела».</p>` +
       `<div class="row"><a class="btn btn-primary btn-sm" href="https://t.me/zerno_sverka_bot" target="_blank" rel="noopener">Открыть бота</a><button class="btn btn-quiet btn-sm" data-dl="forget">Забыть ключ</button></div></div>`;
@@ -6670,7 +6920,8 @@ SverkaFx.changed('.btn', el => {
     const s = st.stats, counters = `Запросов к боту: ${s.req}, ответов: ${s.ok}${s.req - s.ok ? `, сбоев: ${s.req - s.ok}` : ''}. Дел в снимке: ${all}, показано: ${shown}${shown !== all ? ' — бот прислал не все' : ''}.`;
     return `<div class="dl-hero${hot ? '' : ' calm'}"><div><span class="eyebrow">Мои дела · ${E(hdrBits())}</span><h1>${h1}</h1></div><div class="dl-hr">${updHtml()}</div></div>` +
       staleNote() + (needPick ? '' : `<div class="tally" style="--cols:${tiles.length}">${tally}</div>`) + body +
-      `<div class="dl-foot-row"><span class="c2-sub" id="dl-counters">${E(counters)}</span>${forgetBtn(' title="Этот компьютер перестанет показывать дела, пока не получит новую ссылку от бота"')}</div>`;
+      // счётчики запросов — диагностика: в Телеграме Паше не нужны (там и «Забыть ключ» нет), остаются в SverkaDela.stats()
+      (TG ? homeBtn() : `<div class="dl-foot-row"><span class="c2-sub" id="dl-counters">${E(counters)}</span>${forgetBtn(' title="Этот компьютер перестанет показывать дела, пока не получит новую ссылку от бота"')}</div>`);
   }
 
   // ---------- значок Телеграма (он же переход «Сверка ⇄ Мои дела»), окно ----------
@@ -6682,6 +6933,7 @@ SverkaFx.changed('.btn', el => {
     const tg = st.tg, t = tg ? tg.state : 'off';
     const quiet = st.err === 'net' || st.err === 'server' || st.err === 'format' || isStale();
     if (st.err === 'key') return { dot: '', kind: 'off', title: TG ? 'Телеграм: вход не принят' : 'Телеграм: ключ не действует' };
+    if (st.err === 'deny') return { dot: '', kind: 'off', title: 'Телеграм: доступ только для своих' };
     if (t === 'wait') { const step = tg.step || 'request'; return { dot: 'wait', kind: step, title: WAIT_TITLE[step] }; }
     if (!st.snap) return quiet ? { dot: 'wait', kind: 'silent', title: 'Телеграм: сервер молчит' } : { dot: '', kind: 'off', title: tg ? 'Телеграм не подключён' : 'Телеграм: ещё нет данных' };
     if (t === 'on') {
@@ -6776,18 +7028,18 @@ SverkaFx.changed('.btn', el => {
     } else if (v.kind === 'request') {
       pill = ['wait', 'Ждём сервер…'];
       body = `<div class="tgc-qr"><div class="code">Просим сервер подготовить вход…</div><div>${steps}</div></div>` +
-        `<p class="tgc-lead">Сервер откликается за полминуты. QR-код появится здесь сам.</p>` +
+        `<p class="tgc-lead">Сервер откликается за полминуты. QR-код появится здесь сам.${cdHtml(c.until, 'Ждём ещё ', 'Ещё чуть-чуть…')}</p>` +
         `<div class="tgc-foot"><span class="tgc-off">Читаем только рабочие чаты, сами ничего не пишем.</span><button class="btn" data-dl="close">Закрыть</button></div>`;
     } else if (v.kind === 'qr') {
       pill = ['wait', 'Ждём сканирования…'];
       const code = c.pw ? `<img class="qr-img" src="${E(qrBase())}" alt="QR-код для входа в Телеграм" width="164" height="164" referrerpolicy="no-referrer" hidden><span class="qr-fail">Готовим код…</span>` : 'Страница входа готовится…';
       const alt = c.pw ? ` <a class="qr-alt" href="${E(c.pw)}" target="_blank" rel="noopener noreferrer" hidden>Код не виден? Открыть вход отдельной страницей.</a>` : '';
       body = `<div class="tgc-qr"><div class="code">${code}</div><div>${steps}</div></div>` +
-        `<p class="tgc-lead">Код обновляется сам. Вход одноразовый и работает несколько минут.${alt}</p>` +
+        `<p class="tgc-lead">Код обновляется сам. Вход одноразовый и работает несколько минут.${cdHtml(c.until, 'Вход открыт ещё ', 'Время входа вышло — нажмите «Подключить» ещё раз.')}${alt}</p>` +
         `<div class="tgc-foot"><span class="tgc-off">Читаем только рабочие чаты, сами ничего не пишем.</span><button class="btn" data-dl="close">Закрыть</button></div>`;
     } else if (v.kind === 'password') {
       pill = ['wait', 'Нужен облачный пароль'];
-      body = `<p class="tgc-lead">QR принят. Телеграм просит облачный пароль (двухэтапная проверка). Введите его <b>на открывшейся странице</b> — не здесь и не в чате.${c.reason === 'wrong_password' ? ' Прошлый пароль не подошёл.' : ''}</p>` +
+      body = `<p class="tgc-lead">QR принят. Телеграм просит облачный пароль (двухэтапная проверка). Введите его <b>на открывшейся странице</b> — не здесь и не в чате.${cdHtml(c.until, 'На пароль осталось ', 'Время на пароль вышло.')}${c.reason === 'wrong_password' ? ' Прошлый пароль не подошёл.' : ''}</p>` +
         `<div class="tgc-foot"><span class="tgc-off">Пароль нигде не сохраняется.</span><button class="btn" data-dl="close">Закрыть</button>${c.pw ? link(c.pw, 'Открыть страницу для пароля') : ''}</div>`;
     } else {
       const why = (st.err === 'net' || st.err === 'server' || st.err === 'format') ? 'Нет связи с ботом — запрос не ушёл. Попробуйте ещё раз.' : whyText(c.reason);
@@ -6801,7 +7053,7 @@ SverkaFx.changed('.btn', el => {
   }
   // Значок ведёт: подключено (зелёный, «сервер молчит») — на «Мои дела» и обратно; не подключено, идёт вход или нужно выбрать чаты — в окно.
   // Ключ не действует — тоже на «Мои дела»: там объяснение и кнопка «Открыть бота».
-  const toDela = () => { const k = tgView().kind; return st.err === 'key' || k === 'on' || k === 'silent'; };
+  const toDela = () => { const k = tgView().kind; return st.err === 'key' || st.err === 'deny' || k === 'on' || k === 'silent'; };
   let headSig = '';
   function paintHead() {
     if (!tgBtn) return;
@@ -6930,7 +7182,7 @@ SverkaFx.changed('.btn', el => {
   async function connectTg() {
     if (connecting) return;
     connecting = true;
-    const prev = st.tg, now = { state: 'wait', since: null, last: null, chats: null, reason: '', step: 'request', pw: '' };
+    const prev = st.tg, now = { state: 'wait', since: null, last: null, chats: null, reason: '', step: 'request', pw: '', until: botNow() + 3 * 60 * 1000 };   // как у бота: заявку ждём 3 мин
     st.tg = now; fastSince = 0; paint(true); schedule(FAST_MS);
     try { await refresh(true); } finally { connecting = false; }
     if (st.tg === now) { st.tg = prev; paint(true); }     // ответа нет (сеть, сбой) — окно снова предлагает «Попробовать снова»
@@ -6941,7 +7193,16 @@ SverkaFx.changed('.btn', el => {
     paintHead();
     if (t === 'dela') { window.scrollTo(0, 0); paint(true); }
   }
+  // Обратный отсчёт в окне Телеграма (27.10.2026): срок — по часам бота (until), сдвиг часов — по последнему ответу (st.now против okLocal).
+  // Пока окно открыто — раз в секунду «ещё 2:41»; дошло до нуля — запасная фраза. Сам срок не двигаем: его знает бот.
+  let cdTimer = null;
+  const botNow = () => Date.now() + (st.okLocal && st.now ? st.now - st.okLocal : 0);
+  const mmss = ms => { const s = Math.max(0, Math.ceil(ms / 1000)); return Math.floor(s / 60) + ':' + p2(s % 60); };
+  const cdText = (until, pre, done) => (until - botNow() > 0 ? pre + mmss(until - botNow()) : done);
+  const cdHtml = (until, pre, done) => (until ? ` <b class="tgc-cd" data-until="${until}" data-pre="${E(pre)}" data-done="${E(done)}">${E(cdText(until, pre, done))}</b>` : '');
+  function tickCd() { modal.querySelectorAll('.tgc-cd').forEach(el => { el.textContent = cdText(+el.dataset.until, el.dataset.pre, el.dataset.done); }); }
   function openModal() {
+    clearInterval(cdTimer); cdTimer = setInterval(tickCd, 1000);
     st.modal = true; fastSince = 0; st.ch.loaded = false; st.ch.msg = ''; paintModal(true); modal.classList.add('open'); document.body.style.overflow = 'hidden';
     const b = $('.icon-btn', modal); if (b) b.focus();
     ensureChats();                                        // свежий список чатов при каждом открытии
@@ -6949,6 +7210,7 @@ SverkaFx.changed('.btn', el => {
   }
   function closeModal() {
     if (!st.modal) return;
+    clearInterval(cdTimer); cdTimer = null;
     st.modal = false; modal.classList.remove('open'); document.body.style.overflow = ''; syncQr(); if (tgBtn) tgBtn.focus(); schedule();
   }
   function forget() {
@@ -6959,6 +7221,23 @@ SverkaFx.changed('.btn', el => {
     root.classList.remove('dl-on', 'dl-mode');
     window.SverkaDela = { on: false, forgotten: true };
   }
+  // «📋 Скопировать» у готового ответа: буфер обмена, а если браузер не дал (встроенный в приложение) — через выделение
+  function copyAnswer(b) {
+    const t = b.dataset.copy || '', label = b.textContent;
+    const said = ok => { b.textContent = ok ? '✅ Скопировано — вставьте в чат' : 'Не скопировалось'; setTimeout(() => { b.textContent = label; }, 2000); };
+    const byHand = () => {                                   // как copyPlain в основном скрипте: событие copy, без поля на экране
+      let ok = false;
+      const on = e => { e.clipboardData.setData('text/plain', t); e.preventDefault(); ok = true; };
+      document.addEventListener('copy', on);
+      try { document.execCommand('copy'); } catch (e) { /* ниже — «не скопировалось» */ }
+      document.removeEventListener('copy', on);
+      said(ok);
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(t).then(() => said(true), byHand); else byHand();
+  }
+  // «Значок на экран телефона»: только внутри Телеграма и только когда Телеграм сказал, что можно и значка ещё нет (TG.home)
+  const homeBtn = () => (TG && TG.home && TG.home.can() ? `<div class="dl-foot-row"><span class="c2-sub">Открывать Сверку одним касанием, без бота</span><button class="btn btn-quiet btn-sm" data-dl="home">📲 Значок на экран телефона</button></div>` : '');
+  if (TG && TG.home) TG.home.on = () => paint(true);
   function onClick(e) {
     const b = e.target.closest('[data-dl], .tally button[data-g]'); if (!b) return;
     if (b.dataset.dl === 'tab-sverka') setTab('sverka');
@@ -6971,6 +7250,8 @@ SverkaFx.changed('.btn', el => {
     else if (b.dataset.dl === 'ch-save') saveChats();
     else if (b.dataset.dl === 'ch-more') { st.ch.limit += CHAT_PAGE; renderPick(); }
     else if (b.dataset.dl === 'ch-retry') { st.ch.err = ''; st.ch.loaded = false; paintModal(true); ensureChats(); }
+    else if (b.dataset.dl === 'copy') copyAnswer(b);
+    else if (b.dataset.dl === 'home') TG.home.add();
     else if (b.dataset.dl === 'done') { st.doneOpen = !st.doneOpen; b.parentElement.classList.toggle('open', st.doneOpen); b.setAttribute('aria-expanded', String(st.doneOpen)); }
     else if (b.dataset.g) { st.filter = st.filter === b.dataset.g ? null : b.dataset.g; paint(true); }
   }
